@@ -199,8 +199,8 @@ export function App() {
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     'mokjang': true,
     'position': false,
-    'status': true, // Expanded by default for visibility
-    'tag': false
+    'status': true, // Expanded by default
+    'tag': true // Expanded by default
   });
 
   // View Mode State
@@ -776,7 +776,7 @@ export function App() {
                             >
                                 <span className="truncate text-sm flex-1">{item}</span>
                                 {type === 'mokjang' ? (
-                                    <span className={`text-[10px] ${isActive ? 'text-brand-600' : 'text-slate-400'}`}>
+                                    <span className={`text-xs font-medium ${isActive ? 'text-brand-600' : 'text-slate-500'}`}>
                                         {families}가정 · {count}명
                                     </span>
                                 ) : (
@@ -1063,7 +1063,7 @@ export function App() {
 
                  <div>
                     <div className="px-4 pb-2 text-xs font-extrabold text-slate-400 uppercase tracking-widest mt-4">Groups</div>
-                    {renderSidebarSection('Mokjang (Cells)', 'mokjang', <Home className="w-4 h-4"/>, mokjangList, (item) => getSubgroupStats(m => m.mokjang === item))}
+                    {renderSidebarSection('목장', 'mokjang', <Home className="w-4 h-4"/>, mokjangList, (item) => getSubgroupStats(m => m.mokjang === item))}
                     {renderSidebarSection('Positions', 'position', <Briefcase className="w-4 h-4"/>, positionList, (item) => getSubgroupStats(m => m.position === item))}
                     {renderSidebarSection('Status', 'status', <UserCheck className="w-4 h-4"/>, statusList, (item) => getRawSubgroupStats(m => m.status === item))}
                     {renderSidebarSection('Tags', 'tag', <Tag className="w-4 h-4"/>, tagList, (item) => getSubgroupStats(m => m.tags?.includes(item)))}
