@@ -104,6 +104,16 @@ const MemberDetail: React.FC<MemberDetailProps> = ({
     return null;
   };
 
+  const getStatusBadgeStyle = (status: string) => {
+    switch (status) {
+      case 'Active': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+      case 'Inactive': return 'bg-slate-100 text-slate-600 border-slate-200';
+      case 'Away': return 'bg-amber-100 text-amber-700 border-amber-200';
+      case 'Deceased': return 'bg-slate-800 text-white border-slate-800';
+      default: return 'bg-gray-100 text-gray-600 border-gray-200';
+    }
+  };
+
   // Theme based on role (using pastel 50/100 scales for BG)
   const roleBaseColor = getRoleBaseColor(member.position as string);
 
@@ -165,6 +175,13 @@ const MemberDetail: React.FC<MemberDetailProps> = ({
                         
                         {/* Compact Info Row */}
                         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                            {/* Status Badge - Only show if NOT Active */}
+                            {member.status !== 'Active' && (
+                                <span className={`px-2 py-0.5 sm:px-3 sm:py-1 text-xs sm:text-sm font-bold rounded-lg uppercase tracking-wide border shadow-sm ${getStatusBadgeStyle(member.status)}`}>
+                                    {member.status}
+                                </span>
+                            )}
+
                             {/* Styled Badge - Pastel */}
                             <span className={`px-2 py-0.5 sm:px-3 sm:py-1 text-xs sm:text-sm font-bold rounded-lg uppercase tracking-wide border shadow-sm ${getRoleStyle(member.position as string)}`}>
                                 {member.position}
@@ -192,11 +209,6 @@ const MemberDetail: React.FC<MemberDetailProps> = ({
                             {(member.tags?.includes('New Family') || member.tags?.includes('새가족')) && (
                                 <span className="ml-1 px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] sm:text-xs font-bold border border-amber-200">
                                     새가족
-                                </span>
-                            )}
-                             {member.status === 'Deceased' && (
-                                <span className="px-2 py-0.5 bg-slate-800 text-white rounded text-[10px] sm:text-xs font-bold uppercase">
-                                    Deceased
                                 </span>
                             )}
                         </div>
