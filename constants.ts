@@ -1,4 +1,3 @@
-
 import { Member, MemberStatus, Position } from './types';
 
 // Helper to generate consistent avatars
@@ -50,9 +49,15 @@ export const getRoleStyle = (position: string) => {
 export const INITIAL_MEMBERS: Member[] = [];
 
 export const MOKJANG_LIST = [
-  '기쁨 목장',
-  '믿음 목장',
-  '사랑 목장',
-  '소망 목장',
-  '평안 목장',
+  '에녹', 
 ];
+
+/* =========================
+   ✅ Sidebar Section Labels
+   ========================= */
+export const SIDEBAR_LABELS = {
+  mokjang: '목장',
+  position: '직분',
+  status: '상태',
+  tag: '태그',
+};
