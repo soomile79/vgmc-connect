@@ -49,4 +49,10 @@ export const getRoleStyle = (position: string) => {
 
 export const INITIAL_MEMBERS: Member[] = [];
 
-export const MOKJANG_LIST = ['Joy Mokjang', 'Faith Mokjang', 'Love Mokjang', 'Hope Mokjang', 'Peace Mokjang'];
+export const MOKJANG_LIST = [
+  '기쁨 목장',
+  '믿음 목장',
+  '사랑 목장',
+  '소망 목장',
+  '평안 목장',
+];
