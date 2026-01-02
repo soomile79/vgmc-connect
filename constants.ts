@@ -1,6 +1,10 @@
-import { Member } from './types';
 
-// Helper to get the base color name for Tailwind classes
+import { Member, MemberStatus, Position } from './types';
+
+// Helper to generate consistent avatars
+const getAvatar = (name: string) => ''; 
+
+// Helper to get the base color name for Tailwind classes (e.g., 'rose', 'blue')
 export const getRoleBaseColor = (position: string): string => {
   switch (position) {
     case '교역자': return 'violet';
@@ -9,22 +13,24 @@ export const getRoleBaseColor = (position: string): string => {
     case '안수집사': return 'indigo';
     case '서리집사': return 'sky';
     case '새가족': return 'amber';
-
+    
     // Next Generation
     case '영아부': return 'pink';
     case '유치부': return 'orange';
     case '어린이부': return 'yellow';
     case '청소년부': return 'lime';
     case '청년부': return 'teal';
-
-    default:
-      return 'slate';
+    
+    // Default
+    case '일반성도': 
+    default: return 'slate';
   }
 };
 
-// Shared Role Style Function
+// Shared Role Style Function (Badge Styles)
 export const getRoleStyle = (position: string) => {
   const color = getRoleBaseColor(position);
+  // Using explicit classes for Tailwind generic matching guarantees
   switch (color) {
     case 'violet': return 'bg-violet-100 text-violet-700 border-violet-200';
     case 'blue': return 'bg-blue-100 text-blue-700 border-blue-200';
@@ -43,23 +49,4 @@ export const getRoleStyle = (position: string) => {
 
 export const INITIAL_MEMBERS: Member[] = [];
 
-/* =========================
-   ✅ 한글 목장 리스트
-   ========================= */
-export const MOKJANG_LIST = [
-  '기쁨 목장',
-  '믿음 목장',
-  '사랑 목장',
-  '소망 목장',
-  '평안 목장',
-];
-
-/* =========================
-   ✅ Sidebar Labels
-   ========================= */
-export const SIDEBAR_LABELS = {
-  mokjang: '목장',
-  position: '직분',
-  status: '상태',
-  tag: '태그',
-};
+export const MOKJANG_LIST = ['Joy Mokjang', 'Faith Mokjang', 'Love Mokjang', 'Hope Mokjang', 'Peace Mokjang'];
