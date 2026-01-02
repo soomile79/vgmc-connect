@@ -916,11 +916,11 @@ export function App() {
                                           </div>
                                           <div className="h-px bg-slate-50 w-full" />
                                           <div className="flex items-center justify-between">
-                                              <div className="flex items-center gap-1.5 text-xs text-slate-500 truncate bg-slate-50 px-2 py-1 rounded-md border border-slate-100"><Smartphone className="w-3 h-3 text-slate-300 group-hover:text-${baseColor}-400" />{member.phone || '-'}</div>
+                                              <div className="flex items-center gap-1.5 text-xs text-slate-500 truncate bg-white"><Smartphone className="w-3 h-3 text-slate-300 group-hover:text-${baseColor}-400" />{member.phone || '-'}</div>
                                               {member.tags && member.tags.length > 0 && (
                                                   <div className="flex flex-wrap items-center gap-1 justify-end">
-                                                      {member.tags.filter(t => t !== 'New Family' && t !== '새가족').slice(0, 1).map(tag => (<span key={tag} className="text-[9px] font-bold text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 group-hover:bg-white">#{tag}</span>))}
-                                                      {(member.tags?.includes('New Family') || member.tags?.includes('새가족')) && <span className="bg-amber-50 text-amber-700 text-[9px] px-1.5 py-0.5 rounded border border-amber-100 font-bold group-hover:bg-white">새가족</span>}
+                                                      {member.tags.filter(t => t !== 'New Family' && t !== '새가족').slice(0, 1).map(tag => (<span key={tag} className="text-[9px] font-bold text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 group-hover:bg-white whitespace-nowrap">#{tag}</span>))}
+                                                      {(member.tags?.includes('New Family') || member.tags?.includes('새가족')) && <span className="bg-amber-50 text-amber-700 text-[9px] px-1.5 py-0.5 rounded border border-amber-100 font-bold group-hover:bg-white whitespace-nowrap">새가족</span>}
                                                   </div>
                                               )}
                                           </div>
@@ -982,11 +982,11 @@ export function App() {
                                     <div className="flex flex-wrap items-center gap-1.5 mb-2 leading-none">
                                         <span className={`px-1.5 py-0.5 rounded text-xs font-bold border ${getRoleStyle(member.position as string)}`}>{member.position}</span>
                                         {member.mokjang !== 'Unassigned' && (<><span className="text-xs text-slate-300">|</span><span className="text-xs font-bold text-slate-600 truncate max-w-[80px]">{member.mokjang}</span></>)}
-                                        {member.tags && member.tags.length > 0 && (<><span className="text-xs text-slate-300">|</span><div className="flex gap-1">{member.tags.filter(t => t !== 'New Family' && t !== '새가족').slice(0, 2).map(tag => (<span key={tag} className="text-xs font-bold text-slate-500 bg-slate-50 px-1 rounded border border-slate-100 group-hover:bg-white">#{tag}</span>))}</div></>)}
-                                        {(member.tags?.includes('New Family') || member.tags?.includes('새가족')) && <span className="bg-amber-50 text-amber-700 text-xs px-1.5 py-0.5 rounded border border-amber-100 font-bold ml-auto group-hover:bg-white">새가족</span>}
+                                        {member.tags && member.tags.length > 0 && (<><span className="text-xs text-slate-300">|</span><div className="flex gap-1">{member.tags.filter(t => t !== 'New Family' && t !== '새가족').slice(0, 2).map(tag => (<span key={tag} className="text-xs font-bold text-slate-500 bg-slate-50 px-1 rounded border border-slate-100 group-hover:bg-white whitespace-nowrap">#{tag}</span>))}</div></>)}
+                                        {(member.tags?.includes('New Family') || member.tags?.includes('새가족')) && <span className="bg-amber-50 text-amber-700 text-xs px-1.5 py-0.5 rounded border border-amber-100 font-bold ml-auto group-hover:bg-white whitespace-nowrap">새가족</span>}
                                     </div>
-                                    <div className="mt-auto">
-                                        <a href={`tel:${member.phone}`} onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-2 text-sm font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 hover:text-brand-600 px-2 py-2 rounded-lg border border-slate-100 transition-colors w-full justify-center"><Smartphone className="w-4 h-4 text-slate-400" />{member.phone || '-'}</a>
+                                    <div className="mt-auto pt-3">
+                                        <a href={`tel:${member.phone}`} onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-brand-600 transition-colors"><Smartphone className="w-4 h-4" />{member.phone || '-'}</a>
                                     </div>
                                 </div>
                             </div>
@@ -1051,242 +1051,4 @@ export function App() {
             )}
         </>
     );
-  }
-
-  if (!isLoggedIn) {
-    return <Login onLogin={handleLogin} />;
-  }
-
-  return (
-    <div className="flex h-screen bg-white font-sans text-slate-900 selection:bg-brand-100 selection:text-brand-900 overflow-hidden">
-        {/* Sidebar */}
-        <aside className={`fixed inset-y-0 left-0 z-40 w-72 bg-white border-r border-slate-200 transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 ${showMobileSidebar ? 'translate-x-0' : '-translate-x-full'}`}>
-            <div className="flex flex-col h-full">
-                <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-                    <Logo />
-                    <button onClick={() => setShowMobileSidebar(false)} className="lg:hidden p-2 text-slate-400 hover:bg-slate-50 rounded-full"><X className="w-5 h-5"/></button>
-                </div>
-                
-                <div className="p-4 flex flex-col gap-2">
-                    <button onClick={() => { setGroupingType('all'); setSelectedGroup('All'); setShowMobileSidebar(false); setViewMode('card'); }} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold ${groupingType === 'all' ? 'bg-brand-600 text-white shadow-lg shadow-brand-200' : 'text-slate-500 hover:bg-slate-50'}`}>
-                        <Users className="w-5 h-5" />
-                        All Members
-                    </button>
-                </div>
-
-                <div className="flex-1 overflow-y-auto px-2 py-2 space-y-6 custom-scrollbar">
-                    {renderSidebarSection('Cell Groups', 'mokjang', <Home className="w-4 h-4" />, mokjangList, (item) => getSubgroupStats(m => m.mokjang === item))}
-                    {renderSidebarSection('Positions', 'position', <Briefcase className="w-4 h-4" />, positionList, (item) => getSubgroupStats(m => m.position === item))}
-                    {renderSidebarSection('Status', 'status', <Tag className="w-4 h-4" />, statusList, (item) => getRawSubgroupStats(m => m.status === item))}
-                    {renderSidebarSection('Tags', 'tag', <CheckSquare className="w-4 h-4" />, tagList, (item) => getSubgroupStats(m => m.tags?.includes(item) || false))}
-                </div>
-
-                <div className="p-4 border-t border-slate-100 bg-slate-50/50">
-                    <div className="flex flex-col gap-2">
-                        <button onClick={() => { setGroupingType('birthday'); setSelectedGroup('Birthdays'); setShowMobileSidebar(false); }} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all ${groupingType === 'birthday' ? 'bg-white text-brand-600 shadow-sm ring-1 ring-brand-100' : 'text-slate-500 hover:bg-white hover:shadow-sm'}`}>
-                            <Cake className="w-5 h-5 text-pink-500" /> Birthdays
-                            {stats.birthdaysThisMonth > 0 && <span className="ml-auto bg-pink-100 text-pink-600 text-xs px-2 py-0.5 rounded-full">{stats.birthdaysThisMonth}</span>}
-                        </button>
-                        <button onClick={() => setIsSettingsOpen(true)} className="flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-slate-500 hover:bg-white hover:shadow-sm transition-all">
-                            <Settings className="w-5 h-5" /> Settings
-                        </button>
-                    </div>
-                    <div className="mt-4 pt-4 border-t border-slate-200/50 flex items-center justify-between px-2">
-                        <div className="flex items-center gap-2">
-                            <div className={`w-2.5 h-2.5 rounded-full ${serverUrl ? (syncError ? 'bg-red-500' : (isSyncing ? 'bg-amber-400 animate-pulse' : 'bg-emerald-500')) : 'bg-slate-300'}`}></div>
-                            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{isSyncing ? 'Syncing...' : (serverUrl ? 'Online' : 'Offline')}</span>
-                        </div>
-                        <button onClick={handleLogout} className="text-slate-400 hover:text-red-500 p-1.5 hover:bg-red-50 rounded-lg transition-colors" title="Logout"><LogOut className="w-4 h-4"/></button>
-                    </div>
-                </div>
-            </div>
-        </aside>
-
-        {/* Main Area */}
-        <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
-            <header className="h-16 sm:h-20 bg-white border-b border-slate-100 flex items-center justify-between px-4 sm:px-8 shrink-0 z-30">
-                <div className="flex items-center gap-4">
-                    <button onClick={() => setShowMobileSidebar(true)} className="lg:hidden p-2 -ml-2 text-slate-400 hover:text-slate-600"><Menu className="w-6 h-6"/></button>
-                    <div className="flex items-center gap-3">
-                        <h2 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight">{getHeaderTitle()}</h2>
-                        {getHeaderStats()}
-                        
-                        {groupingType !== 'birthday' && groupingType !== 'status' && (
-                            <button 
-                                onClick={() => setShowActiveOnly(!showActiveOnly)}
-                                className={`ml-4 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all border ${showActiveOnly ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-50 text-slate-500 border-slate-200'}`}
-                                title={showActiveOnly ? "Showing Active Members Only" : "Showing All Members (Including Inactive)"}
-                            >
-                                {showActiveOnly ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-                                {showActiveOnly ? 'Active Only' : 'All Records'}
-                            </button>
-                        )}
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-2 sm:gap-4">
-                    <div className="hidden md:flex items-center bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 w-64 focus-within:w-80 focus-within:ring-2 focus-within:ring-brand-100 focus-within:border-brand-300 transition-all">
-                        <Search className="w-4 h-4 text-slate-400 mr-2" />
-                        <input 
-                            type="text" 
-                            placeholder="Search members..." 
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="bg-transparent border-none outline-none text-sm w-full font-medium placeholder-slate-400"
-                        />
-                    </div>
-
-                    <button 
-                        onClick={() => setShowAiPanel(!showAiPanel)}
-                        className={`p-2.5 rounded-xl border transition-all ${showAiPanel ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-white border-slate-200 text-slate-400 hover:text-indigo-500 hover:border-indigo-200'}`}
-                        title="AI Assistant"
-                    >
-                        <Sparkles className="w-5 h-5" />
-                    </button>
-
-                    <div className="h-8 w-px bg-slate-100 mx-2 hidden sm:block"></div>
-                    
-                    <div className="hidden sm:flex bg-slate-50 p-1 rounded-xl border border-slate-200">
-                        <button onClick={() => setViewMode('card')} className={`p-2 rounded-lg transition-all ${viewMode === 'card' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400 hover:text-slate-600'}`}><LayoutGrid className="w-4 h-4"/></button>
-                        <button onClick={() => setViewMode('family')} className={`p-2 rounded-lg transition-all ${viewMode === 'family' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400 hover:text-slate-600'}`}><Users className="w-4 h-4"/></button>
-                    </div>
-
-                    <button 
-                        onClick={() => { setEditingMember(null); setIsFormOpen(true); }}
-                        className="bg-brand-600 hover:bg-brand-700 text-white px-4 sm:px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-brand-200 flex items-center gap-2 transition-all hover:-translate-y-0.5"
-                    >
-                        <Plus className="w-5 h-5" />
-                        <span className="hidden sm:inline">Add Member</span>
-                    </button>
-                </div>
-            </header>
-
-            <div className="px-4 sm:px-8 py-4 bg-white/80 backdrop-blur-sm border-b border-slate-100 flex items-center justify-between gap-4 overflow-x-auto no-scrollbar shrink-0 z-20">
-                <div className="flex items-center gap-2">
-                    <button onClick={toggleSortDirection} className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50 transition-colors">
-                        {sortDirection === 'asc' ? <ArrowUp className="w-3.5 h-3.5"/> : <ArrowDown className="w-3.5 h-3.5"/>}
-                        Sort by {sortBy === 'name' ? 'Name' : sortBy === 'rep' ? 'Family' : 'Age'}
-                    </button>
-                    <div className="h-4 w-px bg-slate-200 mx-1"></div>
-                    
-                    <select 
-                        value={sortBy} 
-                        onChange={(e) => setSortBy(e.target.value as any)}
-                        className="bg-transparent text-xs font-bold text-slate-600 outline-none cursor-pointer hover:text-brand-600"
-                    >
-                        <option value="name">Sort: Name</option>
-                        <option value="rep">Sort: Family</option>
-                        <option value="age">Sort: Age</option>
-                    </select>
-
-                    {stats.yearsToCheck.length > 0 && (
-                        <div className="flex items-center gap-1 ml-4">
-                            {stats.yearsToCheck.map(year => (
-                                <button
-                                    key={year}
-                                    onClick={() => toggleRegistrationYear(year)}
-                                    className={`px-3 py-1 rounded-full text-xs font-bold border transition-colors ${selectedRegistrationYears.has(year) ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-slate-500 border-slate-200 hover:border-brand-200'}`}
-                                >
-                                    {year} ({stats.regStats[year] || 0})
-                                </button>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                <div className="flex items-center gap-2">
-                        {(groupingType === 'tag' && (selectedGroup === 'New Family' || selectedGroup === '새가족')) && (
-                            <button onClick={handleGraduateNewFamilies} className="px-3 py-1.5 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg border border-amber-200 transition-colors flex items-center gap-1.5 mr-2">
-                                <UserCheck className="w-3.5 h-3.5" />
-                                Graduate All Visible
-                            </button>
-                        )}
-                        <button onClick={handleBulkEmail} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors" title="Email Visible Members"><Mail className="w-4 h-4" /></button>
-                        <button onClick={handlePrint} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors" title="Print List"><Printer className="w-4 h-4" /></button>
-                        <button onClick={handleExport} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors" title="Export Backup"><Download className="w-4 h-4" /></button>
-                        <button onClick={() => setIsImportOpen(true)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors" title="Import Data"><FileInput className="w-4 h-4" /></button>
-                </div>
-            </div>
-
-            {showAiPanel && (
-                <div className="border-b border-indigo-100 bg-indigo-50/50 p-4 animate-in slide-in-from-top-2">
-                    <div className="max-w-3xl mx-auto w-full">
-                        <div className="flex gap-2">
-                            <div className="relative flex-1">
-                                <Sparkles className="absolute left-3 top-3 w-5 h-5 text-indigo-400" />
-                                <input 
-                                    value={aiQuery}
-                                    onChange={(e) => setAiQuery(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleAiAsk()}
-                                    placeholder="Ask about members (e.g., 'How many people in Joy Mokjang?', 'List all deacons')"
-                                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-indigo-200 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none text-slate-800 placeholder-indigo-300 bg-white"
-                                />
-                            </div>
-                            <button 
-                                onClick={handleAiAsk}
-                                disabled={isAiLoading || !aiQuery.trim()}
-                                className="px-4 py-2 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-                            >
-                                {isAiLoading ? <Loader2 className="w-5 h-5 animate-spin"/> : 'Ask AI'}
-                            </button>
-                        </div>
-                        {aiResponse && (
-                            <div className="mt-4 p-4 bg-white rounded-xl border border-indigo-100 shadow-sm text-slate-700 text-sm leading-relaxed whitespace-pre-wrap animate-in fade-in">
-                                {aiResponse}
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
-
-            <div className="flex-1 overflow-y-auto bg-slate-50/50 p-4 sm:p-6 lg:p-8 scroll-smooth" id="main-scroll-container">
-                {renderMainContent()}
-            </div>
-        </main>
-
-        <MemberForm 
-            isOpen={isFormOpen} 
-            onClose={() => setIsFormOpen(false)} 
-            onSubmit={handleSaveMembers}
-            initialData={editingMember}
-            onDelete={handleDeleteMember}
-            allMembers={members}
-            mokjangList={mokjangList}
-            positionList={positionList}
-            statusList={statusList}
-            tagList={tagList}
-        />
-
-        <MemberDetail 
-            member={viewingMember}
-            isOpen={isDetailOpen}
-            onClose={() => setIsDetailOpen(false)}
-            onEdit={handleEditClick}
-            allMembers={members}
-            onMemberClick={handleCardClick}
-        />
-
-        <ImportModal 
-            isOpen={isImportOpen}
-            onClose={() => setIsImportOpen(false)}
-            onImport={handleImport}
-        />
-
-        <SettingsModal 
-            isOpen={isSettingsOpen}
-            onClose={() => setIsSettingsOpen(false)}
-            mokjangList={mokjangList}
-            positionList={positionList}
-            statusList={statusList}
-            tagList={tagList}
-            onUpdateMokjangs={setMokjangList}
-            onUpdatePositions={setPositionList}
-            onUpdateStatuses={setStatusList}
-            onUpdateTags={setTagList}
-            onRenameItem={handleRenameItem}
-            onDeleteItem={handleDeleteItem}
-            onForceSync={serverUrl ? handleForceSync : undefined}
-        />
-    </div>
-  );
 }
