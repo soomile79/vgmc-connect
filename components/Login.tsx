@@ -178,14 +178,14 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 </button>
             </form>
 
-            <div className="mt-6 flex justify-center">
+            <div className="mt-8 flex justify-center">
                  <button 
                     onClick={() => {
                         setIsAdminModalOpen(true);
                         setIsMasterAuthenticated(false);
                         setMasterAuth('');
                     }}
-                    className="text-xs text-slate-400 font-bold hover:text-brand-600 flex items-center gap-1.5 transition-colors"
+                    className="px-4 py-2 bg-slate-800/50 hover:bg-slate-800 text-slate-300 hover:text-white font-bold rounded-lg transition-all text-xs flex items-center gap-2 border border-slate-700/50 hover:border-slate-600"
                  >
                     <Settings className="w-3 h-3" /> Admin Management
                  </button>
