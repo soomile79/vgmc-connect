@@ -49,17 +49,17 @@ import {
 
 import { Member, GroupingType, Position } from './types';
 import { INITIAL_MEMBERS, MOKJANG_LIST, getRoleStyle, getRoleBaseColor } from './constants';
-import MemberForm from './components/MemberForm.tsx';
-import MemberDetail from './components/MemberDetail.tsx';
-import ImportModal from './components/ImportModal.tsx';
-import SettingsModal from './components/SettingsModal.tsx';
-import Login from './components/Login.tsx';
-import Logo from './components/Logo.tsx';
+import MemberForm from './components/MemberForm';
+import MemberDetail from './components/MemberDetail';
+import ImportModal from './components/ImportModal';
+import SettingsModal from './components/SettingsModal';
+import Login from './components/Login';
+import Logo from './components/Logo';
 import { askGeminiAboutMembers } from './services/geminiService';
 
 const ITEMS_PER_PAGE = 24;
 
-function App() {
+export function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     return localStorage.getItem('church-auth') === 'true';
   });
@@ -238,13 +238,30 @@ function App() {
             }
         });
         
-        if (!response.ok) throw new Error('Failed to connect to server');
+        if (!response.ok) {
+            const text = await response.text();
+            let msg = `Error ${response.status}`;
+            try {
+                const json = JSON.parse(text);
+                if (json.error) msg = json.error;
+            } catch {
+                if (text.length < 100) msg = text; // Show short PHP errors
+            }
+            throw new Error(msg);
+        }
         
         const data = await response.json();
         if (Array.isArray(data)) {
-            setMembers(data);
-            setLastSyncTime(new Date());
-            localStorage.setItem('church-members', JSON.stringify(data));
+            // Logic: If cloud is empty but we have local data, assume it's first setup and upload local data.
+            // This prevents wiping local data on first connect.
+            if (data.length === 0 && members.length > 0) {
+                 console.log("Cloud is empty. Uploading local data...");
+                 await saveToCloud(members);
+            } else {
+                 setMembers(data);
+                 setLastSyncTime(new Date());
+                 localStorage.setItem('church-members', JSON.stringify(data));
+            }
         } else if (data.error) {
             throw new Error(data.error);
         }
@@ -270,8 +287,15 @@ function App() {
         });
         
         if (!response.ok) {
-             const txt = await response.text();
-             throw new Error('Save failed: ' + txt);
+             const text = await response.text();
+             let msg = `Error ${response.status}`;
+             try {
+                const json = JSON.parse(text);
+                if (json.error) msg = json.error;
+             } catch {
+                if (text.length < 100) msg = text;
+             }
+             throw new Error(msg);
         }
         
         const resJson = await response.json();
@@ -282,8 +306,8 @@ function App() {
         }
     } catch (e: any) {
         console.error("Save Error:", e);
-        setSyncError('Failed to save to cloud: ' + e.message);
-        alert('Warning: Could not save to cloud server. Data is saved locally only.');
+        setSyncError('Failed to save: ' + e.message);
+        // Do not alert on save error to avoid disrupting workflow, just show badge error
     } finally {
         setIsSyncing(false);
     }
@@ -1055,190 +1079,339 @@ function App() {
             )}
         </>
     );
-  };
+  }
 
+  // --- ADDED MISSING RETURN ---
   if (!isLoggedIn) {
     return <Login onLogin={handleLogin} />;
   }
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden">
-      {/* ... CSS & Sidebar ... */}
-      <style>{`
-        @media print {
-          @page { margin: 0.5cm; size: auto; }
-          html, body { height: auto !important; min-height: 100% !important; margin: 0 !important; padding: 0 !important; background: white !important; overflow: visible !important; }
-          #root, main { position: static !important; overflow: visible !important; height: auto !important; display: block !important; }
-          aside, button, input, select, .no-print, .print-hidden { display: none !important; }
-          .print-content { position: static !important; width: 100% !important; margin: 0 !important; padding: 0 !important; display: block !important; overflow: visible !important; background: white !important; }
-          .print-scroll-reset { position: static !important; height: auto !important; overflow: visible !important; display: block !important; }
-          .print-grid { display: grid !important; grid-template-columns: repeat(3, 1fr) !important; gap: 1rem !important; page-break-inside: auto; }
-          .print-break-inside-avoid { break-inside: avoid; page-break-inside: avoid; }
-          ::-webkit-scrollbar { display: none; }
-        }
-      `}</style>
-      
-      {/* Sidebar (Existing Code) */}
-      <aside className={`fixed inset-y-0 left-0 z-30 w-72 bg-white border-r border-slate-200 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-auto ${showMobileSidebar ? 'translate-x-0' : '-translate-x-full'} flex flex-col print:hidden`}>
-          <div className="h-20 flex items-center px-6 border-b border-slate-100 shrink-0">
-             <Logo className="w-full" />
-          </div>
+    <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
+        {/* Mobile Sidebar Overlay */}
+        {showMobileSidebar && (
+            <div className="fixed inset-0 bg-slate-900/50 z-40 lg:hidden backdrop-blur-sm" onClick={() => setShowMobileSidebar(false)}></div>
+        )}
 
-          <div className="p-4 shrink-0">
-             <button onClick={() => { setEditingMember(null); setIsFormOpen(true); }} className="group w-full flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-3 rounded-xl font-bold shadow-lg shadow-brand-200 transition-all duration-300 transform hover:-translate-y-0.5">
-               <Plus className="w-5 h-5" /> <span>Add Member</span>
-             </button>
-          </div>
-
-          <nav className="flex-1 overflow-y-auto space-y-4 no-scrollbar pb-6">
-            <div className="grid grid-cols-2 gap-2 px-4 mb-4">
-               <div onClick={() => { setShowActiveOnly(true); setGroupingType('all'); setSelectedGroup('All'); setViewMode('card'); setShowMobileSidebar(false); }} className={`p-3 rounded-xl border shadow-sm text-center cursor-pointer transition-all group relative overflow-hidden ${showActiveOnly ? 'bg-brand-500 border-brand-600 ring-2 ring-brand-200 text-white shadow-brand-200' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50 hover:border-slate-300'}`}>
-                  <div className={`text-[10px] font-bold uppercase mb-1 flex items-center justify-center gap-1 ${showActiveOnly ? 'text-brand-100' : 'text-slate-400'}`}>
-                      <CheckSquare className="w-3 h-3"/> Active Only
-                  </div>
-                  <div className={`text-2xl font-extrabold ${showActiveOnly ? 'text-white' : 'text-slate-700'}`}>{stats.active}</div>
-                  <div className={`text-[9px] mt-1 font-medium ${showActiveOnly ? 'text-brand-100' : 'text-slate-400'}`}>Current Active</div>
-               </div>
-
-               <div onClick={() => { setGroupingType('all'); setSelectedGroup('All'); setViewMode('family'); setShowMobileSidebar(false); }} className={`p-3 rounded-xl border shadow-sm text-center cursor-pointer transition-all group ${isFamilyViewSelected ? 'bg-brand-50 border-brand-200 ring-1 ring-brand-100' : 'bg-white border-slate-200 hover:bg-slate-50 hover:border-brand-200'}`}>
-                  <div className={`text-[10px] font-bold uppercase mb-1 ${isFamilyViewSelected ? 'text-brand-600' : 'text-slate-400 group-hover:text-brand-500'}`}>Families</div>
-                  <div className={`text-2xl font-extrabold ${isFamilyViewSelected ? 'text-brand-700' : 'text-slate-700'}`}>{stats.families}</div>
-                  <div className="text-[9px] text-slate-400 mt-1 font-medium">Households</div>
-               </div>
+        {/* Sidebar */}
+        <div className={`fixed inset-y-0 left-0 z-50 w-72 bg-white border-r border-slate-200 transform transition-transform duration-300 lg:translate-x-0 lg:static flex flex-col shadow-xl lg:shadow-none ${showMobileSidebar ? 'translate-x-0' : '-translate-x-full'}`}>
+            <div className="h-20 flex items-center px-6 border-b border-slate-100 bg-white">
+                <Logo />
             </div>
 
-            <div className="px-2">
-              <div onClick={() => { setGroupingType('all'); setSelectedGroup('All'); setShowActiveOnly(false); setShowMobileSidebar(false); setViewMode('card'); }} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl cursor-pointer transition-all duration-200 ${isAllMembersSelected ? 'bg-brand-50 text-brand-700 font-semibold border border-brand-100' : 'text-slate-600 hover:bg-slate-50 border border-transparent'}`}>
-                <Users className={`w-5 h-5 ${isAllMembersSelected ? 'text-brand-600' : 'text-slate-400'}`} />
-                <span>All Members List</span>
-                <span className={`ml-auto text-xs px-2 py-0.5 rounded-full ${isAllMembersSelected ? 'bg-white text-brand-700 shadow-sm' : 'bg-slate-100 text-slate-400'}`}>{stats.total}</span>
-              </div>
+            <div className="flex-1 overflow-y-auto py-6 px-4 space-y-6 scrollbar-hide">
+                 {/* Navigation Sections */}
+                 <div>
+                    <div className="px-4 pb-2 text-xs font-extrabold text-slate-400 uppercase tracking-widest">Directory</div>
+                    <div 
+                        onClick={() => { setGroupingType('all'); setSelectedGroup('All'); setShowMobileSidebar(false); setViewMode('card'); setShowActiveOnly(true); }}
+                        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl cursor-pointer transition-colors mb-1 ${groupingType === 'all' && showActiveOnly ? 'bg-brand-50 text-brand-700 font-bold' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+                    >
+                        <Users className="w-5 h-5" />
+                        <span>Active Members</span>
+                    </div>
+                    <div 
+                        onClick={() => { setGroupingType('all'); setSelectedGroup('All'); setShowMobileSidebar(false); setViewMode('card'); setShowActiveOnly(false); }}
+                        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl cursor-pointer transition-colors ${groupingType === 'all' && !showActiveOnly ? 'bg-brand-50 text-brand-700 font-bold' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+                    >
+                        <List className="w-5 h-5" />
+                        <span>All Members (Archive)</span>
+                    </div>
+                     <div 
+                        onClick={() => { setGroupingType('birthday'); setSelectedGroup('Birthdays'); setShowMobileSidebar(false); }}
+                        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl cursor-pointer transition-colors mt-1 ${groupingType === 'birthday' ? 'bg-gradient-to-r from-pink-50 to-orange-50 text-pink-600 font-bold' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+                    >
+                        <Cake className="w-5 h-5" />
+                        <span>Birthdays</span>
+                    </div>
+                 </div>
+
+                 <div>
+                    <div className="px-4 pb-2 text-xs font-extrabold text-slate-400 uppercase tracking-widest mt-4">Groups</div>
+                    {renderSidebarSection('Mokjang (Cells)', 'mokjang', <Home className="w-4 h-4"/>, mokjangList, (item) => getSubgroupStats(m => m.mokjang === item))}
+                    {renderSidebarSection('Positions', 'position', <Briefcase className="w-4 h-4"/>, positionList, (item) => getSubgroupStats(m => m.position === item))}
+                    {renderSidebarSection('Status', 'status', <UserCheck className="w-4 h-4"/>, statusList, (item) => getRawSubgroupStats(m => m.status === item))}
+                    {renderSidebarSection('Tags', 'tag', <Tag className="w-4 h-4"/>, tagList, (item) => getSubgroupStats(m => m.tags?.includes(item)))}
+                 </div>
             </div>
+
+            <div className="p-4 border-t border-slate-100 bg-slate-50">
+                <div className="flex items-center justify-between text-xs text-slate-400 font-medium px-2 mb-3">
+                    <span className="flex items-center gap-1.5"><Cloud className={`w-3 h-3 ${isSyncing ? 'text-blue-500 animate-pulse' : (serverUrl && !syncError ? 'text-green-500' : 'text-slate-300')}`} /> {isSyncing ? 'Syncing...' : (lastSyncTime ? 'Synced' : 'Offline')}</span>
+                    {lastSyncTime && <span>{lastSyncTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>}
+                </div>
+                <button onClick={() => setIsSettingsOpen(true)} className="flex items-center gap-2 w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold hover:bg-slate-100 hover:text-slate-800 transition-all shadow-sm">
+                    <Settings className="w-4 h-4" /> System Settings
+                </button>
+                <div className="mt-2 flex gap-2">
+                     <button onClick={handleLogout} className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-slate-200 rounded-xl text-slate-600 font-bold hover:bg-slate-300 transition-colors text-xs">
+                        <LogOut className="w-3 h-3" /> Logout
+                     </button>
+                </div>
+            </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col min-w-0 bg-white lg:bg-slate-50 relative">
             
-            <div className="px-2 mb-2">
-              <div onClick={() => { setGroupingType('birthday'); setSelectedGroup('Birthdays'); setViewMode('card'); setShowMobileSidebar(false); }} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl cursor-pointer transition-all duration-200 ${groupingType === 'birthday' ? 'bg-pink-50 text-pink-700 font-semibold ring-1 ring-pink-100' : 'text-slate-600 hover:bg-slate-50'}`}>
-                <Cake className={`w-5 h-5 ${groupingType === 'birthday' ? 'text-pink-500' : 'text-pink-400'}`} />
-                <span>Birthdays (This Month)</span>
-                <span className={`ml-auto text-xs px-2 py-0.5 rounded-full ${groupingType === 'birthday' ? 'bg-white text-pink-700 shadow-sm' : 'bg-slate-100 text-slate-400'}`}>{stats.birthdaysThisMonth}</span>
-              </div>
-            </div>
-
-            <div className="border-t border-slate-100 my-2 pt-2"></div>
-            {/* Sidebar Stats ... */}
-            <div className="px-4 mb-2">
-                <div className="flex items-center gap-2 px-2 py-1 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                    <Calendar className="w-3.5 h-3.5" /> Recent Registrations
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                    {stats.yearsToCheck.map(year => {
-                        const isSelected = selectedRegistrationYears.has(year);
-                        return (
-                            <button key={year} onClick={() => toggleRegistrationYear(year)} className={`text-center p-2 rounded-lg border transition-all w-full ${isSelected ? 'bg-brand-100 border-brand-300 ring-1 ring-brand-300' : 'bg-slate-50 border-slate-100 hover:bg-white hover:shadow-sm'}`}>
-                                <div className={`text-[10px] font-bold ${isSelected ? 'text-brand-700' : 'text-slate-500'}`}>{year}</div>
-                                <div className={`text-sm font-bold ${isSelected ? 'text-brand-700' : 'text-brand-600'}`}>{stats.regStats[year] || 0}</div>
-                            </button>
-                        );
-                    })}
-                </div>
-            </div>
-            <div className="border-t border-slate-100 my-2 pt-2"></div>
-            {renderSidebarSection('목장', 'mokjang', <List className="w-3.5 h-3.5" />, mokjangList, (item) => getSubgroupStats(m => m.mokjang === item))}
-            {renderSidebarSection('Roles', 'position', <Briefcase className="w-3.5 h-3.5" />, positionList, (item) => getSubgroupStats(m => m.position === item))}
-            {renderSidebarSection('Status', 'status', <Tag className="w-3.5 h-3.5" />, statusList, (item) => getRawSubgroupStats(m => m.status === item))}
-            {renderSidebarSection('Tags', 'tag', <CheckSquare className="w-3.5 h-3.5" />, tagList, (item) => getSubgroupStats(m => m.tags?.includes(item)))}
-          </nav>
-          
-          <div className="p-4 border-t border-slate-100 bg-slate-50/50 shrink-0 space-y-2">
-             <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold uppercase tracking-wider px-2 mb-1 mt-2"><span>Data Management</span></div>
-             {serverUrl ? (
-                <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-700 mb-2">
-                    {isSyncing ? <RefreshCw className="w-3 h-3 animate-spin"/> : <Cloud className="w-3 h-3" />}
-                    <div className="flex-1 truncate">{isSyncing ? 'Syncing...' : 'Cloud Connected'}{lastSyncTime && !isSyncing && <div className="text-[9px] opacity-70">Last: {lastSyncTime.toLocaleTimeString()}</div>}</div>
-                </div>
-             ) : (
-                <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-xs text-slate-500 mb-2"><CloudOff className="w-3 h-3" /><span>Local Mode (No Sync)</span></div>
-             )}
-             {syncError && <div className="text-[10px] text-red-500 px-2 leading-tight mb-2">Error: {syncError}</div>}
-             <div className="grid grid-cols-2 gap-2">
-               <button onClick={handleExport} className="flex flex-col items-center justify-center gap-1 text-xs text-slate-600 bg-white hover:bg-slate-100 border border-slate-200 px-2 py-2 rounded-lg transition-colors"><HardDrive className="w-4 h-4" /><span className="font-bold">Backup</span></button>
-               <button onClick={() => setIsImportOpen(true)} className="flex flex-col items-center justify-center gap-1 text-xs text-slate-600 bg-white hover:bg-slate-100 border border-slate-200 px-2 py-2 rounded-lg transition-colors"><Download className="w-4 h-4" /><span className="font-bold">Import</span></button>
-             </div>
-             <button onClick={() => setIsSettingsOpen(true)} className="w-full flex items-center gap-3 text-sm text-slate-500 hover:text-slate-800 px-3 py-2 rounded-lg hover:bg-white transition-colors"><Settings className="w-4 h-4" /> System Settings</button>
-             <button onClick={handleLogout} className="w-full flex items-center gap-3 text-sm text-red-400 hover:text-red-600 px-3 py-2 rounded-lg hover:bg-red-50 transition-colors"><LogOut className="w-4 h-4" /> Sign Out</button>
-          </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col h-full overflow-hidden relative bg-slate-50/50 print:bg-white print-content">
-        
-        {/* Mobile Header & Top Bar... (Existing) */}
-        <div className="lg:hidden h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 z-20 print:hidden">
-           <button onClick={() => setShowMobileSidebar(true)} className="p-2 -ml-2 text-slate-600"><Menu className="w-6 h-6" /></button>
-           <Logo className="scale-75 origin-left" />
-           <div className="w-6"></div>
-        </div>
-
-        <div className="bg-white/80 backdrop-blur-md border-b border-slate-200 px-8 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 z-10 sticky top-0 print:hidden">
-           <div className="relative flex-1 max-w-xl group flex items-center gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-brand-400 w-5 h-5 transition-colors" />
-                <input type="text" placeholder="Search by name, phone, family..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-10 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-400 outline-none bg-slate-50 focus:bg-white transition-all shadow-sm" />
-                {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition-colors"><X className="w-4 h-4" /></button>}
-              </div>
-              <div onClick={() => setShowActiveOnly(!showActiveOnly)} className={`flex items-center gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-all border shadow-sm select-none ${showActiveOnly ? 'bg-brand-500 border-brand-600 text-white' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`} title="Toggle Active Only Filter">
-                  {showActiveOnly ? <Filter className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                  <span className="text-xs font-bold whitespace-nowrap hidden xl:inline">{showActiveOnly ? 'Active Only' : 'Showing All'}</span>
-                  {showActiveOnly ? <ToggleLeft className="w-5 h-5 opacity-80" /> : <ToggleRight className="w-5 h-5 opacity-50" />}
-              </div>
-           </div>
-           
-           <div className="flex items-center gap-3">
-             <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-brand-600 transition-all shadow-sm group"><Printer className="w-4 h-4 group-hover:text-brand-500" /><span className="font-medium text-sm hidden sm:inline">Print</span></button>
-             <button onClick={handleBulkEmail} className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-brand-600 transition-all shadow-sm group"><Mail className="w-4 h-4 group-hover:text-brand-500" /><span className="font-medium text-sm hidden sm:inline">Email Group</span></button>
-             <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
-                <button onClick={() => setViewMode('card')} className={`p-2 rounded-lg transition-all ${viewMode === 'card' ? 'bg-white text-brand-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}><LayoutGrid className="w-4 h-4" /></button>
-                <button onClick={() => setViewMode('family')} className={`p-2 rounded-lg transition-all ${viewMode === 'family' ? 'bg-white text-brand-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}><Home className="w-4 h-4" /></button>
-             </div>
-             <div className="flex items-center gap-1">
-                <div className="relative"><select value={sortBy} onChange={(e) => setSortBy(e.target.value as 'name' | 'rep' | 'age')} className="appearance-none bg-white border border-slate-200 text-slate-600 py-2.5 pl-4 pr-10 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-400 text-sm font-medium shadow-sm cursor-pointer hover:bg-slate-50"><option value="name">Sort by Name</option><option value="rep">Sort by Family Head</option><option value="age">Sort by Age</option></select></div>
-                <button onClick={toggleSortDirection} className="p-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 hover:text-brand-600 transition-colors shadow-sm">{sortDirection === 'asc' ? <ArrowUp className="w-4 h-4"/> : <ArrowDown className="w-4 h-4"/>}</button>
-             </div>
-             <button onClick={() => setShowAiPanel(!showAiPanel)} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all shadow-sm ${showAiPanel ? 'bg-purple-50 border-purple-200 text-purple-700 shadow-purple-100' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}><Sparkles className="w-4 h-4" /><span className="font-medium text-sm hidden sm:inline">AI</span></button>
-           </div>
-        </div>
-
-        {/* Member Grid */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-slate-50/30 print:p-0 print:bg-white print:overflow-visible print-scroll-reset">
-          <div className="mb-6 flex items-end justify-between print:mb-4">
-            {groupingType !== 'birthday' && (
-                <div>
+            {/* Top Bar */}
+            <div className="h-20 px-4 lg:px-8 border-b border-slate-200 bg-white/80 backdrop-blur-xl flex items-center justify-between sticky top-0 z-30 shadow-sm lg:shadow-none">
                 <div className="flex items-center gap-4">
-                    <h2 className="text-2xl font-bold text-slate-800 tracking-tight">
-                        {getHeaderTitle()}
-                        {getHeaderStats()}
-                        {selectedRegistrationYears.size > 0 && <span className="ml-2 text-lg text-brand-600 font-normal">(Reg: {Array.from(selectedRegistrationYears).sort().join(', ')})</span>}
-                    </h2>
-                    {groupingType === 'tag' && (selectedGroup === 'New Family' || selectedGroup === '새가족') && (
-                        <button onClick={handleGraduateNewFamilies} className="flex items-center gap-2 px-3 py-1.5 bg-white border border-brand-200 text-brand-600 hover:bg-brand-50 hover:border-brand-300 rounded-lg text-xs font-bold shadow-sm transition-all"><UserCheck className="w-4 h-4" /> Graduate All (Uncheck Tag)</button>
-                    )}
+                    <button onClick={() => setShowMobileSidebar(true)} className="lg:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-lg">
+                        <Menu className="w-6 h-6" />
+                    </button>
+                    <div>
+                        <h2 className="text-xl font-extrabold text-slate-800 flex items-center gap-2">
+                            {getHeaderTitle()}
+                            {getHeaderStats()}
+                        </h2>
+                    </div>
                 </div>
-                <p className="text-sm text-slate-500 mt-1">Directory & Management {viewMode === 'family' ? ` (${familyGroups.length} families)` : ` (${filteredMembers.length} individuals)`}</p>
+
+                <div className="flex items-center gap-3">
+                     <div className="hidden md:flex items-center bg-slate-100 rounded-xl px-3 py-2 border border-slate-200 focus-within:ring-2 focus-within:ring-brand-500 focus-within:bg-white transition-all w-64 lg:w-80 group">
+                        <Search className="w-5 h-5 text-slate-400 group-focus-within:text-brand-500" />
+                        <input 
+                            type="text" 
+                            placeholder="Search members..." 
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="bg-transparent border-none outline-none text-sm ml-2 w-full text-slate-800 placeholder-slate-400"
+                        />
+                        {searchTerm && (
+                            <button onClick={() => setSearchTerm('')} className="p-0.5 rounded-full hover:bg-slate-200 text-slate-400">
+                                <X className="w-3 h-3" />
+                            </button>
+                        )}
+                     </div>
+
+                     <div className="h-8 w-px bg-slate-200 mx-1 hidden sm:block"></div>
+
+                     <button 
+                        onClick={() => setShowAiPanel(true)}
+                        className="p-2 sm:px-4 sm:py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transition-all flex items-center gap-2 group"
+                     >
+                        <Sparkles className="w-5 h-5 group-hover:animate-pulse" />
+                        <span className="hidden sm:inline">AI Assistant</span>
+                     </button>
+
+                     <button 
+                        onClick={() => setIsImportOpen(true)}
+                        className="p-2 text-slate-500 hover:bg-slate-100 hover:text-brand-600 rounded-xl transition-colors border border-transparent hover:border-slate-200 hidden sm:block"
+                        title="Import / Restore"
+                     >
+                        <Download className="w-5 h-5" />
+                     </button>
+
+                     <button 
+                        onClick={() => { setEditingMember(null); setIsFormOpen(true); }}
+                        className="p-2 sm:px-4 sm:py-2 bg-brand-600 text-white rounded-xl font-bold shadow-lg shadow-brand-200 hover:bg-brand-700 hover:shadow-brand-300 transition-all flex items-center gap-2"
+                     >
+                        <Plus className="w-5 h-5" />
+                        <span className="hidden sm:inline">New Member</span>
+                     </button>
+                </div>
+            </div>
+
+            {/* Filter / Toolbar Bar */}
+            {groupingType !== 'birthday' && (
+                <div className="px-4 lg:px-8 py-4 flex flex-col sm:flex-row gap-4 items-center justify-between z-20">
+                    {/* View Toggles */}
+                    <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-200 w-full sm:w-auto">
+                        <button 
+                            onClick={() => setViewMode('card')}
+                            className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${viewMode === 'card' ? 'bg-slate-100 text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                            <LayoutGrid className="w-4 h-4" /> Cards
+                        </button>
+                        <button 
+                            onClick={() => setViewMode('family')}
+                            className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${viewMode === 'family' ? 'bg-slate-100 text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                            <Users className="w-4 h-4" /> Family
+                        </button>
+                    </div>
+
+                    {/* Filter / Sort Actions */}
+                    <div className="flex items-center gap-2 w-full sm:w-auto justify-end overflow-x-auto">
+                        {/* Year Filter Pills - Only show recent years for quick access */}
+                        {groupingType === 'all' && (
+                            <div className="flex items-center gap-2 mr-2">
+                                {stats.yearsToCheck.map(year => (
+                                    <button
+                                        key={year}
+                                        onClick={() => toggleRegistrationYear(year)}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors whitespace-nowrap ${selectedRegistrationYears.has(year) ? 'bg-brand-50 border-brand-200 text-brand-700' : 'bg-white border-slate-200 text-slate-500 hover:border-brand-200 hover:text-brand-600'}`}
+                                    >
+                                        {year} ({stats.regStats[year] || 0})
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        <div className="flex items-center bg-white rounded-xl border border-slate-200 shadow-sm p-1">
+                             <select 
+                                value={sortBy}
+                                onChange={(e) => setSortBy(e.target.value as any)}
+                                className="text-sm font-bold text-slate-600 bg-transparent outline-none pl-2 pr-1 py-1 cursor-pointer hover:text-brand-600"
+                            >
+                                <option value="name">Name</option>
+                                <option value="rep">Head of Household</option>
+                                <option value="age">Age</option>
+                            </select>
+                            <button onClick={toggleSortDirection} className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600">
+                                {sortDirection === 'asc' ? <ArrowUp className="w-4 h-4"/> : <ArrowDown className="w-4 h-4"/>}
+                            </button>
+                        </div>
+                        
+                        <div className="h-6 w-px bg-slate-200 mx-1"></div>
+
+                        {/* Special Actions Context Menu */}
+                        <div className="flex gap-1">
+                            {/* Graduation Button for New Family */}
+                            {(groupingType === 'tag' && (selectedGroup === '새가족' || selectedGroup === 'New Family')) && (
+                                <button 
+                                    onClick={handleGraduateNewFamilies}
+                                    className="p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 rounded-xl border border-transparent hover:border-emerald-200 transition-colors"
+                                    title="Graduate All (Remove 'New Family' Tag)"
+                                >
+                                    <UserCheck className="w-5 h-5" />
+                                </button>
+                            )}
+                            <button 
+                                onClick={handleBulkEmail}
+                                className="p-2 text-slate-400 hover:bg-blue-50 hover:text-blue-600 rounded-xl border border-transparent hover:border-blue-200 transition-colors"
+                                title="Email this list"
+                            >
+                                <Mail className="w-5 h-5" />
+                            </button>
+                            <button 
+                                onClick={handlePrint}
+                                className="p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 rounded-xl border border-transparent hover:border-slate-200 transition-colors"
+                                title="Print View"
+                            >
+                                <Printer className="w-5 h-5" />
+                            </button>
+                             <button 
+                                onClick={handleExport}
+                                className="p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 rounded-xl border border-transparent hover:border-slate-200 transition-colors"
+                                title="Export JSON"
+                            >
+                                <HardDrive className="w-5 h-5" />
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
-          </div>
 
-          {renderMainContent()}
-
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto px-4 lg:px-8 py-6 relative">
+                 {renderMainContent()}
+            </div>
         </div>
-      </main>
-      
-      {showMobileSidebar && <div onClick={() => setShowMobileSidebar(false)} className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-20 lg:hidden print:hidden" />}
-      <MemberForm isOpen={isFormOpen} onClose={() => { setIsFormOpen(false); setEditingMember(null); }} onSubmit={handleSaveMembers} onDelete={handleDeleteMember} initialData={editingMember} allMembers={members} mokjangList={mokjangList} positionList={positionList} statusList={statusList} tagList={tagList} />
-      <MemberDetail member={viewingMember} isOpen={isDetailOpen} onClose={() => setIsDetailOpen(false)} onEdit={handleEditClick} allMembers={members} onMemberClick={handleCardClick} />
-      <ImportModal isOpen={isImportOpen} onClose={() => setIsImportOpen(false)} onImport={handleImport} />
-      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} mokjangList={mokjangList} positionList={positionList} statusList={statusList} tagList={tagList} onUpdateMokjangs={setMokjangList} onUpdatePositions={setPositionList} onUpdateStatuses={setStatusList} onUpdateTags={setTagList} onRenameItem={handleRenameItem} onDeleteItem={handleDeleteItem} />
+
+        {/* --- MODALS --- */}
+
+        {/* AI Assistant Panel */}
+        {showAiPanel && (
+            <div className="fixed inset-0 z-[60] flex justify-end animate-in slide-in-from-right duration-300">
+                 <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm" onClick={() => setShowAiPanel(false)}></div>
+                 <div className="w-full max-w-md bg-white shadow-2xl h-full relative flex flex-col">
+                      <div className="p-6 bg-gradient-to-r from-violet-600 to-indigo-600 text-white flex justify-between items-center">
+                          <h3 className="font-bold text-lg flex items-center gap-2">
+                             <Sparkles className="w-5 h-5" /> AI Assistant
+                          </h3>
+                          <button onClick={() => setShowAiPanel(false)} className="p-1 hover:bg-white/20 rounded-full transition-colors"><X className="w-5 h-5" /></button>
+                      </div>
+                      <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
+                          {aiResponse ? (
+                              <div className="space-y-4">
+                                  <div className="bg-white p-4 rounded-2xl rounded-tr-none shadow-sm border border-slate-200 text-slate-700 leading-relaxed whitespace-pre-wrap">
+                                      {aiResponse}
+                                  </div>
+                                  <div className="text-right">
+                                      <button onClick={() => setAiResponse('')} className="text-xs text-brand-600 font-bold hover:underline">Ask another question</button>
+                                  </div>
+                              </div>
+                          ) : (
+                              <div className="h-full flex flex-col items-center justify-center text-slate-400 text-center opacity-60">
+                                   <Sparkles className="w-12 h-12 mb-4 text-indigo-300" />
+                                   <p className="text-sm font-medium">Ask me anything about the member data.<br/>Try "How many families are in Joy Mokjang?"</p>
+                              </div>
+                          )}
+                          
+                          {isAiLoading && (
+                              <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center z-10">
+                                  <div className="animate-spin rounded-full h-10 w-10 border-4 border-indigo-500 border-t-transparent"></div>
+                              </div>
+                          )}
+                      </div>
+                      <div className="p-4 border-t border-slate-200 bg-white">
+                           <div className="flex gap-2">
+                               <input 
+                                  value={aiQuery}
+                                  onChange={(e) => setAiQuery(e.target.value)}
+                                  onKeyDown={(e) => e.key === 'Enter' && handleAiAsk()}
+                                  placeholder="Ask a question..."
+                                  className="flex-1 px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                                  autoFocus
+                               />
+                               <button 
+                                  onClick={handleAiAsk}
+                                  disabled={!aiQuery.trim() || isAiLoading}
+                                  className="px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold disabled:opacity-50 transition-colors"
+                               >
+                                  <ArrowUp className="w-5 h-5" />
+                               </button>
+                           </div>
+                      </div>
+                 </div>
+            </div>
+        )}
+
+        <MemberForm
+            isOpen={isFormOpen}
+            onClose={() => setIsFormOpen(false)}
+            onSubmit={handleSaveMembers}
+            onDelete={editingMember ? handleDeleteMember : undefined}
+            initialData={editingMember}
+            allMembers={members}
+            mokjangList={mokjangList}
+            positionList={positionList}
+            statusList={statusList}
+            tagList={tagList}
+        />
+
+        <MemberDetail
+            isOpen={isDetailOpen}
+            onClose={() => setIsDetailOpen(false)}
+            member={viewingMember}
+            onEdit={handleEditClick}
+            allMembers={members}
+            onMemberClick={handleCardClick}
+        />
+
+        <ImportModal
+            isOpen={isImportOpen}
+            onClose={() => setIsImportOpen(false)}
+            onImport={handleImport}
+        />
+
+        <SettingsModal 
+            isOpen={isSettingsOpen}
+            onClose={() => setIsSettingsOpen(false)}
+            mokjangList={mokjangList}
+            positionList={positionList}
+            statusList={statusList}
+            tagList={tagList}
+            onUpdateMokjangs={setMokjangList}
+            onUpdatePositions={setPositionList}
+            onUpdateStatuses={setStatusList}
+            onUpdateTags={setTagList}
+            onRenameItem={handleRenameItem}
+            onDeleteItem={handleDeleteItem}
+        />
+
     </div>
   );
 }
-
-export default App;
