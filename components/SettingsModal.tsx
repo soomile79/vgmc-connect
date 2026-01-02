@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { X, Plus, Trash2, Settings, List, Tag, CheckSquare, GripVertical, Check, Cloud, Key, Globe } from 'lucide-react';
+import { X, Plus, Trash2, Settings, List, Tag, CheckSquare, GripVertical, Check, Cloud, Key, Globe, Loader2, AlertCircle } from 'lucide-react';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -28,6 +28,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   // Cloud Settings
   const [serverUrl, setServerUrl] = useState(() => localStorage.getItem('church-server-url') || '');
   const [apiSecret, setApiSecret] = useState(() => localStorage.getItem('church-api-secret') || '');
+  const [isTesting, setIsTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{success: boolean; message: string} | null>(null);
   
   // Editing State
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -131,11 +133,51 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     dragOverItem.current = null;
   };
 
-  const saveCloudSettings = () => {
-    localStorage.setItem('church-server-url', serverUrl);
-    localStorage.setItem('church-api-secret', apiSecret);
-    alert('Cloud settings saved! Please refresh the page to start syncing.');
-    onClose();
+  const saveCloudSettings = async () => {
+    if (!serverUrl || !apiSecret) {
+        setTestResult({ success: false, message: "Please enter both URL and Secret Key." });
+        return;
+    }
+
+    setIsTesting(true);
+    setTestResult(null);
+
+    try {
+        // Attempt to fetch data to verify connection
+        const response = await fetch(serverUrl, {
+            method: 'GET',
+            headers: {
+                'X-Api-Secret': apiSecret,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            // Success!
+            localStorage.setItem('church-server-url', serverUrl);
+            localStorage.setItem('church-api-secret', apiSecret);
+            setTestResult({ success: true, message: "Connection Successful! Settings Saved." });
+            
+            // Auto close after success
+            setTimeout(() => {
+                // Trigger a reload to force app sync
+                window.location.reload();
+            }, 1500);
+        } else {
+            let errorMsg = `Server Error (${response.status})`;
+            if (response.status === 401) errorMsg = "Incorrect Secret Key.";
+            if (response.status === 404) errorMsg = "api.php not found. Check URL.";
+            throw new Error(errorMsg);
+        }
+    } catch (e: any) {
+        let msg = e.message;
+        if (e.message.includes('Failed to fetch')) {
+             msg = "Connection blocked. Please check CORS settings in api.php.";
+        }
+        setTestResult({ success: false, message: msg });
+    } finally {
+        setIsTesting(false);
+    }
   };
 
   const tabs = [
@@ -159,11 +201,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           </button>
         </div>
 
-        <div className="flex border-b border-gray-100 overflow-x-auto">
+        <div className="flex border-b border-gray-100 overflow-x-auto no-scrollbar">
           {tabs.map(tab => (
             <button 
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => { setActiveTab(tab.id as any); setTestResult(null); }}
               className={`flex-1 py-3 px-4 text-sm font-medium transition-colors flex items-center justify-center gap-2 whitespace-nowrap ${activeTab === tab.id ? 'text-brand-600 border-b-2 border-brand-600 bg-brand-50/50' : 'text-gray-500 hover:text-gray-700'}`}
             >
               <tab.icon className="w-4 h-4" />
@@ -179,9 +221,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     <h3 className="font-bold flex items-center gap-2 mb-2">
                         <Cloud className="w-4 h-4" /> SiteGround / Hosting Sync
                     </h3>
-                    <p className="opacity-80 leading-relaxed">
-                        To sync data across multiple devices, upload the <code>api.php</code> file to your SiteGround public_html folder. 
-                        Then enter the URL below.
+                    <p className="opacity-80 leading-relaxed mb-2">
+                        To sync data, upload <code>api.php</code> to your server.
+                        <br/>
+                        <span className="font-bold text-red-600">Important:</span> You must add CORS headers to <code>api.php</code> or the connection will fail.
                     </p>
                 </div>
 
@@ -195,7 +238,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                             value={serverUrl}
                             onChange={(e) => setServerUrl(e.target.value)}
                             placeholder="https://yourchurch.com/api.php"
-                            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none text-slate-800"
+                            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none text-slate-800 font-medium"
                         />
                     </div>
                     <div className="space-y-2">
@@ -206,18 +249,35 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                             type="password"
                             value={apiSecret}
                             onChange={(e) => setApiSecret(e.target.value)}
-                            placeholder="Create a strong password"
-                            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none text-slate-800"
+                            placeholder="Must match $secret_key in api.php"
+                            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none text-slate-800 font-medium"
                         />
-                        <p className="text-xs text-slate-400">Must match the $secret_key in your api.php file.</p>
                     </div>
                 </div>
 
+                {testResult && (
+                    <div className={`p-3 rounded-xl text-sm font-bold flex items-center gap-2 animate-in slide-in-from-top-2 ${testResult.success ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-red-50 text-red-600 border border-red-100'}`}>
+                        {testResult.success ? <Check className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                        {testResult.message}
+                    </div>
+                )}
+
                 <button 
                     onClick={saveCloudSettings}
-                    className="w-full py-3 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-lg shadow-brand-200 transition-colors flex items-center justify-center gap-2"
+                    disabled={isTesting}
+                    className={`w-full py-3 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 ${isTesting ? 'bg-slate-400 cursor-not-allowed' : 'bg-brand-600 hover:bg-brand-700 shadow-brand-200'}`}
                 >
-                    <Check className="w-4 h-4" /> Save Connection Settings
+                    {isTesting ? (
+                        <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Testing Connection...
+                        </>
+                    ) : (
+                        <>
+                            <Check className="w-4 h-4" />
+                            Test & Save Connection
+                        </>
+                    )}
                 </button>
             </div>
           ) : (
