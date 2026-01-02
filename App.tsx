@@ -49,12 +49,12 @@ import {
 
 import { Member, GroupingType, Position } from './types';
 import { INITIAL_MEMBERS, MOKJANG_LIST, getRoleStyle, getRoleBaseColor } from './constants';
-import MemberForm from './components/MemberForm';
-import MemberDetail from './components/MemberDetail';
-import ImportModal from './components/ImportModal';
-import SettingsModal from './components/SettingsModal';
-import Login from './components/Login';
-import Logo from './components/Logo';
+import MemberForm from './components/MemberForm.tsx';
+import MemberDetail from './components/MemberDetail.tsx';
+import ImportModal from './components/ImportModal.tsx';
+import SettingsModal from './components/SettingsModal.tsx';
+import Login from './components/Login.tsx';
+import Logo from './components/Logo.tsx';
 import { askGeminiAboutMembers } from './services/geminiService';
 
 const ITEMS_PER_PAGE = 24;
