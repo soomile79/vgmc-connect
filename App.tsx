@@ -45,7 +45,8 @@ import {
   Gift,
   PartyPopper,
   CalendarDays,
-  AlertTriangle
+  AlertTriangle,
+  RotateCw
 } from 'lucide-react';
 
 import { Member, GroupingType, Position } from './types';
@@ -244,7 +245,10 @@ export function App() {
     setIsSyncing(true);
     setSyncError('');
     try {
-        const response = await fetch(serverUrl, {
+        // Cache Busting: Add timestamp to force browser to get new data
+        const noCacheUrl = `${serverUrl}${serverUrl.includes('?') ? '&' : '?'}t=${new Date().getTime()}`;
+
+        const response = await fetch(noCacheUrl, {
             method: 'GET',
             headers: {
                 'X-Api-Secret': apiSecret,
@@ -259,7 +263,6 @@ export function App() {
                 const json = JSON.parse(text);
                 if (json.error) msg = json.error;
             } catch {
-                // If HTML error (common in PHP), extract title or body
                 if (text.includes('<title>')) {
                     const match = text.match(/<title>(.*?)<\/title>/);
                     if (match) msg = `Server Error: ${match[1]}`;
@@ -273,8 +276,8 @@ export function App() {
         const data = await response.json();
         if (Array.isArray(data)) {
             if (data.length === 0 && members.length > 0) {
-                 console.log("Cloud is empty. Uploading local data...");
-                 await saveToCloud(members);
+                 // Do not auto-upload empty data, just warn or do nothing.
+                 // console.log("Cloud is empty.");
             } else {
                  setMembers(data);
                  setLastSyncTime(new Date());
@@ -295,7 +298,10 @@ export function App() {
     if (!serverUrl) return;
     setIsSyncing(true);
     try {
-        const response = await fetch(serverUrl, {
+        // Cache Busting for POST as well (though less critical)
+        const noCacheUrl = `${serverUrl}${serverUrl.includes('?') ? '&' : '?'}t=${new Date().getTime()}`;
+        
+        const response = await fetch(noCacheUrl, {
             method: 'POST',
             headers: {
                 'X-Api-Secret': apiSecret,
@@ -330,7 +336,15 @@ export function App() {
     }
   };
 
-  // Initial Sync on Load - Trigger every time URL changes or on Login
+  const handleForceSync = async (direction: 'upload' | 'download') => {
+      if (direction === 'upload') {
+          await saveToCloud(members);
+      } else {
+          await fetchFromCloud();
+      }
+  };
+
+  // Initial Sync on Load
   useEffect(() => {
     if (isLoggedIn && serverUrl) {
         fetchFromCloud();
@@ -347,6 +361,7 @@ export function App() {
     localStorage.removeItem('church-auth');
   };
 
+  // ... (Rest of stats, filtering logic is identical)
   // Reset to page 1 on filter/view change
   useEffect(() => {
     setCurrentPage(1);
@@ -383,10 +398,8 @@ export function App() {
 
     const birthdaysThisMonth = members.filter(m => {
       if (m.status !== 'Active' || !m.birthday) return false;
-      // String parsing to avoid timezone issues
       const parts = m.birthday.split('-');
       if (parts.length !== 3) return false;
-      // parts[1] is "01".."12". Convert to 0-indexed month.
       return (parseInt(parts[1], 10) - 1) === currentMonth;
     }).length;
 
@@ -454,29 +467,18 @@ export function App() {
       const currentMonth = new Date().getMonth();
       result = result.filter(m => {
          if (!m.birthday) return false;
-         // Parse string directly to avoid timezone off-by-one errors
          const parts = m.birthday.split('-');
          if (parts.length !== 3) return false;
-         // Month is parts[1] (1-12), convert to 0-11
          return (parseInt(parts[1], 10) - 1) === currentMonth;
       });
       
-      // Sort for Birthday View: Day -> Name -> Age
       return result.sort((a, b) => {
          const getDay = (dateStr: string) => parseInt(dateStr.split('-')[2], 10);
          const dayA = getDay(a.birthday);
          const dayB = getDay(b.birthday);
-         
-         // 1. Sort by Day
          if (dayA !== dayB) return dayA - dayB;
-         
-         // 2. Sort by Korean Name
          const nameCompare = a.koreanName.localeCompare(b.koreanName, 'ko');
          if (nameCompare !== 0) return nameCompare;
-         
-         // 3. Sort by Age (Older first)
-         // Older people have smaller birth years (e.g. 1950 < 1990)
-         // So sorting by string "YYYY-MM-DD" ascending puts older people first
          return a.birthday.localeCompare(b.birthday);
       });
     }
@@ -630,6 +632,7 @@ export function App() {
     if (serverUrl) saveToCloud(updatedMembers);
   };
 
+  // ... (Export, Import, AI, Email, Print logic) ...
   const handleGraduateNewFamilies = () => {
     const visibleCount = filteredMembers.length;
     if (visibleCount === 0) {
@@ -731,7 +734,7 @@ export function App() {
     setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
   };
 
-  // ... Sidebar Rendering Logic ...
+
   const renderSidebarSection = (title: string, type: GroupingType, icon: React.ReactNode, items: string[], statsFn: (item: string) => { count: number, families: number }) => {
     const isExpanded = expandedSections[type];
     return (
@@ -788,14 +791,9 @@ export function App() {
     );
   };
 
-  const isActiveGroupSelected = groupingType === 'status' && selectedGroup === 'Active' && viewMode === 'card';
-  const isFamilyViewSelected = viewMode === 'family';
-  const isAllMembersSelected = groupingType === 'all' && !showActiveOnly;
-
+  // ... (Header Title & Stats logic identical to previous) ...
   const getHeaderTitle = () => {
-    if (groupingType === 'birthday') {
-      return ''; // Handled in the special view
-    }
+    if (groupingType === 'birthday') return '';
     if (groupingType === 'all') return showActiveOnly ? 'Active Members' : 'All Members';
     return selectedGroup;
   };
@@ -824,13 +822,14 @@ export function App() {
           </span>
       );
   };
-
-  // Helper to render main content area cleanly
+  
+  // Render function identical to previous... just returning components
   const renderMainContent = () => {
+    // ... same as before, see full App.tsx structure
     if (groupingType === 'birthday') {
+        // ... same birthday view ...
         return (
               <div className="max-w-7xl mx-auto">
-                  {/* Compact Header */}
                   <div className="bg-gradient-to-r from-pink-500 via-rose-400 to-orange-400 text-white px-6 py-4 rounded-2xl shadow-lg mb-8 relative overflow-hidden flex flex-col sm:flex-row items-center justify-between gap-3">
                       <div className="relative z-10 flex items-center gap-4">
                            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
@@ -838,94 +837,55 @@ export function App() {
                            </div>
                            <div>
                                 <h1 className="text-lg sm:text-xl font-extrabold leading-tight">Birthdays in {new Date().toLocaleString('default', { month: 'long' })}</h1>
-                                <p className="text-xs sm:text-sm opacity-90 font-medium">
-                                    Let's celebrate the gift of life together!
-                                </p>
+                                <p className="text-xs sm:text-sm opacity-90 font-medium">Let's celebrate the gift of life together!</p>
                            </div>
                       </div>
-                      
-                      {/* Decorative Background */}
                       <div className="absolute top-0 right-0 w-64 h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay"></div>
                       <PartyPopper className="w-24 h-24 text-white opacity-10 absolute -right-4 -bottom-8 rotate-12" />
                   </div>
-
                   {paginatedItems.length === 0 ? (
                       <div className="text-center py-20 bg-white rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center">
-                          <div className="bg-slate-50 p-6 rounded-full mb-4">
-                            <CalendarDays className="w-12 h-12 text-slate-300" />
-                          </div>
+                          <div className="bg-slate-50 p-6 rounded-full mb-4"><CalendarDays className="w-12 h-12 text-slate-300" /></div>
                           <h3 className="text-lg font-bold text-slate-600">No birthdays this month</h3>
                           <p className="text-slate-400 font-medium">Everyone is celebrating another time!</p>
                       </div>
                   ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                           {(paginatedItems as Member[]).map(member => {
-                              const avatar = getDisplayAvatar(member);
                               const baseColor = getRoleBaseColor(member.position as string);
-                              // Fix: extract day from string directly to avoid timezone shift
                               const day = parseInt(member.birthday.split('-')[2], 10);
-                              
-                              // Logic for Turning Age
                               const birthYear = parseInt(member.birthday.split('-')[0], 10);
                               const currentYear = new Date().getFullYear();
                               const turningAge = currentYear - birthYear;
-                              
                               return (
-                                  <div 
-                                    key={member.id}
-                                    onClick={() => handleCardClick(member)}
-                                    className={`group bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer overflow-hidden relative hover:-translate-y-1`}
-                                  >
-                                      {/* Decorative Background Pattern */}
+                                  <div key={member.id} onClick={() => handleCardClick(member)} className={`group bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer overflow-hidden relative hover:-translate-y-1`}>
                                       <div className={`absolute inset-0 bg-gradient-to-br from-white via-white to-${baseColor}-50/30 opacity-0 group-hover:opacity-100 transition-opacity`}></div>
-                                      
                                       <div className="p-4 flex flex-col gap-4 relative z-10">
                                           <div className="flex items-start justify-between">
                                                 <div className="flex items-center gap-3">
-                                                    {/* Calendar Date Block */}
                                                     <div className={`flex flex-col items-center justify-center w-14 h-14 rounded-xl bg-${baseColor}-50 text-${baseColor}-600 shrink-0 border border-${baseColor}-100 group-hover:scale-105 transition-transform`}>
                                                         <span className="text-[10px] font-extrabold uppercase tracking-wide opacity-70 leading-none mb-0.5">{new Date().toLocaleString('default', { month: 'short' })}</span>
                                                         <span className="text-2xl font-black leading-none">{day}</span>
                                                     </div>
-
                                                     <div className="min-w-0">
                                                         <h3 className="font-bold text-slate-800 text-lg truncate group-hover:text-brand-600 transition-colors">{member.koreanName}</h3>
                                                         <div className="flex flex-col">
-                                                             <span className={`text-xs font-medium text-${baseColor}-600`}>
-                                                                {member.position}
-                                                             </span>
-                                                             {member.mokjang !== 'Unassigned' && (
-                                                                <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1 mt-0.5">
-                                                                     {member.mokjang}
-                                                                </span>
-                                                             )}
+                                                             <span className={`text-xs font-medium text-${baseColor}-600`}>{member.position}</span>
+                                                             {member.mokjang !== 'Unassigned' && (<span className="text-[10px] text-slate-400 font-medium flex items-center gap-1 mt-0.5">{member.mokjang}</span>)}
                                                         </div>
                                                     </div>
                                                 </div>
-
-                                                {/* Turning Age Emphasis */}
                                                 <div className="flex flex-col items-end">
                                                     <span className="text-[10px] text-pink-400 font-bold uppercase tracking-wide mb-0.5">Turning</span>
                                                     <span className="text-xl font-black text-slate-800 leading-none">{turningAge}</span>
                                                 </div>
                                           </div>
-
                                           <div className="h-px bg-slate-50 w-full" />
-
-                                          {/* Additional Info for Birthday Card (Tags & Phone) */}
                                           <div className="flex items-center justify-between">
-                                              {/* Phone */}
-                                              <div className="flex items-center gap-1.5 text-xs text-slate-500 truncate bg-slate-50 px-2 py-1 rounded-md border border-slate-100">
-                                                  <Smartphone className="w-3 h-3 text-slate-300 group-hover:text-${baseColor}-400" />
-                                                  {member.phone || '-'}
-                                              </div>
-
-                                              {/* Tags */}
+                                              <div className="flex items-center gap-1.5 text-xs text-slate-500 truncate bg-slate-50 px-2 py-1 rounded-md border border-slate-100"><Smartphone className="w-3 h-3 text-slate-300 group-hover:text-${baseColor}-400" />{member.phone || '-'}</div>
                                               {member.tags && member.tags.length > 0 && (
                                                   <div className="flex flex-wrap items-center gap-1 justify-end">
-                                                      {member.tags.filter(t => t !== 'New Family' && t !== '새가족').slice(0, 1).map(tag => (
-                                                          <span key={tag} className="text-[9px] font-bold text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 group-hover:bg-white">#{tag}</span>
-                                                      ))}
+                                                      {member.tags.filter(t => t !== 'New Family' && t !== '새가족').slice(0, 1).map(tag => (<span key={tag} className="text-[9px] font-bold text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 group-hover:bg-white">#{tag}</span>))}
                                                       {(member.tags?.includes('New Family') || member.tags?.includes('새가족')) && <span className="bg-amber-50 text-amber-700 text-[9px] px-1.5 py-0.5 rounded border border-amber-100 font-bold group-hover:bg-white">새가족</span>}
                                                   </div>
                                               )}
@@ -939,7 +899,8 @@ export function App() {
               </div>
         );
     }
-
+    
+    // Fallback if empty
     if ((viewMode === 'card' ? filteredMembers.length : familyGroups.length) === 0) {
         return (
             <div className="flex flex-col items-center justify-center h-64 text-slate-400">
@@ -952,7 +913,6 @@ export function App() {
 
     return (
         <>
-            {/* === DATA PERSISTENCE WARNING === */}
             {showPersistenceWarning && (
                 <div className="bg-amber-50 border-b border-amber-100 px-4 py-3 flex items-start sm:items-center justify-between gap-4 animate-in slide-in-from-top-4 relative z-40">
                     <div className="flex items-start gap-3">
@@ -964,94 +924,35 @@ export function App() {
                             <span className="block sm:inline sm:ml-1 opacity-80">Please go to Settings &gt; Cloud to connect your server.</span>
                         </div>
                     </div>
-                    <button 
-                        onClick={() => {
-                            setShowPersistenceWarning(false);
-                            localStorage.setItem('dismiss-sync-warn', 'true');
-                        }}
-                        className="p-1 hover:bg-amber-100 rounded-lg text-amber-500 transition-colors"
-                    >
-                        <X className="w-5 h-5" />
-                    </button>
+                    <button onClick={() => { setShowPersistenceWarning(false); localStorage.setItem('dismiss-sync-warn', 'true'); }} className="p-1 hover:bg-amber-100 rounded-lg text-amber-500 transition-colors"><X className="w-5 h-5" /></button>
                 </div>
             )}
-
-            {/* === CARD VIEW (COMPACT & PASTEL & HOVER EFFECTS) === */}
             {viewMode === 'card' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 pb-8 print:grid-cols-3 print:gap-4 print-grid">
                     {(paginatedItems as Member[]).map(member => {
                     const avatar = getDisplayAvatar(member);
                     const baseColor = getRoleBaseColor(member.position as string);
                     return (
-                        <div 
-                            key={member.id} 
-                            onClick={() => handleCardClick(member)}
-                            className={`bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer group flex flex-col border-t-4 border-t-${baseColor}-400 relative overflow-hidden hover:-translate-y-1`}
-                        >
+                        <div key={member.id} onClick={() => handleCardClick(member)} className={`bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer group flex flex-col border-t-4 border-t-${baseColor}-400 relative overflow-hidden hover:-translate-y-1`}>
                             <div className="p-4 flex gap-4">
-                                {/* Left: Avatar */}
                                 <div className="relative shrink-0">
-                                    {avatar ? (
-                                        <img src={avatar} alt={member.englishName} className="w-14 h-14 rounded-lg object-cover bg-slate-50 border border-slate-100 group-hover:scale-105 transition-transform duration-300"/> 
-                                    ) : (
-                                        <div className={`w-14 h-14 rounded-lg bg-${baseColor}-50 flex items-center justify-center text-${baseColor}-400 border border-${baseColor}-100 group-hover:bg-${baseColor}-100 transition-colors`}>
-                                            <User className="w-7 h-7" />
-                                        </div>
-                                    )}
-                                    {member.relationship === 'Self' && (
-                                        <div className="absolute -top-1.5 -left-1.5 bg-white p-0.5 rounded-full border border-slate-100 shadow-sm z-10" title="Head of Household">
-                                            <Crown className="w-2.5 h-2.5 text-amber-500" fill="currentColor"/>
-                                        </div>
-                                    )}
+                                    {avatar ? (<img src={avatar} alt={member.englishName} className="w-14 h-14 rounded-lg object-cover bg-slate-50 border border-slate-100 group-hover:scale-105 transition-transform duration-300"/>) : (<div className={`w-14 h-14 rounded-lg bg-${baseColor}-50 flex items-center justify-center text-${baseColor}-400 border border-${baseColor}-100 group-hover:bg-${baseColor}-100 transition-colors`}><User className="w-7 h-7" /></div>)}
+                                    {member.relationship === 'Self' && (<div className="absolute -top-1.5 -left-1.5 bg-white p-0.5 rounded-full border border-slate-100 shadow-sm z-10" title="Head of Household"><Crown className="w-2.5 h-2.5 text-amber-500" fill="currentColor"/></div>)}
                                 </div>
-
-                                {/* Right: Info */}
                                 <div className="flex-1 min-w-0 flex flex-col justify-center">
-                                    {/* Name & Age Row - Adjusted Layout */}
                                     <div className="flex items-center gap-2 mb-0.5">
                                         <h3 className="font-bold text-slate-800 text-xl truncate">{member.koreanName}</h3>
-                                        <span className="text-xs text-slate-400 font-bold bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 whitespace-nowrap group-hover:bg-white group-hover:border-${baseColor}-100 transition-colors">
-                                            {calculateAge(member.birthday)} · {member.gender === 'Male' ? 'M' : 'F'}
-                                        </span>
+                                        <span className="text-xs text-slate-400 font-bold bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 whitespace-nowrap group-hover:bg-white group-hover:border-${baseColor}-100 transition-colors">{calculateAge(member.birthday)} · {member.gender === 'Male' ? 'M' : 'F'}</span>
                                     </div>
-                                    
                                     <p className="text-sm text-slate-500 font-medium truncate mb-2">{member.englishName}</p>
-                                    
-                                    {/* Row: Role | Mokjang | Tags */}
                                     <div className="flex flex-wrap items-center gap-1.5 mb-2 leading-none">
-                                        <span className={`px-1.5 py-0.5 rounded text-xs font-bold border ${getRoleStyle(member.position as string)}`}>
-                                            {member.position}
-                                        </span>
-                                        {member.mokjang !== 'Unassigned' && (
-                                            <>
-                                                <span className="text-xs text-slate-300">|</span>
-                                                <span className="text-xs font-bold text-slate-600 truncate max-w-[80px]">
-                                                    {member.mokjang}
-                                                </span>
-                                            </>
-                                        )}
-                                        {member.tags && member.tags.length > 0 && (
-                                            <>
-                                                <span className="text-xs text-slate-300">|</span>
-                                                <div className="flex gap-1">
-                                                    {member.tags.filter(t => t !== 'New Family' && t !== '새가족').slice(0, 2).map(tag => (
-                                                        <span key={tag} className="text-xs font-bold text-slate-500 bg-slate-50 px-1 rounded border border-slate-100 group-hover:bg-white">#{tag}</span>
-                                                    ))}
-                                                </div>
-                                            </>
-                                        )}
+                                        <span className={`px-1.5 py-0.5 rounded text-xs font-bold border ${getRoleStyle(member.position as string)}`}>{member.position}</span>
+                                        {member.mokjang !== 'Unassigned' && (<><span className="text-xs text-slate-300">|</span><span className="text-xs font-bold text-slate-600 truncate max-w-[80px]">{member.mokjang}</span></>)}
+                                        {member.tags && member.tags.length > 0 && (<><span className="text-xs text-slate-300">|</span><div className="flex gap-1">{member.tags.filter(t => t !== 'New Family' && t !== '새가족').slice(0, 2).map(tag => (<span key={tag} className="text-xs font-bold text-slate-500 bg-slate-50 px-1 rounded border border-slate-100 group-hover:bg-white">#{tag}</span>))}</div></>)}
                                         {(member.tags?.includes('New Family') || member.tags?.includes('새가족')) && <span className="bg-amber-50 text-amber-700 text-xs px-1.5 py-0.5 rounded border border-amber-100 font-bold ml-auto group-hover:bg-white">새가족</span>}
                                     </div>
-
                                     <div className="mt-auto">
-                                        <a 
-                                            href={`tel:${member.phone}`}
-                                            onClick={(e) => e.stopPropagation()}
-                                            className="inline-flex items-center gap-2 text-sm font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 hover:text-brand-600 px-2 py-2 rounded-lg border border-slate-100 transition-colors w-full justify-center"
-                                        >
-                                            <Smartphone className="w-4 h-4 text-slate-400" />
-                                            {member.phone || '-'}
-                                        </a>
+                                        <a href={`tel:${member.phone}`} onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-2 text-sm font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 hover:text-brand-600 px-2 py-2 rounded-lg border border-slate-100 transition-colors w-full justify-center"><Smartphone className="w-4 h-4 text-slate-400" />{member.phone || '-'}</a>
                                     </div>
                                 </div>
                             </div>
@@ -1060,8 +961,6 @@ export function App() {
                     })}
                 </div>
             )}
-
-            {/* === FAMILY VIEW === */}
             {viewMode === 'family' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-8 print:grid-cols-2 print:gap-4 print-grid">
                     {(paginatedItems as any[]).map(group => (
@@ -1109,8 +1008,6 @@ export function App() {
                     ))}
                 </div>
             )}
-
-            {/* ... Pagination (unchanged) ... */}
             {totalPages > 1 && (
                 <div className="flex justify-center items-center gap-4 pb-20 print:hidden">
                 <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"><ChevronLeft className="w-5 h-5" /></button>
@@ -1120,16 +1017,14 @@ export function App() {
             )}
         </>
     );
-  }
+  };
 
-  // --- RETURN STATEMENT ---
   if (!isLoggedIn) {
     return <Login onLogin={handleLogin} />;
   }
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
-        {/* Mobile Sidebar Overlay */}
         {showMobileSidebar && (
             <div className="fixed inset-0 bg-slate-900/50 z-40 lg:hidden backdrop-blur-sm" onClick={() => setShowMobileSidebar(false)}></div>
         )}
@@ -1141,7 +1036,6 @@ export function App() {
             </div>
 
             <div className="flex-1 overflow-y-auto py-6 px-4 space-y-6 scrollbar-hide">
-                 {/* Navigation Sections */}
                  <div>
                     <div className="px-4 pb-2 text-xs font-extrabold text-slate-400 uppercase tracking-widest">Directory</div>
                     <div 
@@ -1179,7 +1073,10 @@ export function App() {
             <div className="p-4 border-t border-slate-100 bg-slate-50">
                 <div className="flex items-center justify-between text-xs text-slate-400 font-medium px-2 mb-3">
                     <span className="flex items-center gap-1.5"><Cloud className={`w-3 h-3 ${isSyncing ? 'text-blue-500 animate-pulse' : (serverUrl && !syncError ? 'text-green-500' : 'text-slate-300')}`} /> {isSyncing ? 'Syncing...' : (lastSyncTime ? 'Synced' : 'Offline')}</span>
-                    {lastSyncTime && <span>{lastSyncTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>}
+                    <div className="flex items-center gap-2">
+                        {lastSyncTime && <span>{lastSyncTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>}
+                        {serverUrl && <button onClick={() => fetchFromCloud()} disabled={isSyncing} className="p-1 hover:bg-slate-200 rounded-full transition-colors" title="Refresh from Server"><RotateCw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} /></button>}
+                    </div>
                 </div>
                 <button onClick={() => setIsSettingsOpen(true)} className="flex items-center gap-2 w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold hover:bg-slate-100 hover:text-slate-800 transition-all shadow-sm">
                     <Settings className="w-4 h-4" /> System Settings
@@ -1194,286 +1091,110 @@ export function App() {
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col min-w-0 bg-white lg:bg-slate-50 relative">
-            
-            {/* Top Bar - REDESIGNED FOR MOBILE SEARCH */}
+            {/* ... Top Bar & Rest of UI ... */}
             <div className="h-20 px-3 lg:px-8 border-b border-slate-200 bg-white/80 backdrop-blur-xl flex items-center justify-between sticky top-0 z-30 shadow-sm lg:shadow-none gap-2">
-                
-                {/* 1. Mobile Menu & Stats */}
                 <div className="flex items-center gap-2 lg:gap-4 shrink-0">
                     <button onClick={() => setShowMobileSidebar(true)} className="lg:hidden p-2 text-slate-500 hover:bg-slate-100 rounded-lg">
                         <Menu className="w-6 h-6" />
                     </button>
-                    <div className="hidden sm:block"> {/* Hide title on very small screens to give space to search */}
+                    <div className="hidden sm:block">
                         <h2 className="text-lg lg:text-xl font-extrabold text-slate-800 flex items-center gap-2">
                             {getHeaderTitle()}
                             {getHeaderStats()}
                         </h2>
                     </div>
                 </div>
-
-                {/* 2. SEARCH BAR - PRIORITY ON MOBILE */}
                 <div className="flex-1 max-w-lg mx-2 flex items-center bg-slate-100 rounded-xl px-3 py-2 border border-slate-200 focus-within:ring-2 focus-within:ring-brand-500 focus-within:bg-white transition-all group">
                     <Search className="w-5 h-5 text-slate-400 group-focus-within:text-brand-500 shrink-0" />
-                    <input 
-                        type="text" 
-                        placeholder="Search..." 
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="bg-transparent border-none outline-none text-sm ml-2 w-full text-slate-800 placeholder-slate-400"
-                    />
-                    {searchTerm && (
-                        <button onClick={() => setSearchTerm('')} className="p-0.5 rounded-full hover:bg-slate-200 text-slate-400">
-                            <X className="w-4 h-4" />
-                        </button>
-                    )}
+                    <input type="text" placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-transparent border-none outline-none text-sm ml-2 w-full text-slate-800 placeholder-slate-400"/>
+                    {searchTerm && <button onClick={() => setSearchTerm('')} className="p-0.5 rounded-full hover:bg-slate-200 text-slate-400"><X className="w-4 h-4" /></button>}
                 </div>
-
-                {/* 3. Actions - HIDDEN ON MOBILE (Smaller than MD) */}
                 <div className="flex items-center gap-2">
                      <div className="hidden md:flex items-center gap-3">
-                        <button 
-                            onClick={() => setShowAiPanel(true)}
-                            className="p-2 sm:px-4 sm:py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transition-all flex items-center gap-2 group"
-                        >
-                            <Sparkles className="w-5 h-5 group-hover:animate-pulse" />
-                            <span className="hidden lg:inline">AI Assistant</span>
-                        </button>
-
-                        <button 
-                            onClick={() => setIsImportOpen(true)}
-                            className="p-2 text-slate-500 hover:bg-slate-100 hover:text-brand-600 rounded-xl transition-colors border border-transparent hover:border-slate-200"
-                            title="Import / Restore"
-                        >
-                            <Download className="w-5 h-5" />
-                        </button>
-
-                        <button 
-                            onClick={() => { setEditingMember(null); setIsFormOpen(true); }}
-                            className="p-2 sm:px-4 sm:py-2 bg-brand-600 text-white rounded-xl font-bold shadow-lg shadow-brand-200 hover:bg-brand-700 hover:shadow-brand-300 transition-all flex items-center gap-2"
-                        >
-                            <Plus className="w-5 h-5" />
-                            <span className="hidden lg:inline">New Member</span>
-                        </button>
+                        <button onClick={() => setShowAiPanel(true)} className="p-2 sm:px-4 sm:py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transition-all flex items-center gap-2 group"><Sparkles className="w-5 h-5 group-hover:animate-pulse" /><span className="hidden lg:inline">AI Assistant</span></button>
+                        <button onClick={() => setIsImportOpen(true)} className="p-2 text-slate-500 hover:bg-slate-100 hover:text-brand-600 rounded-xl transition-colors border border-transparent hover:border-slate-200" title="Import / Restore"><Download className="w-5 h-5" /></button>
+                        <button onClick={() => { setEditingMember(null); setIsFormOpen(true); }} className="p-2 sm:px-4 sm:py-2 bg-brand-600 text-white rounded-xl font-bold shadow-lg shadow-brand-200 hover:bg-brand-700 hover:shadow-brand-300 transition-all flex items-center gap-2"><Plus className="w-5 h-5" /><span className="hidden lg:inline">New Member</span></button>
                     </div>
-                    {/* Mobile Only: New Member Icon if needed, but per request hide others */}
-                    <button 
-                        onClick={() => { setEditingMember(null); setIsFormOpen(true); }}
-                        className="md:hidden p-2 text-brand-600 bg-brand-50 rounded-xl"
-                    >
-                        <Plus className="w-6 h-6" />
-                    </button>
+                    <button onClick={() => { setEditingMember(null); setIsFormOpen(true); }} className="md:hidden p-2 text-brand-600 bg-brand-50 rounded-xl"><Plus className="w-6 h-6" /></button>
                 </div>
             </div>
 
-            {/* Filter / Toolbar Bar */}
             {groupingType !== 'birthday' && (
                 <div className="px-4 lg:px-8 py-3 lg:py-4 flex flex-col sm:flex-row gap-3 items-center justify-between z-20">
-                    {/* View Toggles */}
                     <div className="flex w-full sm:w-auto gap-2">
                         <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-200 flex-1 sm:flex-none">
-                            <button 
-                                onClick={() => setViewMode('card')}
-                                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${viewMode === 'card' ? 'bg-slate-100 text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                            >
-                                <LayoutGrid className="w-4 h-4" /> Cards
-                            </button>
-                            <button 
-                                onClick={() => setViewMode('family')}
-                                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${viewMode === 'family' ? 'bg-slate-100 text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                            >
-                                <Users className="w-4 h-4" /> Family
-                            </button>
+                            <button onClick={() => setViewMode('card')} className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${viewMode === 'card' ? 'bg-slate-100 text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><LayoutGrid className="w-4 h-4" /> Cards</button>
+                            <button onClick={() => setViewMode('family')} className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${viewMode === 'family' ? 'bg-slate-100 text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><Users className="w-4 h-4" /> Family</button>
                         </div>
-                        
-                        {/* Mobile Active Toggle */}
-                        <button 
-                             onClick={() => setShowActiveOnly(!showActiveOnly)}
-                             className={`sm:hidden px-3 py-1.5 rounded-xl border font-bold text-sm flex items-center gap-2 ${showActiveOnly ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-white border-slate-200 text-slate-500'}`}
-                        >
-                            <UserCheck className="w-4 h-4" /> {showActiveOnly ? 'Active' : 'All'}
-                        </button>
+                        <button onClick={() => setShowActiveOnly(!showActiveOnly)} className={`sm:hidden px-3 py-1.5 rounded-xl border font-bold text-sm flex items-center gap-2 ${showActiveOnly ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-white border-slate-200 text-slate-500'}`}><UserCheck className="w-4 h-4" /> {showActiveOnly ? 'Active' : 'All'}</button>
                     </div>
 
-                    {/* Filter / Sort Actions */}
                     <div className="flex items-center gap-2 w-full sm:w-auto justify-end overflow-x-auto no-scrollbar">
-                        {/* Year Filter Pills - Only show recent years for quick access */}
                         {groupingType === 'all' && (
                             <div className="flex items-center gap-2 mr-2">
                                 {stats.yearsToCheck.map(year => (
-                                    <button
-                                        key={year}
-                                        onClick={() => toggleRegistrationYear(year)}
-                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors whitespace-nowrap ${selectedRegistrationYears.has(year) ? 'bg-brand-50 border-brand-200 text-brand-700' : 'bg-white border-slate-200 text-slate-500 hover:border-brand-200 hover:text-brand-600'}`}
-                                    >
-                                        {year} ({stats.regStats[year] || 0})
-                                    </button>
+                                    <button key={year} onClick={() => toggleRegistrationYear(year)} className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors whitespace-nowrap ${selectedRegistrationYears.has(year) ? 'bg-brand-50 border-brand-200 text-brand-700' : 'bg-white border-slate-200 text-slate-500 hover:border-brand-200 hover:text-brand-600'}`}>{year} ({stats.regStats[year] || 0})</button>
                                 ))}
                             </div>
                         )}
-
                         <div className="flex items-center bg-white rounded-xl border border-slate-200 shadow-sm p-1">
-                             <select 
-                                value={sortBy}
-                                onChange={(e) => setSortBy(e.target.value as any)}
-                                className="text-sm font-bold text-slate-600 bg-transparent outline-none pl-2 pr-1 py-1 cursor-pointer hover:text-brand-600"
-                            >
+                             <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)} className="text-sm font-bold text-slate-600 bg-transparent outline-none pl-2 pr-1 py-1 cursor-pointer hover:text-brand-600">
                                 <option value="name">Name</option>
                                 <option value="rep">Head</option>
                                 <option value="age">Age</option>
                             </select>
-                            <button onClick={toggleSortDirection} className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600">
-                                {sortDirection === 'asc' ? <ArrowUp className="w-4 h-4"/> : <ArrowDown className="w-4 h-4"/>}
-                            </button>
+                            <button onClick={toggleSortDirection} className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600">{sortDirection === 'asc' ? <ArrowUp className="w-4 h-4"/> : <ArrowDown className="w-4 h-4"/>}</button>
                         </div>
-                        
                         <div className="h-6 w-px bg-slate-200 mx-1"></div>
-
-                        {/* Special Actions Context Menu */}
                         <div className="flex gap-1">
-                            {/* Graduation Button for New Family */}
-                            {(groupingType === 'tag' && (selectedGroup === '새가족' || selectedGroup === 'New Family')) && (
-                                <button 
-                                    onClick={handleGraduateNewFamilies}
-                                    className="p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 rounded-xl border border-transparent hover:border-emerald-200 transition-colors"
-                                    title="Graduate All (Remove 'New Family' Tag)"
-                                >
-                                    <UserCheck className="w-5 h-5" />
-                                </button>
-                            )}
-                            <button 
-                                onClick={handleBulkEmail}
-                                className="p-2 text-slate-400 hover:bg-blue-50 hover:text-blue-600 rounded-xl border border-transparent hover:border-blue-200 transition-colors"
-                                title="Email this list"
-                            >
-                                <Mail className="w-5 h-5" />
-                            </button>
-                            <button 
-                                onClick={handlePrint}
-                                className="p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 rounded-xl border border-transparent hover:border-slate-200 transition-colors"
-                                title="Print View"
-                            >
-                                <Printer className="w-5 h-5" />
-                            </button>
-                             <button 
-                                onClick={handleExport}
-                                className="p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 rounded-xl border border-transparent hover:border-slate-200 transition-colors"
-                                title="Export JSON"
-                            >
-                                <HardDrive className="w-5 h-5" />
-                            </button>
+                            {(groupingType === 'tag' && (selectedGroup === '새가족' || selectedGroup === 'New Family')) && (<button onClick={handleGraduateNewFamilies} className="p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 rounded-xl border border-transparent hover:border-emerald-200 transition-colors" title="Graduate All"><UserCheck className="w-5 h-5" /></button>)}
+                            <button onClick={handleBulkEmail} className="p-2 text-slate-400 hover:bg-blue-50 hover:text-blue-600 rounded-xl border border-transparent hover:border-blue-200 transition-colors" title="Email"><Mail className="w-5 h-5" /></button>
+                            <button onClick={handlePrint} className="p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 rounded-xl border border-transparent hover:border-slate-200 transition-colors" title="Print"><Printer className="w-5 h-5" /></button>
+                            <button onClick={handleExport} className="p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 rounded-xl border border-transparent hover:border-slate-200 transition-colors" title="Export"><HardDrive className="w-5 h-5" /></button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto px-4 lg:px-8 py-6 relative">
                  {renderMainContent()}
             </div>
         </div>
 
-        {/* --- MODALS --- */}
-
-        {/* AI Assistant Panel */}
         {showAiPanel && (
             <div className="fixed inset-0 z-[60] flex justify-end animate-in slide-in-from-right duration-300">
                  <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm" onClick={() => setShowAiPanel(false)}></div>
                  <div className="w-full max-w-md bg-white shadow-2xl h-full relative flex flex-col">
-                      <div className="p-6 bg-gradient-to-r from-violet-600 to-indigo-600 text-white flex justify-between items-center">
-                          <h3 className="font-bold text-lg flex items-center gap-2">
-                             <Sparkles className="w-5 h-5" /> AI Assistant
-                          </h3>
-                          <button onClick={() => setShowAiPanel(false)} className="p-1 hover:bg-white/20 rounded-full transition-colors"><X className="w-5 h-5" /></button>
-                      </div>
+                      <div className="p-6 bg-gradient-to-r from-violet-600 to-indigo-600 text-white flex justify-between items-center"><h3 className="font-bold text-lg flex items-center gap-2"><Sparkles className="w-5 h-5" /> AI Assistant</h3><button onClick={() => setShowAiPanel(false)} className="p-1 hover:bg-white/20 rounded-full transition-colors"><X className="w-5 h-5" /></button></div>
                       <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
-                          {aiResponse ? (
-                              <div className="space-y-4">
-                                  <div className="bg-white p-4 rounded-2xl rounded-tr-none shadow-sm border border-slate-200 text-slate-700 leading-relaxed whitespace-pre-wrap">
-                                      {aiResponse}
-                                  </div>
-                                  <div className="text-right">
-                                      <button onClick={() => setAiResponse('')} className="text-xs text-brand-600 font-bold hover:underline">Ask another question</button>
-                                  </div>
-                              </div>
-                          ) : (
-                              <div className="h-full flex flex-col items-center justify-center text-slate-400 text-center opacity-60">
-                                   <Sparkles className="w-12 h-12 mb-4 text-indigo-300" />
-                                   <p className="text-sm font-medium">Ask me anything about the member data.<br/>Try "How many families are in Joy Mokjang?"</p>
-                              </div>
-                          )}
-                          
-                          {isAiLoading && (
-                              <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center z-10">
-                                  <div className="animate-spin rounded-full h-10 w-10 border-4 border-indigo-500 border-t-transparent"></div>
-                              </div>
-                          )}
+                          {aiResponse ? (<div className="space-y-4"><div className="bg-white p-4 rounded-2xl rounded-tr-none shadow-sm border border-slate-200 text-slate-700 leading-relaxed whitespace-pre-wrap">{aiResponse}</div><div className="text-right"><button onClick={() => setAiResponse('')} className="text-xs text-brand-600 font-bold hover:underline">Ask another question</button></div></div>) : (<div className="h-full flex flex-col items-center justify-center text-slate-400 text-center opacity-60"><Sparkles className="w-12 h-12 mb-4 text-indigo-300" /><p className="text-sm font-medium">Ask me anything about the member data.<br/>Try "How many families are in Joy Mokjang?"</p></div>)}
+                          {isAiLoading && (<div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center z-10"><div className="animate-spin rounded-full h-10 w-10 border-4 border-indigo-500 border-t-transparent"></div></div>)}
                       </div>
                       <div className="p-4 border-t border-slate-200 bg-white">
-                           <div className="flex gap-2">
-                               <input 
-                                  value={aiQuery}
-                                  onChange={(e) => setAiQuery(e.target.value)}
-                                  onKeyDown={(e) => e.key === 'Enter' && handleAiAsk()}
-                                  placeholder="Ask a question..."
-                                  className="flex-1 px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                                  autoFocus
-                               />
-                               <button 
-                                  onClick={handleAiAsk}
-                                  disabled={!aiQuery.trim() || isAiLoading}
-                                  className="px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold disabled:opacity-50 transition-colors"
-                               >
-                                  <ArrowUp className="w-5 h-5" />
-                               </button>
-                           </div>
+                           <div className="flex gap-2"><input value={aiQuery} onChange={(e) => setAiQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAiAsk()} placeholder="Ask a question..." className="flex-1 px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all" autoFocus /><button onClick={handleAiAsk} disabled={!aiQuery.trim() || isAiLoading} className="px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold disabled:opacity-50 transition-colors"><ArrowUp className="w-5 h-5" /></button></div>
                       </div>
                  </div>
             </div>
         )}
 
-        <MemberForm
-            isOpen={isFormOpen}
-            onClose={() => setIsFormOpen(false)}
-            onSubmit={handleSaveMembers}
-            onDelete={editingMember ? handleDeleteMember : undefined}
-            initialData={editingMember}
-            allMembers={members}
-            mokjangList={mokjangList}
-            positionList={positionList}
-            statusList={statusList}
-            tagList={tagList}
-        />
-
-        <MemberDetail
-            isOpen={isDetailOpen}
-            onClose={() => setIsDetailOpen(false)}
-            member={viewingMember}
-            onEdit={handleEditClick}
-            allMembers={members}
-            onMemberClick={handleCardClick}
-        />
-
-        <ImportModal
-            isOpen={isImportOpen}
-            onClose={() => setIsImportOpen(false)}
-            onImport={handleImport}
-        />
-
+        <MemberForm isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} onSubmit={handleSaveMembers} onDelete={editingMember ? handleDeleteMember : undefined} initialData={editingMember} allMembers={members} mokjangList={mokjangList} positionList={positionList} statusList={statusList} tagList={tagList} />
+        <MemberDetail isOpen={isDetailOpen} onClose={() => setIsDetailOpen(false)} member={viewingMember} onEdit={handleEditClick} allMembers={members} onMemberClick={handleCardClick} />
+        <ImportModal isOpen={isImportOpen} onClose={() => setIsImportOpen(false)} onImport={handleImport} />
         <SettingsModal 
-            isOpen={isSettingsOpen}
-            onClose={() => setIsSettingsOpen(false)}
-            mokjangList={mokjangList}
-            positionList={positionList}
-            statusList={statusList}
-            tagList={tagList}
-            onUpdateMokjangs={setMokjangList}
-            onUpdatePositions={setPositionList}
-            onUpdateStatuses={setStatusList}
-            onUpdateTags={setTagList}
-            onRenameItem={handleRenameItem}
-            onDeleteItem={handleDeleteItem}
+            isOpen={isSettingsOpen} 
+            onClose={() => setIsSettingsOpen(false)} 
+            mokjangList={mokjangList} 
+            positionList={positionList} 
+            statusList={statusList} 
+            tagList={tagList} 
+            onUpdateMokjangs={setMokjangList} 
+            onUpdatePositions={setPositionList} 
+            onUpdateStatuses={setStatusList} 
+            onUpdateTags={setTagList} 
+            onRenameItem={handleRenameItem} 
+            onDeleteItem={handleDeleteItem} 
+            onForceSync={handleForceSync}
         />
-
     </div>
   );
 }
