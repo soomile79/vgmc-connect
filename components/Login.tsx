@@ -49,8 +49,11 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     
     // Simulate a brief network delay
     setTimeout(() => {
-        const isMaster = id === MASTER_ID && pw === MASTER_PW;
-        const isSubAdmin = storedAdmins.some(admin => admin.id === id && admin.pw === pw);
+        // Normalize ID to lowercase for case-insensitive comparison
+        const normalizedId = id.trim().toLowerCase();
+        
+        const isMaster = normalizedId === MASTER_ID && pw === MASTER_PW;
+        const isSubAdmin = storedAdmins.some(admin => admin.id.toLowerCase() === normalizedId && admin.pw === pw);
 
         if (isMaster || isSubAdmin) {
             onLogin();
