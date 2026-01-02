@@ -293,9 +293,29 @@ export function App() {
         
         const data = await response.json();
         if (Array.isArray(data)) {
-             setMembers(data);
+             // CRITICAL: Sanitize data to prevent crashes due to missing fields
+             const sanitizedData = data.map((m: any) => ({
+                 ...m,
+                 id: m.id || crypto.randomUUID(),
+                 koreanName: m.koreanName || 'Unknown',
+                 englishName: m.englishName || '',
+                 representative: m.representative || m.koreanName || 'Unknown',
+                 relationship: m.relationship || 'Self',
+                 position: m.position || '일반성도',
+                 status: m.status || 'Active',
+                 mokjang: m.mokjang || 'Unassigned',
+                 gender: m.gender || 'Male',
+                 birthday: m.birthday || '',
+                 registrationDate: m.registrationDate || '',
+                 phone: m.phone || '',
+                 email: m.email || '',
+                 address: m.address || '',
+                 tags: Array.isArray(m.tags) ? m.tags : [],
+                 memo: m.memo || ''
+             }));
+             setMembers(sanitizedData);
              setLastSyncTime(new Date());
-             localStorage.setItem('church-members', JSON.stringify(data));
+             localStorage.setItem('church-members', JSON.stringify(sanitizedData));
         } else if (data.error) {
             throw new Error(data.error);
         }
@@ -460,11 +480,11 @@ export function App() {
     if (searchTerm) {
       const lower = searchTerm.toLowerCase();
       result = result.filter(m => 
-        m.koreanName.toLowerCase().includes(lower) || 
-        m.englishName.toLowerCase().includes(lower) || 
-        m.phone.includes(lower) || 
-        m.mokjang.toLowerCase().includes(lower) ||
-        m.representative.toLowerCase().includes(lower)
+        (m.koreanName || '').toLowerCase().includes(lower) || 
+        (m.englishName || '').toLowerCase().includes(lower) || 
+        (m.phone || '').includes(lower) || 
+        (m.mokjang || '').toLowerCase().includes(lower) ||
+        (m.representative || '').toLowerCase().includes(lower)
       );
     }
     
@@ -490,7 +510,7 @@ export function App() {
          const dayA = getDay(a.birthday);
          const dayB = getDay(b.birthday);
          if (dayA !== dayB) return dayA - dayB;
-         const nameCompare = a.koreanName.localeCompare(b.koreanName, 'ko');
+         const nameCompare = (a.koreanName || '').localeCompare(b.koreanName || '', 'ko');
          if (nameCompare !== 0) return nameCompare;
          return a.birthday.localeCompare(b.birthday);
       });
@@ -507,7 +527,10 @@ export function App() {
     return [...result].sort((a, b) => {
       let comparison = 0;
       if (sortBy === 'rep' || (sortBy === 'name' && searchTerm)) {
-        const repCompare = a.representative.localeCompare(b.representative, 'ko');
+        const repA = a.representative || '';
+        const repB = b.representative || '';
+        const repCompare = repA.localeCompare(repB, 'ko');
+        
         if (repCompare !== 0) {
           comparison = repCompare;
         } else {
@@ -525,13 +548,13 @@ export function App() {
           }
         }
       } else if (sortBy === 'name') {
-        comparison = a.koreanName.localeCompare(b.koreanName, 'ko');
+        comparison = (a.koreanName || '').localeCompare(b.koreanName || '', 'ko');
       } else if (sortBy === 'age') {
         comparison = calculateAge(a.birthday) - calculateAge(b.birthday);
       }
 
       if (comparison === 0) {
-        return a.id.localeCompare(b.id);
+        return (a.id || '').localeCompare(b.id || '');
       }
 
       return sortDirection === 'asc' ? comparison : -comparison;
@@ -543,7 +566,7 @@ export function App() {
 
     const groups: Record<string, Member[]> = {};
     filteredMembers.forEach(m => {
-        const key = m.representative || m.koreanName;
+        const key = m.representative || m.koreanName || 'Unknown';
         if (!groups[key]) groups[key] = [];
         groups[key].push(m);
     });
@@ -561,18 +584,21 @@ export function App() {
             return calculateAge(b.birthday) - calculateAge(a.birthday);
         });
 
+        // Ensure head exists, fallback to first member if sorting fails or data weird
+        const headMember = groupMembers[0];
+
         return {
-            id: groupMembers[0].id,
-            repName: groupMembers[0].representative,
+            id: headMember.id,
+            repName: headMember.representative || headMember.koreanName,
             members: groupMembers,
-            head: groupMembers[0]
+            head: headMember
         };
     });
 
     families.sort((a, b) => {
         let comparison = 0;
         if (sortBy === 'name' || sortBy === 'rep') {
-            comparison = a.repName.localeCompare(b.repName, 'ko');
+            comparison = (a.repName || '').localeCompare(b.repName || '', 'ko');
         } else if (sortBy === 'age') {
             comparison = calculateAge(a.head.birthday) - calculateAge(b.head.birthday);
         }
@@ -1025,214 +1051,205 @@ export function App() {
             )}
         </>
     );
-  };
+  }
 
   if (!isLoggedIn) {
-     return <Login onLogin={handleLogin} />;
+    return <Login onLogin={handleLogin} />;
   }
 
   return (
-     <div className="flex h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden">
-        {/* Mobile Overlay */}
-        {showMobileSidebar && (
-            <div className="fixed inset-0 bg-slate-900/50 z-40 lg:hidden backdrop-blur-sm" onClick={() => setShowMobileSidebar(false)} />
-        )}
-
+    <div className="flex h-screen bg-white font-sans text-slate-900 selection:bg-brand-100 selection:text-brand-900 overflow-hidden">
         {/* Sidebar */}
-        <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-72 bg-white border-r border-slate-200 transform transition-transform duration-300 ease-in-out ${showMobileSidebar ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} shadow-2xl lg:shadow-none flex flex-col`}>
-             <div className="h-16 flex items-center px-6 border-b border-slate-100 bg-white">
-                <Logo />
-            </div>
-            
-            <div className="flex-1 overflow-y-auto py-6 px-2 space-y-6">
-                {renderSidebarSection('ALL MEMBERS', 'all', <Users className="w-4 h-4" />, ['All Members'], (item) => getSubgroupStats(() => true))}
+        <aside className={`fixed inset-y-0 left-0 z-40 w-72 bg-white border-r border-slate-200 transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 ${showMobileSidebar ? 'translate-x-0' : '-translate-x-full'}`}>
+            <div className="flex flex-col h-full">
+                <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                    <Logo />
+                    <button onClick={() => setShowMobileSidebar(false)} className="lg:hidden p-2 text-slate-400 hover:bg-slate-50 rounded-full"><X className="w-5 h-5"/></button>
+                </div>
                 
-                {renderSidebarSection('MOKJANG (CELLS)', 'mokjang', <Home className="w-4 h-4" />, mokjangList, (item) => getSubgroupStats(m => m.mokjang === item))}
-                
-                {renderSidebarSection('POSITIONS', 'position', <Briefcase className="w-4 h-4" />, positionList, (item) => getSubgroupStats(m => m.position === item))}
-                
-                {renderSidebarSection('STATUS', 'status', <Tag className="w-4 h-4" />, statusList, (item) => getRawSubgroupStats(m => m.status === item))}
-                
-                {renderSidebarSection('TAGS', 'tag', <CheckSquare className="w-4 h-4" />, tagList, (item) => getSubgroupStats(m => (m.tags || []).includes(item)))}
-                
-                <div className="py-2 mb-2">
-                     <div 
-                         onClick={() => { setGroupingType('birthday'); setShowMobileSidebar(false); }}
-                         className={`flex items-center gap-2 px-4 py-2 cursor-pointer group hover:bg-slate-50 transition-colors rounded-lg mx-2 ${groupingType === 'birthday' ? 'bg-brand-50 text-brand-700' : 'text-slate-400'}`}
-                     >
-                        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider group-hover:text-brand-500">
-                             <Cake className="w-4 h-4" /> Birthdays
-                        </div>
-                     </div>
-                 </div>
-            </div>
+                <div className="p-4 flex flex-col gap-2">
+                    <button onClick={() => { setGroupingType('all'); setSelectedGroup('All'); setShowMobileSidebar(false); setViewMode('card'); }} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold ${groupingType === 'all' ? 'bg-brand-600 text-white shadow-lg shadow-brand-200' : 'text-slate-500 hover:bg-slate-50'}`}>
+                        <Users className="w-5 h-5" />
+                        All Members
+                    </button>
+                </div>
 
-            <div className="p-4 border-t border-slate-100 bg-slate-50 space-y-2">
-                <button onClick={() => setIsSettingsOpen(true)} className="flex items-center gap-3 w-full px-4 py-2 text-sm font-medium text-slate-600 hover:bg-white hover:text-brand-600 rounded-lg transition-colors">
-                    <Settings className="w-4 h-4" /> Settings
-                </button>
-                <button onClick={handleLogout} className="flex items-center gap-3 w-full px-4 py-2 text-sm font-medium text-slate-400 hover:bg-red-50 hover:text-red-500 rounded-lg transition-colors">
-                    <LogOut className="w-4 h-4" /> Sign Out
-                </button>
+                <div className="flex-1 overflow-y-auto px-2 py-2 space-y-6 custom-scrollbar">
+                    {renderSidebarSection('Cell Groups', 'mokjang', <Home className="w-4 h-4" />, mokjangList, (item) => getSubgroupStats(m => m.mokjang === item))}
+                    {renderSidebarSection('Positions', 'position', <Briefcase className="w-4 h-4" />, positionList, (item) => getSubgroupStats(m => m.position === item))}
+                    {renderSidebarSection('Status', 'status', <Tag className="w-4 h-4" />, statusList, (item) => getRawSubgroupStats(m => m.status === item))}
+                    {renderSidebarSection('Tags', 'tag', <CheckSquare className="w-4 h-4" />, tagList, (item) => getSubgroupStats(m => m.tags?.includes(item) || false))}
+                </div>
+
+                <div className="p-4 border-t border-slate-100 bg-slate-50/50">
+                    <div className="flex flex-col gap-2">
+                        <button onClick={() => { setGroupingType('birthday'); setSelectedGroup('Birthdays'); setShowMobileSidebar(false); }} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all ${groupingType === 'birthday' ? 'bg-white text-brand-600 shadow-sm ring-1 ring-brand-100' : 'text-slate-500 hover:bg-white hover:shadow-sm'}`}>
+                            <Cake className="w-5 h-5 text-pink-500" /> Birthdays
+                            {stats.birthdaysThisMonth > 0 && <span className="ml-auto bg-pink-100 text-pink-600 text-xs px-2 py-0.5 rounded-full">{stats.birthdaysThisMonth}</span>}
+                        </button>
+                        <button onClick={() => setIsSettingsOpen(true)} className="flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-slate-500 hover:bg-white hover:shadow-sm transition-all">
+                            <Settings className="w-5 h-5" /> Settings
+                        </button>
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-slate-200/50 flex items-center justify-between px-2">
+                        <div className="flex items-center gap-2">
+                            <div className={`w-2.5 h-2.5 rounded-full ${serverUrl ? (syncError ? 'bg-red-500' : (isSyncing ? 'bg-amber-400 animate-pulse' : 'bg-emerald-500')) : 'bg-slate-300'}`}></div>
+                            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{isSyncing ? 'Syncing...' : (serverUrl ? 'Online' : 'Offline')}</span>
+                        </div>
+                        <button onClick={handleLogout} className="text-slate-400 hover:text-red-500 p-1.5 hover:bg-red-50 rounded-lg transition-colors" title="Logout"><LogOut className="w-4 h-4"/></button>
+                    </div>
+                </div>
             </div>
         </aside>
 
         {/* Main Area */}
         <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
-             <header className="h-16 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-4 sm:px-8 z-30">
+            <header className="h-16 sm:h-20 bg-white border-b border-slate-100 flex items-center justify-between px-4 sm:px-8 shrink-0 z-30">
                 <div className="flex items-center gap-4">
-                    <button onClick={() => setShowMobileSidebar(true)} className="lg:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-lg">
-                        <Menu className="w-6 h-6" />
-                    </button>
-                    <div className="flex items-baseline gap-2">
-                         <h2 className="text-xl font-bold text-slate-800">{getHeaderTitle()}</h2>
-                         {getHeaderStats()}
+                    <button onClick={() => setShowMobileSidebar(true)} className="lg:hidden p-2 -ml-2 text-slate-400 hover:text-slate-600"><Menu className="w-6 h-6"/></button>
+                    <div className="flex items-center gap-3">
+                        <h2 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight">{getHeaderTitle()}</h2>
+                        {getHeaderStats()}
+                        
+                        {groupingType !== 'birthday' && groupingType !== 'status' && (
+                            <button 
+                                onClick={() => setShowActiveOnly(!showActiveOnly)}
+                                className={`ml-4 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all border ${showActiveOnly ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-50 text-slate-500 border-slate-200'}`}
+                                title={showActiveOnly ? "Showing Active Members Only" : "Showing All Members (Including Inactive)"}
+                            >
+                                {showActiveOnly ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                                {showActiveOnly ? 'Active Only' : 'All Records'}
+                            </button>
+                        )}
                     </div>
                 </div>
-                
-                <div className="flex items-center gap-2 sm:gap-3">
-                    <div className="relative hidden md:block group">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4 group-focus-within:text-brand-500 transition-colors" />
+
+                <div className="flex items-center gap-2 sm:gap-4">
+                    <div className="hidden md:flex items-center bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 w-64 focus-within:w-80 focus-within:ring-2 focus-within:ring-brand-100 focus-within:border-brand-300 transition-all">
+                        <Search className="w-4 h-4 text-slate-400 mr-2" />
                         <input 
                             type="text" 
                             placeholder="Search members..." 
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-10 pr-4 py-2 bg-slate-100 border-none rounded-xl text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white w-64 transition-all"
+                            className="bg-transparent border-none outline-none text-sm w-full font-medium placeholder-slate-400"
                         />
                     </div>
-                    <div className="h-6 w-px bg-slate-200 mx-1 hidden sm:block"></div>
-                    <button onClick={() => setIsImportOpen(true)} className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors" title="Import Data">
-                        <FileInput className="w-5 h-5" />
-                    </button>
-                    <button onClick={handleExport} className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors" title="Export Data">
-                        <Download className="w-5 h-5" />
-                    </button>
-                    <button onClick={handlePrint} className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors print:hidden" title="Print List">
-                        <Printer className="w-5 h-5" />
-                    </button>
-                     <button 
-                        onClick={() => setShowAiPanel(!showAiPanel)} 
-                        className={`p-2 rounded-lg transition-colors flex items-center gap-2 ${showAiPanel ? 'bg-brand-50 text-brand-600' : 'text-slate-500 hover:bg-slate-100'}`}
+
+                    <button 
+                        onClick={() => setShowAiPanel(!showAiPanel)}
+                        className={`p-2.5 rounded-xl border transition-all ${showAiPanel ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-white border-slate-200 text-slate-400 hover:text-indigo-500 hover:border-indigo-200'}`}
                         title="AI Assistant"
                     >
                         <Sparkles className="w-5 h-5" />
                     </button>
+
+                    <div className="h-8 w-px bg-slate-100 mx-2 hidden sm:block"></div>
+                    
+                    <div className="hidden sm:flex bg-slate-50 p-1 rounded-xl border border-slate-200">
+                        <button onClick={() => setViewMode('card')} className={`p-2 rounded-lg transition-all ${viewMode === 'card' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400 hover:text-slate-600'}`}><LayoutGrid className="w-4 h-4"/></button>
+                        <button onClick={() => setViewMode('family')} className={`p-2 rounded-lg transition-all ${viewMode === 'family' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400 hover:text-slate-600'}`}><Users className="w-4 h-4"/></button>
+                    </div>
+
                     <button 
                         onClick={() => { setEditingMember(null); setIsFormOpen(true); }}
-                        className="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-xl font-bold shadow-lg shadow-brand-200 flex items-center gap-2 transition-transform active:scale-95 ml-2"
+                        className="bg-brand-600 hover:bg-brand-700 text-white px-4 sm:px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-brand-200 flex items-center gap-2 transition-all hover:-translate-y-0.5"
                     >
                         <Plus className="w-5 h-5" />
                         <span className="hidden sm:inline">Add Member</span>
                     </button>
                 </div>
-             </header>
+            </header>
 
-             {/* Filters */}
-             <div className="px-4 sm:px-8 py-4 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center bg-white/50 backdrop-blur-sm z-20">
-                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar max-w-full pb-2 sm:pb-0">
-                    <div className="flex bg-slate-100 p-1 rounded-xl shrink-0">
-                        <button onClick={() => setViewMode('card')} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${viewMode === 'card' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}>
-                            <LayoutGrid className="w-4 h-4" /> Cards
-                        </button>
-                        <button onClick={() => setViewMode('family')} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${viewMode === 'family' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}>
-                            <Users className="w-4 h-4" /> Families
-                        </button>
-                    </div>
-                    <div className="h-6 w-px bg-slate-200 mx-2 shrink-0"></div>
-                    <div className="flex items-center gap-2 shrink-0">
-                        <button onClick={() => setSortBy('name')} className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${sortBy === 'name' ? 'bg-brand-50 border-brand-200 text-brand-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-                            Name
-                        </button>
-                        <button onClick={() => setSortBy(viewMode === 'family' ? 'rep' : 'age')} className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${sortBy === (viewMode === 'family' ? 'rep' : 'age') ? 'bg-brand-50 border-brand-200 text-brand-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-                            {viewMode === 'family' ? 'Rep Name' : 'Age'}
-                        </button>
-                        <button onClick={toggleSortDirection} className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-brand-600 hover:bg-slate-50 transition-colors">
-                            {sortDirection === 'asc' ? <ArrowUp className="w-4 h-4"/> : <ArrowDown className="w-4 h-4"/>}
-                        </button>
-                    </div>
-                    <div className="h-6 w-px bg-slate-200 mx-2 shrink-0"></div>
-                    <label className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors shrink-0">
-                        <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${showActiveOnly ? 'bg-brand-500 border-brand-500' : 'border-slate-300 bg-white'}`}>
-                            {showActiveOnly && <Check className="w-3 h-3 text-white" />}
+            <div className="px-4 sm:px-8 py-4 bg-white/80 backdrop-blur-sm border-b border-slate-100 flex items-center justify-between gap-4 overflow-x-auto no-scrollbar shrink-0 z-20">
+                <div className="flex items-center gap-2">
+                    <button onClick={toggleSortDirection} className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50 transition-colors">
+                        {sortDirection === 'asc' ? <ArrowUp className="w-3.5 h-3.5"/> : <ArrowDown className="w-3.5 h-3.5"/>}
+                        Sort by {sortBy === 'name' ? 'Name' : sortBy === 'rep' ? 'Family' : 'Age'}
+                    </button>
+                    <div className="h-4 w-px bg-slate-200 mx-1"></div>
+                    
+                    <select 
+                        value={sortBy} 
+                        onChange={(e) => setSortBy(e.target.value as any)}
+                        className="bg-transparent text-xs font-bold text-slate-600 outline-none cursor-pointer hover:text-brand-600"
+                    >
+                        <option value="name">Sort: Name</option>
+                        <option value="rep">Sort: Family</option>
+                        <option value="age">Sort: Age</option>
+                    </select>
+
+                    {stats.yearsToCheck.length > 0 && (
+                        <div className="flex items-center gap-1 ml-4">
+                            {stats.yearsToCheck.map(year => (
+                                <button
+                                    key={year}
+                                    onClick={() => toggleRegistrationYear(year)}
+                                    className={`px-3 py-1 rounded-full text-xs font-bold border transition-colors ${selectedRegistrationYears.has(year) ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-slate-500 border-slate-200 hover:border-brand-200'}`}
+                                >
+                                    {year} ({stats.regStats[year] || 0})
+                                </button>
+                            ))}
                         </div>
-                        <input type="checkbox" checked={showActiveOnly} onChange={(e) => setShowActiveOnly(e.target.checked)} className="hidden" />
-                        <span className="text-xs font-bold text-slate-600">Active Only</span>
-                    </label>
+                    )}
                 </div>
-                
-                <div className="flex items-center gap-1 overflow-x-auto no-scrollbar max-w-full">
-                     {stats.yearsToCheck.map(year => (
-                         <button 
-                            key={year}
-                            onClick={() => toggleRegistrationYear(year)}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold border whitespace-nowrap transition-colors ${selectedRegistrationYears.has(year) ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
-                         >
-                             {year}: {stats.regStats[year] || 0}
-                         </button>
-                     ))}
-                </div>
-             </div>
 
-             {/* AI Panel */}
-             {showAiPanel && (
-                <div className="bg-brand-50 border-b border-brand-100 p-4 animate-in slide-in-from-top-2">
-                    <div className="max-w-3xl mx-auto flex gap-4">
-                        <div className="bg-white p-2 rounded-full shadow-sm h-fit text-brand-500"><Sparkles className="w-6 h-6" /></div>
-                        <div className="flex-1 space-y-3">
-                            <h3 className="font-bold text-brand-800 text-sm uppercase">AI Assistant</h3>
-                            <div className="relative">
+                <div className="flex items-center gap-2">
+                        {(groupingType === 'tag' && (selectedGroup === 'New Family' || selectedGroup === '새가족')) && (
+                            <button onClick={handleGraduateNewFamilies} className="px-3 py-1.5 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg border border-amber-200 transition-colors flex items-center gap-1.5 mr-2">
+                                <UserCheck className="w-3.5 h-3.5" />
+                                Graduate All Visible
+                            </button>
+                        )}
+                        <button onClick={handleBulkEmail} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors" title="Email Visible Members"><Mail className="w-4 h-4" /></button>
+                        <button onClick={handlePrint} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors" title="Print List"><Printer className="w-4 h-4" /></button>
+                        <button onClick={handleExport} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors" title="Export Backup"><Download className="w-4 h-4" /></button>
+                        <button onClick={() => setIsImportOpen(true)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors" title="Import Data"><FileInput className="w-4 h-4" /></button>
+                </div>
+            </div>
+
+            {showAiPanel && (
+                <div className="border-b border-indigo-100 bg-indigo-50/50 p-4 animate-in slide-in-from-top-2">
+                    <div className="max-w-3xl mx-auto w-full">
+                        <div className="flex gap-2">
+                            <div className="relative flex-1">
+                                <Sparkles className="absolute left-3 top-3 w-5 h-5 text-indigo-400" />
                                 <input 
                                     value={aiQuery}
                                     onChange={(e) => setAiQuery(e.target.value)}
                                     onKeyDown={(e) => e.key === 'Enter' && handleAiAsk()}
-                                    placeholder="Ask anything about members (e.g., 'Who lives in Burnaby?', 'List all teachers')"
-                                    className="w-full pl-4 pr-12 py-3 rounded-xl border-none shadow-sm focus:ring-2 focus:ring-brand-500 text-sm"
+                                    placeholder="Ask about members (e.g., 'How many people in Joy Mokjang?', 'List all deacons')"
+                                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-indigo-200 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none text-slate-800 placeholder-indigo-300 bg-white"
                                 />
-                                <button 
-                                    onClick={handleAiAsk}
-                                    disabled={isAiLoading || !aiQuery.trim()}
-                                    className="absolute right-2 top-1.5 p-1.5 bg-brand-600 text-white rounded-lg hover:bg-brand-700 disabled:opacity-50 transition-colors"
-                                >
-                                    {isAiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
-                                </button>
                             </div>
-                            {aiResponse && (
-                                <div className="bg-white p-4 rounded-xl shadow-sm text-slate-700 text-sm leading-relaxed whitespace-pre-wrap border border-slate-100 animate-in fade-in">
-                                    {aiResponse}
-                                </div>
-                            )}
+                            <button 
+                                onClick={handleAiAsk}
+                                disabled={isAiLoading || !aiQuery.trim()}
+                                className="px-4 py-2 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                            >
+                                {isAiLoading ? <Loader2 className="w-5 h-5 animate-spin"/> : 'Ask AI'}
+                            </button>
                         </div>
+                        {aiResponse && (
+                            <div className="mt-4 p-4 bg-white rounded-xl border border-indigo-100 shadow-sm text-slate-700 text-sm leading-relaxed whitespace-pre-wrap animate-in fade-in">
+                                {aiResponse}
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
 
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 bg-slate-50/50 scroll-smooth">
+            <div className="flex-1 overflow-y-auto bg-slate-50/50 p-4 sm:p-6 lg:p-8 scroll-smooth" id="main-scroll-container">
                 {renderMainContent()}
             </div>
-            
-            {/* Grad Button */}
-            {filteredMembers.some(m => m.tags?.includes('New Family') || m.tags?.includes('새가족')) && (
-                <div className="absolute bottom-6 right-6 z-30">
-                     <button 
-                        onClick={handleGraduateNewFamilies}
-                        className="bg-white hover:bg-indigo-50 text-indigo-600 border border-indigo-100 hover:border-indigo-200 shadow-xl px-4 py-3 rounded-2xl font-bold flex items-center gap-2 transition-all hover:scale-105"
-                     >
-                        <UserCheck className="w-5 h-5" />
-                        Graduate New Families
-                     </button>
-                </div>
-            )}
         </main>
-        
-        {/* Modals */}
+
         <MemberForm 
-            isOpen={isFormOpen}
-            onClose={() => setIsFormOpen(false)}
+            isOpen={isFormOpen} 
+            onClose={() => setIsFormOpen(false)} 
             onSubmit={handleSaveMembers}
-            onDelete={editingMember ? handleDeleteMember : undefined}
             initialData={editingMember}
+            onDelete={handleDeleteMember}
             allMembers={members}
             mokjangList={mokjangList}
             positionList={positionList}
@@ -1246,7 +1263,7 @@ export function App() {
             onClose={() => setIsDetailOpen(false)}
             onEdit={handleEditClick}
             allMembers={members}
-            onMemberClick={(m) => setViewingMember(m)}
+            onMemberClick={handleCardClick}
         />
 
         <ImportModal 
@@ -1262,14 +1279,14 @@ export function App() {
             positionList={positionList}
             statusList={statusList}
             tagList={tagList}
-            onUpdateMokjangs={(l) => setMokjangList(l)}
-            onUpdatePositions={(l) => setPositionList(l)}
-            onUpdateStatuses={(l) => setStatusList(l)}
-            onUpdateTags={(l) => setTagList(l)}
+            onUpdateMokjangs={setMokjangList}
+            onUpdatePositions={setPositionList}
+            onUpdateStatuses={setStatusList}
+            onUpdateTags={setTagList}
             onRenameItem={handleRenameItem}
             onDeleteItem={handleDeleteItem}
             onForceSync={serverUrl ? handleForceSync : undefined}
         />
-     </div>
+    </div>
   );
 }
