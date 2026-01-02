@@ -44,7 +44,8 @@ import {
   Smartphone,
   Gift,
   PartyPopper,
-  CalendarDays
+  CalendarDays,
+  AlertTriangle
 } from 'lucide-react';
 
 import { Member, GroupingType, Position } from './types';
@@ -78,6 +79,9 @@ export function App() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState('');
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
+  
+  // Data Persistence Warning State
+  const [showPersistenceWarning, setShowPersistenceWarning] = useState(false);
 
   const [mokjangList, setMokjangList] = useState<string[]>(() => {
     const saved = localStorage.getItem('church-mokjangs');
@@ -98,6 +102,16 @@ export function App() {
     const saved = localStorage.getItem('church-tags');
     return saved ? JSON.parse(saved) : ['세례', '새가족'];
   });
+
+  // --- Check for Data Risk ---
+  useEffect(() => {
+    // If user has no server connected, but has modified data (more than initial), show warning
+    if (!serverUrl && members.length > 0 && !localStorage.getItem('dismiss-sync-warn')) {
+        setShowPersistenceWarning(true);
+    } else {
+        setShowPersistenceWarning(false);
+    }
+  }, [serverUrl, members.length]);
 
   // --- Auto-migration for Data Consistency (English -> Korean) ---
   useEffect(() => {
@@ -316,7 +330,7 @@ export function App() {
     }
   };
 
-  // Initial Sync on Load
+  // Initial Sync on Load - Trigger every time URL changes or on Login
   useEffect(() => {
     if (isLoggedIn && serverUrl) {
         fetchFromCloud();
@@ -938,6 +952,30 @@ export function App() {
 
     return (
         <>
+            {/* === DATA PERSISTENCE WARNING === */}
+            {showPersistenceWarning && (
+                <div className="bg-amber-50 border-b border-amber-100 px-4 py-3 flex items-start sm:items-center justify-between gap-4 animate-in slide-in-from-top-4 relative z-40">
+                    <div className="flex items-start gap-3">
+                        <div className="bg-amber-100 p-1.5 rounded-full text-amber-600 shrink-0 mt-0.5 sm:mt-0">
+                            <AlertTriangle className="w-4 h-4" />
+                        </div>
+                        <div className="text-sm text-amber-900">
+                            <strong className="font-bold">Data Not Synced!</strong> New data is currently saved only in this browser and may be lost on updates. 
+                            <span className="block sm:inline sm:ml-1 opacity-80">Please go to Settings &gt; Cloud to connect your server.</span>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={() => {
+                            setShowPersistenceWarning(false);
+                            localStorage.setItem('dismiss-sync-warn', 'true');
+                        }}
+                        className="p-1 hover:bg-amber-100 rounded-lg text-amber-500 transition-colors"
+                    >
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+            )}
+
             {/* === CARD VIEW (COMPACT & PASTEL & HOVER EFFECTS) === */}
             {viewMode === 'card' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 pb-8 print:grid-cols-3 print:gap-4 print-grid">
