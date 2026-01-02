@@ -1,10 +1,19 @@
-import React, { useState } from 'react';
-import { Lock, ArrowRight, User, Key, Sparkles } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Lock, ArrowRight, User, Key, Sparkles, Settings, Plus, Trash2, X, ShieldAlert } from 'lucide-react';
 import Logo from './Logo';
 
 interface LoginProps {
   onLogin: () => void;
 }
+
+interface AdminUser {
+    id: string;
+    pw: string;
+    note?: string;
+}
+
+const MASTER_ID = 'vgmc';
+const MASTER_PW = 'vgmc.org';
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [id, setId] = useState('');
@@ -12,19 +21,72 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  // Admin Management State
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+  const [masterAuth, setMasterAuth] = useState('');
+  const [isMasterAuthenticated, setIsMasterAuthenticated] = useState(false);
+  const [storedAdmins, setStoredAdmins] = useState<AdminUser[]>([]);
+  
+  const [newAdminId, setNewAdminId] = useState('');
+  const [newAdminPw, setNewAdminPw] = useState('');
+  const [newAdminNote, setNewAdminNote] = useState('');
+
+  useEffect(() => {
+    const saved = localStorage.getItem('church-admins');
+    if (saved) {
+        setStoredAdmins(JSON.parse(saved));
+    }
+  }, []);
+
+  const saveAdmins = (admins: AdminUser[]) => {
+      setStoredAdmins(admins);
+      localStorage.setItem('church-admins', JSON.stringify(admins));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
-    // Simulate a brief network delay for better UX feel
+    // Simulate a brief network delay
     setTimeout(() => {
-        if (id === 'vgmc' && pw === 'vgmc.org') {
+        const isMaster = id === MASTER_ID && pw === MASTER_PW;
+        const isSubAdmin = storedAdmins.some(admin => admin.id === id && admin.pw === pw);
+
+        if (isMaster || isSubAdmin) {
             onLogin();
         } else {
             setError('아이디 또는 비밀번호가 올바르지 않습니다.');
             setIsLoading(false);
         }
     }, 600);
+  };
+
+  const handleMasterAuth = () => {
+      if (masterAuth === MASTER_PW) {
+          setIsMasterAuthenticated(true);
+      } else {
+          alert('Incorrect Master Password');
+      }
+  };
+
+  const handleAddAdmin = () => {
+      if (!newAdminId || !newAdminPw) return;
+      if (newAdminId === MASTER_ID || storedAdmins.some(a => a.id === newAdminId)) {
+          alert('ID already exists or is reserved.');
+          return;
+      }
+      const updated = [...storedAdmins, { id: newAdminId, pw: newAdminPw, note: newAdminNote }];
+      saveAdmins(updated);
+      setNewAdminId('');
+      setNewAdminPw('');
+      setNewAdminNote('');
+  };
+
+  const handleDeleteAdmin = (targetId: string) => {
+      if (confirm(`Delete admin "${targetId}"?`)) {
+          const updated = storedAdmins.filter(a => a.id !== targetId);
+          saveAdmins(updated);
+      }
   };
 
   return (
@@ -116,11 +178,17 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 </button>
             </form>
 
-            <div className="mt-8 text-center">
-                 <p className="text-xs text-slate-400 font-medium flex items-center justify-center gap-1">
-                    <Sparkles className="w-3 h-3" />
-                    Connected in Faith, United in Love
-                 </p>
+            <div className="mt-6 flex justify-center">
+                 <button 
+                    onClick={() => {
+                        setIsAdminModalOpen(true);
+                        setIsMasterAuthenticated(false);
+                        setMasterAuth('');
+                    }}
+                    className="text-xs text-slate-400 font-bold hover:text-brand-600 flex items-center gap-1.5 transition-colors"
+                 >
+                    <Settings className="w-3 h-3" /> Admin Management
+                 </button>
             </div>
         </div>
         
@@ -128,6 +196,62 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             <p className="text-xs text-white/80 font-medium">© 2024 VGMC Connect. All rights reserved.</p>
         </div>
       </div>
+
+      {/* Admin Management Modal */}
+      {isAdminModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden p-6 relative">
+                  <button onClick={() => setIsAdminModalOpen(false)} className="absolute top-4 right-4 p-1 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
+                  
+                  <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                      <ShieldAlert className="w-5 h-5 text-brand-600" /> Admin Management
+                  </h3>
+
+                  {!isMasterAuthenticated ? (
+                      <div className="space-y-4">
+                          <p className="text-sm text-slate-500">Enter Master Password to manage admins.</p>
+                          <input 
+                            type="password" 
+                            value={masterAuth} 
+                            onChange={(e) => setMasterAuth(e.target.value)} 
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none text-slate-800"
+                            placeholder="Master Password"
+                          />
+                          <button onClick={handleMasterAuth} className="w-full py-3 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-900 transition-colors">
+                              Verify Access
+                          </button>
+                      </div>
+                  ) : (
+                      <div className="space-y-6">
+                          <div className="space-y-2 max-h-48 overflow-y-auto pr-1 scrollbar-hide">
+                              <h4 className="text-xs font-bold text-slate-400 uppercase">Current Admins</h4>
+                              {storedAdmins.length === 0 ? <p className="text-sm text-slate-400 italic">No sub-admins added.</p> : (
+                                  storedAdmins.map((admin) => (
+                                      <div key={admin.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
+                                          <div>
+                                              <div className="font-bold text-sm text-slate-700">{admin.id}</div>
+                                              <div className="text-xs text-slate-400">{admin.note || 'No description'}</div>
+                                          </div>
+                                          <button onClick={() => handleDeleteAdmin(admin.id)} className="text-slate-400 hover:text-red-500 p-1"><Trash2 className="w-4 h-4"/></button>
+                                      </div>
+                                  ))
+                              )}
+                          </div>
+
+                          <div className="pt-4 border-t border-slate-100 space-y-3">
+                               <h4 className="text-xs font-bold text-brand-600 uppercase">Add New Admin</h4>
+                               <input value={newAdminId} onChange={e => setNewAdminId(e.target.value)} placeholder="New ID" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:border-brand-500 outline-none"/>
+                               <input value={newAdminPw} onChange={e => setNewAdminPw(e.target.value)} placeholder="New Password" type="password" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:border-brand-500 outline-none"/>
+                               <input value={newAdminNote} onChange={e => setNewAdminNote(e.target.value)} placeholder="Note (e.g. Finance Team)" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:border-brand-500 outline-none"/>
+                               <button onClick={handleAddAdmin} className="w-full py-2 bg-brand-50 text-brand-700 font-bold rounded-lg hover:bg-brand-100 flex items-center justify-center gap-2">
+                                   <Plus className="w-4 h-4"/> Add User
+                               </button>
+                          </div>
+                      </div>
+                  )}
+              </div>
+          </div>
+      )}
     </div>
   );
 };
