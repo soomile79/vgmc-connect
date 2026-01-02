@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { X, Plus, Trash2, Settings, List, Tag, CheckSquare, GripVertical, Check, Cloud, Key, Globe, Loader2, AlertCircle } from 'lucide-react';
+import { X, Plus, Trash2, Settings, List, Tag, CheckSquare, GripVertical, Check, Cloud, Key, Globe, Loader2, AlertCircle, Download, Upload } from 'lucide-react';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -14,13 +14,14 @@ interface SettingsModalProps {
   onUpdateTags: (list: string[]) => void;
   onRenameItem: (type: string, oldVal: string, newVal: string) => void;
   onDeleteItem: (type: string, item: string) => void;
+  onForceSync?: (direction: 'upload' | 'download') => Promise<void>;
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ 
   isOpen, onClose, 
   mokjangList, positionList, statusList, tagList,
   onUpdateMokjangs, onUpdatePositions, onUpdateStatuses, onUpdateTags,
-  onRenameItem, onDeleteItem
+  onRenameItem, onDeleteItem, onForceSync
 }) => {
   const [activeTab, setActiveTab] = useState<'mokjang' | 'position' | 'status' | 'tags' | 'cloud'>('mokjang');
   const [newItem, setNewItem] = useState('');
@@ -30,6 +31,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const [apiSecret, setApiSecret] = useState(() => localStorage.getItem('church-api-secret') || '');
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{success: boolean; message: string} | null>(null);
+  const [syncStatus, setSyncStatus] = useState<string>('');
   
   // Editing State
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -143,8 +145,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     setTestResult(null);
 
     try {
-        // Attempt to fetch data to verify connection
-        const response = await fetch(serverUrl, {
+        const noCacheUrl = `${serverUrl}${serverUrl.includes('?') ? '&' : '?'}t=${new Date().getTime()}`;
+        const response = await fetch(noCacheUrl, {
             method: 'GET',
             headers: {
                 'X-Api-Secret': apiSecret,
@@ -153,14 +155,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         });
 
         if (response.ok) {
-            // Success!
             localStorage.setItem('church-server-url', serverUrl);
             localStorage.setItem('church-api-secret', apiSecret);
             setTestResult({ success: true, message: "Connection Successful! Settings Saved." });
             
-            // Auto close after success
             setTimeout(() => {
-                // Trigger a reload to force app sync
                 window.location.reload();
             }, 1500);
         } else {
@@ -178,6 +177,27 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     } finally {
         setIsTesting(false);
     }
+  };
+
+  const handleManualSync = async (direction: 'upload' | 'download') => {
+      if (!onForceSync) return;
+      if (!confirm(direction === 'download' 
+          ? "Are you sure? This will overwrite ALL local data with data from the server." 
+          : "Are you sure? This will overwrite the SERVER data with data from this device.")) {
+          return;
+      }
+
+      setSyncStatus(`Processing ${direction}...`);
+      try {
+          await onForceSync(direction);
+          setSyncStatus('Success!');
+          setTimeout(() => setSyncStatus(''), 2000);
+          if (direction === 'download') {
+              window.location.reload();
+          }
+      } catch (e) {
+          setSyncStatus('Failed.');
+      }
   };
 
   const tabs = [
@@ -279,6 +299,30 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         </>
                     )}
                 </button>
+                
+                {/* Manual Sync Actions */}
+                {localStorage.getItem('church-server-url') && onForceSync && (
+                    <div className="pt-6 border-t border-slate-100">
+                        <h4 className="text-xs font-bold text-slate-400 uppercase mb-3">Advanced Sync Actions</h4>
+                        <div className="grid grid-cols-2 gap-3">
+                            <button 
+                                onClick={() => handleManualSync('download')}
+                                className="flex flex-col items-center justify-center p-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors text-slate-600 gap-1 text-xs font-bold"
+                            >
+                                <Download className="w-5 h-5 mb-1 text-blue-500" />
+                                Download from Server
+                            </button>
+                            <button 
+                                onClick={() => handleManualSync('upload')}
+                                className="flex flex-col items-center justify-center p-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors text-slate-600 gap-1 text-xs font-bold"
+                            >
+                                <Upload className="w-5 h-5 mb-1 text-rose-500" />
+                                Upload Local to Server
+                            </button>
+                        </div>
+                        {syncStatus && <div className="text-center text-xs font-bold text-brand-600 mt-2 animate-pulse">{syncStatus}</div>}
+                    </div>
+                )}
             </div>
           ) : (
             <>
