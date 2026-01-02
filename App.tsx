@@ -46,7 +46,9 @@ import {
   PartyPopper,
   CalendarDays,
   AlertTriangle,
-  RotateCw
+  RotateCw,
+  Loader2,
+  ArrowRight
 } from 'lucide-react';
 
 import { Member, GroupingType, Position } from './types';
@@ -738,7 +740,7 @@ export function App() {
   const renderSidebarSection = (title: string, type: GroupingType, icon: React.ReactNode, items: string[], statsFn: (item: string) => { count: number, families: number }) => {
     const isExpanded = expandedSections[type];
     return (
-        <div className="mb-2">
+        <div className="mb-4 border-b border-slate-100 pb-4 last:border-0">
             <div 
                 onClick={() => toggleSection(type)}
                 className="flex items-center justify-between px-4 py-2 cursor-pointer group hover:bg-slate-50 transition-colors rounded-lg mx-2"
@@ -825,9 +827,7 @@ export function App() {
   
   // Render function identical to previous... just returning components
   const renderMainContent = () => {
-    // ... same as before, see full App.tsx structure
     if (groupingType === 'birthday') {
-        // ... same birthday view ...
         return (
               <div className="max-w-7xl mx-auto">
                   <div className="bg-gradient-to-r from-pink-500 via-rose-400 to-orange-400 text-white px-6 py-4 rounded-2xl shadow-lg mb-8 relative overflow-hidden flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -1017,184 +1017,328 @@ export function App() {
             )}
         </>
     );
-  };
+  }
 
   if (!isLoggedIn) {
     return <Login onLogin={handleLogin} />;
   }
 
   return (
-    <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
-        {showMobileSidebar && (
-            <div className="fixed inset-0 bg-slate-900/50 z-40 lg:hidden backdrop-blur-sm" onClick={() => setShowMobileSidebar(false)}></div>
-        )}
-
-        {/* Sidebar */}
-        <div className={`fixed inset-y-0 left-0 z-50 w-72 bg-white border-r border-slate-200 transform transition-transform duration-300 lg:translate-x-0 lg:static flex flex-col shadow-xl lg:shadow-none ${showMobileSidebar ? 'translate-x-0' : '-translate-x-full'}`}>
-            <div className="h-20 flex items-center px-6 border-b border-slate-100 bg-white">
-                <Logo />
-            </div>
-
-            <div className="flex-1 overflow-y-auto py-6 px-4 space-y-6 scrollbar-hide">
-                 <div>
-                    <div className="px-4 pb-2 text-xs font-extrabold text-slate-400 uppercase tracking-widest">Directory</div>
-                    <div 
-                        onClick={() => { setGroupingType('all'); setSelectedGroup('All'); setShowMobileSidebar(false); setViewMode('card'); setShowActiveOnly(true); }}
-                        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl cursor-pointer transition-colors mb-1 ${groupingType === 'all' && showActiveOnly ? 'bg-brand-50 text-brand-700 font-bold' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
-                    >
-                        <Users className="w-5 h-5" />
-                        <span>Active Members</span>
-                    </div>
-                    <div 
-                        onClick={() => { setGroupingType('all'); setSelectedGroup('All'); setShowMobileSidebar(false); setViewMode('card'); setShowActiveOnly(false); }}
-                        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl cursor-pointer transition-colors ${groupingType === 'all' && !showActiveOnly ? 'bg-brand-50 text-brand-700 font-bold' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
-                    >
-                        <List className="w-5 h-5" />
-                        <span>All Members (Archive)</span>
-                    </div>
-                     <div 
-                        onClick={() => { setGroupingType('birthday'); setSelectedGroup('Birthdays'); setShowMobileSidebar(false); }}
-                        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl cursor-pointer transition-colors mt-1 ${groupingType === 'birthday' ? 'bg-gradient-to-r from-pink-50 to-orange-50 text-pink-600 font-bold' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
-                    >
-                        <Cake className="w-5 h-5" />
-                        <span>Birthdays</span>
-                    </div>
-                 </div>
-
-                 <div>
-                    <div className="px-4 pb-2 text-xs font-extrabold text-slate-400 uppercase tracking-widest mt-4">Groups</div>
-                    {renderSidebarSection('목장', 'mokjang', <Home className="w-4 h-4"/>, mokjangList, (item) => getSubgroupStats(m => m.mokjang === item))}
-                    {renderSidebarSection('Positions', 'position', <Briefcase className="w-4 h-4"/>, positionList, (item) => getSubgroupStats(m => m.position === item))}
-                    {renderSidebarSection('Status', 'status', <UserCheck className="w-4 h-4"/>, statusList, (item) => getRawSubgroupStats(m => m.status === item))}
-                    {renderSidebarSection('Tags', 'tag', <Tag className="w-4 h-4"/>, tagList, (item) => getSubgroupStats(m => m.tags?.includes(item)))}
-                 </div>
-            </div>
-
-            <div className="p-4 border-t border-slate-100 bg-slate-50">
-                <div className="flex items-center justify-between text-xs text-slate-400 font-medium px-2 mb-3">
-                    <span className="flex items-center gap-1.5"><Cloud className={`w-3 h-3 ${isSyncing ? 'text-blue-500 animate-pulse' : (serverUrl && !syncError ? 'text-green-500' : 'text-slate-300')}`} /> {isSyncing ? 'Syncing...' : (lastSyncTime ? 'Synced' : 'Offline')}</span>
-                    <div className="flex items-center gap-2">
-                        {lastSyncTime && <span>{lastSyncTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>}
-                        {serverUrl && <button onClick={() => fetchFromCloud()} disabled={isSyncing} className="p-1 hover:bg-slate-200 rounded-full transition-colors" title="Refresh from Server"><RotateCw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} /></button>}
-                    </div>
-                </div>
-                <button onClick={() => setIsSettingsOpen(true)} className="flex items-center gap-2 w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold hover:bg-slate-100 hover:text-slate-800 transition-all shadow-sm">
-                    <Settings className="w-4 h-4" /> System Settings
-                </button>
-                <div className="mt-2 flex gap-2">
-                     <button onClick={handleLogout} className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-slate-200 rounded-xl text-slate-600 font-bold hover:bg-slate-300 transition-colors text-xs">
-                        <LogOut className="w-3 h-3" /> Logout
-                     </button>
-                </div>
-            </div>
-        </div>
-
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col min-w-0 bg-white lg:bg-slate-50 relative">
-            {/* ... Top Bar & Rest of UI ... */}
-            <div className="h-20 px-3 lg:px-8 border-b border-slate-200 bg-white/80 backdrop-blur-xl flex items-center justify-between sticky top-0 z-30 shadow-sm lg:shadow-none gap-2">
-                <div className="flex items-center gap-2 lg:gap-4 shrink-0">
-                    <button onClick={() => setShowMobileSidebar(true)} className="lg:hidden p-2 text-slate-500 hover:bg-slate-100 rounded-lg">
-                        <Menu className="w-6 h-6" />
-                    </button>
-                    <div className="hidden sm:block">
-                        <h2 className="text-lg lg:text-xl font-extrabold text-slate-800 flex items-center gap-2">
-                            {getHeaderTitle()}
-                            {getHeaderStats()}
-                        </h2>
-                    </div>
-                </div>
-                <div className="flex-1 max-w-lg mx-2 flex items-center bg-slate-100 rounded-xl px-3 py-2 border border-slate-200 focus-within:ring-2 focus-within:ring-brand-500 focus-within:bg-white transition-all group">
-                    <Search className="w-5 h-5 text-slate-400 group-focus-within:text-brand-500 shrink-0" />
-                    <input type="text" placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-transparent border-none outline-none text-sm ml-2 w-full text-slate-800 placeholder-slate-400"/>
-                    {searchTerm && <button onClick={() => setSearchTerm('')} className="p-0.5 rounded-full hover:bg-slate-200 text-slate-400"><X className="w-4 h-4" /></button>}
-                </div>
-                <div className="flex items-center gap-2">
-                     <div className="hidden md:flex items-center gap-3">
-                        <button onClick={() => setShowAiPanel(true)} className="p-2 sm:px-4 sm:py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transition-all flex items-center gap-2 group"><Sparkles className="w-5 h-5 group-hover:animate-pulse" /><span className="hidden lg:inline">AI Assistant</span></button>
-                        <button onClick={() => setIsImportOpen(true)} className="p-2 text-slate-500 hover:bg-slate-100 hover:text-brand-600 rounded-xl transition-colors border border-transparent hover:border-slate-200" title="Import / Restore"><Download className="w-5 h-5" /></button>
-                        <button onClick={() => { setEditingMember(null); setIsFormOpen(true); }} className="p-2 sm:px-4 sm:py-2 bg-brand-600 text-white rounded-xl font-bold shadow-lg shadow-brand-200 hover:bg-brand-700 hover:shadow-brand-300 transition-all flex items-center gap-2"><Plus className="w-5 h-5" /><span className="hidden lg:inline">New Member</span></button>
-                    </div>
-                    <button onClick={() => { setEditingMember(null); setIsFormOpen(true); }} className="md:hidden p-2 text-brand-600 bg-brand-50 rounded-xl"><Plus className="w-6 h-6" /></button>
-                </div>
-            </div>
-
-            {groupingType !== 'birthday' && (
-                <div className="px-4 lg:px-8 py-3 lg:py-4 flex flex-col sm:flex-row gap-3 items-center justify-between z-20">
-                    <div className="flex w-full sm:w-auto gap-2">
-                        <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-200 flex-1 sm:flex-none">
-                            <button onClick={() => setViewMode('card')} className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${viewMode === 'card' ? 'bg-slate-100 text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><LayoutGrid className="w-4 h-4" /> Cards</button>
-                            <button onClick={() => setViewMode('family')} className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${viewMode === 'family' ? 'bg-slate-100 text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><Users className="w-4 h-4" /> Family</button>
-                        </div>
-                        <button onClick={() => setShowActiveOnly(!showActiveOnly)} className={`sm:hidden px-3 py-1.5 rounded-xl border font-bold text-sm flex items-center gap-2 ${showActiveOnly ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-white border-slate-200 text-slate-500'}`}><UserCheck className="w-4 h-4" /> {showActiveOnly ? 'Active' : 'All'}</button>
-                    </div>
-
-                    <div className="flex items-center gap-2 w-full sm:w-auto justify-end overflow-x-auto no-scrollbar">
-                        {groupingType === 'all' && (
-                            <div className="flex items-center gap-2 mr-2">
-                                {stats.yearsToCheck.map(year => (
-                                    <button key={year} onClick={() => toggleRegistrationYear(year)} className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors whitespace-nowrap ${selectedRegistrationYears.has(year) ? 'bg-brand-50 border-brand-200 text-brand-700' : 'bg-white border-slate-200 text-slate-500 hover:border-brand-200 hover:text-brand-600'}`}>{year} ({stats.regStats[year] || 0})</button>
-                                ))}
-                            </div>
-                        )}
-                        <div className="flex items-center bg-white rounded-xl border border-slate-200 shadow-sm p-1">
-                             <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)} className="text-sm font-bold text-slate-600 bg-transparent outline-none pl-2 pr-1 py-1 cursor-pointer hover:text-brand-600">
-                                <option value="name">Name</option>
-                                <option value="rep">Head</option>
-                                <option value="age">Age</option>
-                            </select>
-                            <button onClick={toggleSortDirection} className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600">{sortDirection === 'asc' ? <ArrowUp className="w-4 h-4"/> : <ArrowDown className="w-4 h-4"/>}</button>
-                        </div>
-                        <div className="h-6 w-px bg-slate-200 mx-1"></div>
-                        <div className="flex gap-1">
-                            {(groupingType === 'tag' && (selectedGroup === '새가족' || selectedGroup === 'New Family')) && (<button onClick={handleGraduateNewFamilies} className="p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 rounded-xl border border-transparent hover:border-emerald-200 transition-colors" title="Graduate All"><UserCheck className="w-5 h-5" /></button>)}
-                            <button onClick={handleBulkEmail} className="p-2 text-slate-400 hover:bg-blue-50 hover:text-blue-600 rounded-xl border border-transparent hover:border-blue-200 transition-colors" title="Email"><Mail className="w-5 h-5" /></button>
-                            <button onClick={handlePrint} className="p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 rounded-xl border border-transparent hover:border-slate-200 transition-colors" title="Print"><Printer className="w-5 h-5" /></button>
-                            <button onClick={handleExport} className="p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 rounded-xl border border-transparent hover:border-slate-200 transition-colors" title="Export"><HardDrive className="w-5 h-5" /></button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            <div className="flex-1 overflow-y-auto px-4 lg:px-8 py-6 relative">
-                 {renderMainContent()}
-            </div>
-        </div>
-
-        {showAiPanel && (
-            <div className="fixed inset-0 z-[60] flex justify-end animate-in slide-in-from-right duration-300">
-                 <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm" onClick={() => setShowAiPanel(false)}></div>
-                 <div className="w-full max-w-md bg-white shadow-2xl h-full relative flex flex-col">
-                      <div className="p-6 bg-gradient-to-r from-violet-600 to-indigo-600 text-white flex justify-between items-center"><h3 className="font-bold text-lg flex items-center gap-2"><Sparkles className="w-5 h-5" /> AI Assistant</h3><button onClick={() => setShowAiPanel(false)} className="p-1 hover:bg-white/20 rounded-full transition-colors"><X className="w-5 h-5" /></button></div>
-                      <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
-                          {aiResponse ? (<div className="space-y-4"><div className="bg-white p-4 rounded-2xl rounded-tr-none shadow-sm border border-slate-200 text-slate-700 leading-relaxed whitespace-pre-wrap">{aiResponse}</div><div className="text-right"><button onClick={() => setAiResponse('')} className="text-xs text-brand-600 font-bold hover:underline">Ask another question</button></div></div>) : (<div className="h-full flex flex-col items-center justify-center text-slate-400 text-center opacity-60"><Sparkles className="w-12 h-12 mb-4 text-indigo-300" /><p className="text-sm font-medium">Ask me anything about the member data.<br/>Try "How many families are in Joy Mokjang?"</p></div>)}
-                          {isAiLoading && (<div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center z-10"><div className="animate-spin rounded-full h-10 w-10 border-4 border-indigo-500 border-t-transparent"></div></div>)}
-                      </div>
-                      <div className="p-4 border-t border-slate-200 bg-white">
-                           <div className="flex gap-2"><input value={aiQuery} onChange={(e) => setAiQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAiAsk()} placeholder="Ask a question..." className="flex-1 px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all" autoFocus /><button onClick={handleAiAsk} disabled={!aiQuery.trim() || isAiLoading} className="px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold disabled:opacity-50 transition-colors"><ArrowUp className="w-5 h-5" /></button></div>
-                      </div>
-                 </div>
-            </div>
-        )}
-
-        <MemberForm isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} onSubmit={handleSaveMembers} onDelete={editingMember ? handleDeleteMember : undefined} initialData={editingMember} allMembers={members} mokjangList={mokjangList} positionList={positionList} statusList={statusList} tagList={tagList} />
-        <MemberDetail isOpen={isDetailOpen} onClose={() => setIsDetailOpen(false)} member={viewingMember} onEdit={handleEditClick} allMembers={members} onMemberClick={handleCardClick} />
-        <ImportModal isOpen={isImportOpen} onClose={() => setIsImportOpen(false)} onImport={handleImport} />
-        <SettingsModal 
-            isOpen={isSettingsOpen} 
-            onClose={() => setIsSettingsOpen(false)} 
-            mokjangList={mokjangList} 
-            positionList={positionList} 
-            statusList={statusList} 
-            tagList={tagList} 
-            onUpdateMokjangs={setMokjangList} 
-            onUpdatePositions={setPositionList} 
-            onUpdateStatuses={setStatusList} 
-            onUpdateTags={setTagList} 
-            onRenameItem={handleRenameItem} 
-            onDeleteItem={handleDeleteItem} 
-            onForceSync={handleForceSync}
+    <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden relative">
+       {/* Mobile Sidebar Overlay */}
+       {showMobileSidebar && (
+        <div 
+          className="fixed inset-0 bg-slate-900/50 z-40 lg:hidden backdrop-blur-sm animate-in fade-in"
+          onClick={() => setShowMobileSidebar(false)}
         />
+      )}
+      
+      {/* Sidebar */}
+      <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-72 bg-white border-r border-slate-200 transform transition-transform duration-300 ease-in-out flex flex-col ${showMobileSidebar ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+        <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+             <Logo />
+             <button onClick={() => setShowMobileSidebar(false)} className="lg:hidden p-1 text-slate-400 hover:bg-slate-100 rounded-lg"><X className="w-5 h-5" /></button>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto py-6 px-4 space-y-6">
+           <div className="px-2">
+              <button 
+                onClick={() => { setIsFormOpen(true); setEditingMember(null); }}
+                className="w-full py-3 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-bold shadow-lg shadow-brand-200 flex items-center justify-center gap-2 transition-all transform hover:-translate-y-0.5"
+              >
+                <Plus className="w-5 h-5" />
+                Add Member
+              </button>
+           </div>
+           
+           <div>
+              {renderSidebarSection('Cell Groups', 'mokjang', <Home className="w-4 h-4"/>, mokjangList, (item) => getSubgroupStats(m => m.mokjang === item))}
+              {renderSidebarSection('Positions', 'position', <Briefcase className="w-4 h-4"/>, positionList, (item) => getSubgroupStats(m => m.position === item))}
+              {renderSidebarSection('Status', 'status', <Tag className="w-4 h-4"/>, statusList, (item) => getRawSubgroupStats(m => m.status === item))}
+              {renderSidebarSection('Tags', 'tag', <CheckSquare className="w-4 h-4"/>, tagList, (item) => getSubgroupStats(m => m.tags?.includes(item) ?? false))}
+              
+              {/* Birthdays Link */}
+              <div 
+                  onClick={() => { 
+                      setGroupingType('birthday'); 
+                      setShowMobileSidebar(false); 
+                      setViewMode('card');
+                      setSelectedGroup('Birthdays');
+                  }}
+                  className={`flex items-center justify-between px-6 py-3 mx-2 rounded-lg cursor-pointer transition-colors mt-4 ${groupingType === 'birthday' ? 'bg-gradient-to-r from-pink-500 to-rose-500 text-white font-bold shadow-md' : 'text-slate-600 hover:bg-slate-50 font-medium'}`}
+              >
+                  <div className="flex items-center gap-3">
+                      <Cake className="w-4 h-4" />
+                      <span>Birthdays</span>
+                  </div>
+                  {stats.birthdaysThisMonth > 0 && (
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${groupingType === 'birthday' ? 'bg-white/20 text-white' : 'bg-pink-100 text-pink-600'}`}>
+                          {stats.birthdaysThisMonth}
+                      </span>
+                  )}
+              </div>
+
+           </div>
+        </div>
+
+        <div className="p-4 border-t border-slate-100 space-y-2">
+             <div className="flex gap-2">
+                <button 
+                    onClick={() => setIsSettingsOpen(true)}
+                    className="flex-1 flex items-center justify-center gap-2 p-2.5 rounded-xl text-slate-500 hover:bg-slate-50 hover:text-slate-700 font-bold text-xs transition-colors border border-transparent hover:border-slate-200"
+                >
+                    <Settings className="w-4 h-4" /> Settings
+                </button>
+                 <button 
+                    onClick={handleLogout}
+                    className="flex items-center justify-center p-2.5 rounded-xl text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors border border-transparent hover:border-red-100"
+                    title="Sign Out"
+                >
+                    <LogOut className="w-4 h-4" />
+                </button>
+             </div>
+             <div className="text-center">
+                <p className="text-[10px] text-slate-400 font-medium">v1.0.0 • {serverUrl ? <span className="text-emerald-500 flex items-center justify-center gap-1"><Cloud className="w-3 h-3" /> Synced</span> : <span className="text-amber-500 flex items-center justify-center gap-1"><CloudOff className="w-3 h-3" /> Local</span>}</p>
+             </div>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col min-w-0 bg-white/50 relative">
+         {/* Header */}
+         <header className="h-16 lg:h-20 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-4 lg:px-8 sticky top-0 z-30">
+            <div className="flex items-center gap-3 lg:gap-4 flex-1 min-w-0">
+                <button onClick={() => setShowMobileSidebar(true)} className="lg:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-lg">
+                    <Menu className="w-6 h-6" />
+                </button>
+                
+                <div>
+                    <h2 className="text-lg lg:text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2">
+                        {getHeaderTitle()}
+                    </h2>
+                    <div className="hidden sm:flex items-center gap-2 text-sm font-medium text-slate-500">
+                         {getHeaderStats()}
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex items-center gap-2 lg:gap-4">
+                 {/* Search Bar */}
+                 <div className="hidden md:flex items-center bg-slate-100 rounded-xl px-4 py-2.5 w-64 focus-within:w-80 focus-within:ring-2 focus-within:ring-brand-200 focus-within:bg-white transition-all border border-transparent focus-within:border-brand-300">
+                    <Search className="w-4 h-4 text-slate-400 shrink-0" />
+                    <input 
+                        type="text"
+                        placeholder="Search members..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="bg-transparent border-none outline-none text-sm ml-3 w-full text-slate-800 placeholder:text-slate-400 font-medium"
+                    />
+                 </div>
+                 <button onClick={() => setShowAiPanel(true)} className="p-2.5 text-brand-600 bg-brand-50 hover:bg-brand-100 rounded-xl transition-colors relative group">
+                    <Sparkles className="w-5 h-5" />
+                    <div className="absolute top-2 right-2 w-2 h-2 bg-brand-400 rounded-full animate-ping"></div>
+                    <span className="absolute top-full right-0 mt-2 bg-slate-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Ask AI</span>
+                 </button>
+            </div>
+         </header>
+
+         {/* Toolbar */}
+         <div className="px-4 lg:px-8 py-4 flex flex-col sm:flex-row justify-between gap-4 items-center bg-white border-b border-slate-100">
+             <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-2 sm:pb-0 no-scrollbar">
+                 <div className="bg-slate-100 p-1 rounded-xl flex items-center shrink-0">
+                    <button onClick={() => setViewMode('card')} className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-all ${viewMode === 'card' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                        <LayoutGrid className="w-4 h-4" /> Cards
+                    </button>
+                    <button onClick={() => setViewMode('family')} className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-all ${viewMode === 'family' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                        <Users className="w-4 h-4" /> Families
+                    </button>
+                 </div>
+                 
+                 <div className="w-px h-8 bg-slate-200 mx-2 shrink-0 hidden sm:block"></div>
+
+                 <button onClick={toggleSortDirection} className="px-3 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl text-xs font-bold flex items-center gap-2 shrink-0">
+                    <ArrowUpDown className="w-4 h-4" /> 
+                    {sortDirection === 'asc' ? 'Ascending' : 'Descending'}
+                 </button>
+                 <select 
+                    value={sortBy} 
+                    onChange={(e) => setSortBy(e.target.value as any)} 
+                    className="px-3 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl text-xs font-bold outline-none shrink-0"
+                 >
+                    <option value="name">Sort by Name</option>
+                    <option value="rep">Sort by Household</option>
+                    <option value="age">Sort by Age</option>
+                 </select>
+             </div>
+
+             <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                 {/* Quick Filters */}
+                 <div className="flex items-center gap-2">
+                     <button 
+                        onClick={() => setShowActiveOnly(!showActiveOnly)}
+                        className={`p-2 rounded-xl border transition-all ${showActiveOnly ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : 'bg-white border-slate-200 text-slate-400 hover:text-slate-600'}`}
+                        title={showActiveOnly ? "Showing Active Only" : "Showing All"}
+                     >
+                        <UserCheck className="w-4 h-4" />
+                     </button>
+                 </div>
+
+                 <div className="w-px h-6 bg-slate-200 mx-1"></div>
+
+                 {/* Tools */}
+                 <button onClick={handlePrint} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors" title="Print List">
+                     <Printer className="w-4 h-4" />
+                 </button>
+                 <button onClick={handleBulkEmail} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors" title="Email Group">
+                     <Mail className="w-4 h-4" />
+                 </button>
+                 <button onClick={handleExport} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors" title="Export JSON">
+                     <Download className="w-4 h-4" />
+                 </button>
+                 <button onClick={() => setIsImportOpen(true)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors" title="Import Data">
+                     <FileInput className="w-4 h-4" />
+                 </button>
+                 {serverUrl && (
+                     <button onClick={() => handleForceSync('download')} className={`p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-xl transition-colors ${isSyncing ? 'animate-spin text-brand-500' : ''}`} title="Sync with Cloud">
+                        <RefreshCw className="w-4 h-4" />
+                     </button>
+                 )}
+                 {/* Graduate New Families Tool */}
+                 {(groupingType === 'tag' && (selectedGroup === '새가족' || selectedGroup === 'New Family')) && (
+                     <button onClick={handleGraduateNewFamilies} className="p-2 text-amber-500 hover:bg-amber-50 rounded-xl transition-colors border border-amber-200" title="Graduate All (Remove Tag)">
+                         <CheckSquare className="w-4 h-4" />
+                     </button>
+                 )}
+             </div>
+         </div>
+         
+         {/* Reg Year Filter Bar */}
+         {stats.yearsToCheck.length > 0 && (
+            <div className="px-4 lg:px-8 py-2 bg-slate-50 border-b border-slate-100 flex gap-2 overflow-x-auto no-scrollbar">
+                <span className="text-[10px] font-bold text-slate-400 uppercase self-center mr-2">Reg Year:</span>
+                {stats.yearsToCheck.map(year => (
+                    <button
+                        key={year}
+                        onClick={() => toggleRegistrationYear(year)}
+                        className={`px-3 py-1 rounded-full text-xs font-bold border transition-all whitespace-nowrap ${selectedRegistrationYears.has(year) ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'}`}
+                    >
+                        {year} <span className="opacity-60 ml-1">({stats.regStats[year]})</span>
+                    </button>
+                ))}
+            </div>
+         )}
+
+         {/* Content Scroll Area */}
+         <div className="flex-1 overflow-y-auto p-4 lg:p-8 relative">
+              {renderMainContent()}
+         </div>
+      </main>
+      
+      {/* AI Assistant Panel */}
+      {showAiPanel && (
+        <div className="fixed inset-y-0 right-0 w-full sm:w-96 bg-white shadow-2xl z-50 border-l border-slate-100 flex flex-col animate-in slide-in-from-right duration-300">
+             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-brand-600 to-brand-500 text-white">
+                 <div className="flex items-center gap-2">
+                     <Sparkles className="w-5 h-5" />
+                     <h3 className="font-bold text-lg">AI Assistant</h3>
+                 </div>
+                 <button onClick={() => setShowAiPanel(false)} className="p-1 hover:bg-white/20 rounded-lg transition-colors"><X className="w-5 h-5" /></button>
+             </div>
+             
+             <div className="flex-1 p-6 overflow-y-auto bg-slate-50">
+                 {aiResponse ? (
+                     <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 text-slate-700 text-sm leading-relaxed whitespace-pre-line animate-in fade-in slide-in-from-bottom-2">
+                         <div className="flex items-center gap-2 mb-3 text-brand-600 font-bold text-xs uppercase tracking-wider">
+                             <Sparkles className="w-3 h-3" /> Answer
+                         </div>
+                         {aiResponse}
+                     </div>
+                 ) : (
+                     <div className="flex flex-col items-center justify-center h-full text-slate-400 text-center">
+                         <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm"><Sparkles className="w-8 h-8 text-brand-200" /></div>
+                         <p className="font-medium text-sm">Ask anything about your church members.</p>
+                         <p className="text-xs mt-2 opacity-70">"Who is in Joy Mokjang?"<br/>"How many deacons are there?"</p>
+                     </div>
+                 )}
+                 {isAiLoading && (
+                     <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center z-10">
+                         <div className="flex flex-col items-center gap-3">
+                             <Loader2 className="w-8 h-8 text-brand-500 animate-spin" />
+                             <span className="text-xs font-bold text-brand-600 animate-pulse">Thinking...</span>
+                         </div>
+                     </div>
+                 )}
+             </div>
+
+             <div className="p-4 bg-white border-t border-slate-100">
+                 <div className="relative">
+                     <textarea 
+                        value={aiQuery}
+                        onChange={(e) => setAiQuery(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleAiAsk())}
+                        placeholder="Ask a question..."
+                        className="w-full pl-4 pr-12 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none text-sm resize-none h-24"
+                     />
+                     <button 
+                        onClick={handleAiAsk}
+                        disabled={!aiQuery.trim() || isAiLoading}
+                        className="absolute bottom-3 right-3 p-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md"
+                     >
+                         <ArrowRight className="w-4 h-4" />
+                     </button>
+                 </div>
+                 <div className="text-[10px] text-center text-slate-400 mt-2">
+                     Powered by Gemini AI • Data is processed privately
+                 </div>
+             </div>
+        </div>
+      )}
+
+      {/* Modals */}
+      <MemberForm 
+        isOpen={isFormOpen} 
+        onClose={() => setIsFormOpen(false)} 
+        onSubmit={handleSaveMembers}
+        onDelete={handleDeleteMember}
+        initialData={editingMember}
+        allMembers={members}
+        mokjangList={mokjangList}
+        positionList={positionList}
+        statusList={statusList}
+        tagList={tagList}
+      />
+      
+      <MemberDetail 
+        member={viewingMember}
+        isOpen={isDetailOpen}
+        onClose={() => setIsDetailOpen(false)}
+        onEdit={handleEditClick}
+        allMembers={members}
+        onMemberClick={(m) => { setViewingMember(m); }}
+      />
+
+      <ImportModal
+        isOpen={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        onImport={handleImport}
+      />
+      
+      <SettingsModal 
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        mokjangList={mokjangList}
+        positionList={positionList}
+        statusList={statusList}
+        tagList={tagList}
+        onUpdateMokjangs={setMokjangList}
+        onUpdatePositions={setPositionList}
+        onUpdateStatuses={setStatusList}
+        onUpdateTags={setTagList}
+        onRenameItem={handleRenameItem}
+        onDeleteItem={handleDeleteItem}
+        onForceSync={serverUrl ? handleForceSync : undefined}
+      />
+
     </div>
   );
 }
