@@ -48,7 +48,9 @@ import {
   AlertTriangle,
   RotateCw,
   Loader2,
-  ArrowRight
+  ArrowRight,
+  UsersRound,
+  MoreHorizontal
 } from 'lucide-react';
 
 import { Member, GroupingType, Position } from './types';
@@ -108,6 +110,9 @@ export function App() {
     const saved = localStorage.getItem('church-tags');
     return saved ? JSON.parse(saved) : ['세례', '새가족'];
   });
+
+  // UI State
+  const [showActionsMenu, setShowActionsMenu] = useState(false);
 
   // --- Auto-configure Cloud Settings on Mount ---
   useEffect(() => {
@@ -701,6 +706,7 @@ export function App() {
         setTimeout(() => {
             alert(`Success! Removed '새가족' tag from ${modifiedCount} members.`);
         }, 50);
+        setShowActionsMenu(false);
     } else {
         alert("No members with '새가족' tags were found in the current filtered list.");
     }
@@ -731,6 +737,7 @@ export function App() {
     linkElement.setAttribute('href', dataUri);
     linkElement.setAttribute('download', exportFileDefaultName);
     linkElement.click();
+    setShowActionsMenu(false);
   };
 
   const handleAiAsk = async () => {
@@ -753,10 +760,12 @@ export function App() {
         return;
     }
     window.location.href = `mailto:?bcc=${emails}`;
+    setShowActionsMenu(false);
   };
 
   const handlePrint = () => {
     window.print();
+    setShowActionsMenu(false);
   };
 
   const toggleSection = (section: string) => {
@@ -847,20 +856,21 @@ export function App() {
       if (groupingType === 'status') {
           const { count, families } = getRawSubgroupStats(filterFn);
            return (
-            <span className="text-base text-brand-600 font-normal ml-3">
+            <span className="text-base text-brand-600 font-normal ml-3 whitespace-nowrap">
                 {families}가정, {count}명
             </span>
            );
       }
       const { count, families } = getSubgroupStats(filterFn);
       return (
-          <span className="text-base text-brand-600 font-normal ml-3">
+          <span className="text-base text-brand-600 font-normal ml-3 whitespace-nowrap">
               {families}가정, {count}명 {showActiveOnly ? '(Active)' : '(전체)'}
           </span>
       );
   };
   
   const renderMainContent = () => {
+    // ... (unchanged content render logic) ...
     if (groupingType === 'birthday') {
         return (
               <div className="max-w-7xl mx-auto">
@@ -947,6 +957,7 @@ export function App() {
 
     return (
         <>
+            {/* ... Warning Banner (unchanged) ... */}
             {showPersistenceWarning && (
                 <div className="bg-amber-50 border-b border-amber-100 px-4 py-3 flex items-start sm:items-center justify-between gap-4 animate-in slide-in-from-top-4 relative z-40">
                     <div className="flex items-start gap-3">
@@ -961,6 +972,8 @@ export function App() {
                     <button onClick={() => { setShowPersistenceWarning(false); localStorage.setItem('dismiss-sync-warn', 'true'); }} className="p-1 hover:bg-amber-100 rounded-lg text-amber-500 transition-colors"><X className="w-5 h-5" /></button>
                 </div>
             )}
+            
+            {/* View Logic (Card/Family) - Identical to previous except icons used in header */}
             {viewMode === 'card' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 pb-8 print:grid-cols-3 print:gap-4 print-grid">
                     {(paginatedItems as Member[]).map(member => {
@@ -1003,7 +1016,7 @@ export function App() {
                             <div className="bg-slate-50/80 px-5 py-4 border-b border-slate-100 flex items-center justify-between backdrop-blur-sm print:bg-slate-100">
                                 <div>
                                     <h3 className="font-bold text-slate-800 text-xl flex items-center gap-2">
-                                        <div className="p-1.5 bg-white rounded-lg shadow-sm text-brand-600 print:hidden"><Users className="w-5 h-5" /></div>
+                                        <div className="p-1.5 bg-white rounded-lg shadow-sm text-brand-600 print:hidden"><UsersRound className="w-5 h-5" /></div>
                                         {group.repName}'s Family
                                     </h3>
                                     {group.head.address && <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1.5 ml-1"><MapPin className="w-3 h-3 text-slate-400" /><span className="truncate max-w-[200px]">{group.head.address}</span></div>}
@@ -1072,13 +1085,13 @@ export function App() {
         </div>
 
         <div className="flex-1 overflow-y-auto py-4">
-           {/* All Members */}
+           {/* All Members - Click acts as Reset/ShowAll */}
            <div 
-              onClick={() => { setGroupingType('all'); setSelectedGroup('All'); setShowMobileSidebar(false); setViewMode('card'); }}
+              onClick={() => { setGroupingType('all'); setSelectedGroup('All'); setShowActiveOnly(false); setShowMobileSidebar(false); setViewMode('card'); }}
               className={`flex items-center gap-3 px-6 py-3 cursor-pointer mb-2 transition-colors ${groupingType === 'all' ? 'bg-brand-50 text-brand-700 border-r-4 border-brand-500' : 'text-slate-600 hover:bg-slate-50'}`}
            >
               <Users className={`w-5 h-5 ${groupingType === 'all' ? 'text-brand-500' : 'text-slate-400'}`} />
-              <span className="font-bold text-sm">All Members</span>
+              <span className="font-bold text-sm">전체 성도 (All)</span>
               {groupingType === 'all' && <span className="ml-auto text-xs font-bold bg-brand-100 text-brand-600 px-2 py-0.5 rounded-full">{stats.total}</span>}
            </div>
 
@@ -1088,7 +1101,7 @@ export function App() {
               className={`flex items-center gap-3 px-6 py-3 cursor-pointer mb-2 transition-colors ${groupingType === 'birthday' ? 'bg-pink-50 text-pink-700 border-r-4 border-pink-500' : 'text-slate-600 hover:bg-slate-50'}`}
            >
               <Cake className={`w-5 h-5 ${groupingType === 'birthday' ? 'text-pink-500' : 'text-slate-400'}`} />
-              <span className="font-bold text-sm">Birthdays <span className="text-[10px] text-slate-400 font-normal ml-1">({new Date().toLocaleString('default', { month: 'short' })})</span></span>
+              <span className="font-bold text-sm">생일자 <span className="text-[10px] text-slate-400 font-normal ml-1">({new Date().toLocaleString('default', { month: 'short' })})</span></span>
               {stats.birthdaysThisMonth > 0 && <span className="ml-auto text-xs font-bold bg-pink-100 text-pink-600 px-2 py-0.5 rounded-full">{stats.birthdaysThisMonth}</span>}
            </div>
 
@@ -1096,11 +1109,11 @@ export function App() {
               <div className="h-px bg-slate-100 w-full" />
            </div>
 
-           {/* Dynamic Sections */}
-           {renderSidebarSection('Mokjang (Cell)', 'mokjang', <Home className="w-4 h-4" />, mokjangList, (item) => getSubgroupStats(m => m.mokjang === item))}
-           {renderSidebarSection('Position (Role)', 'position', <Briefcase className="w-4 h-4" />, positionList, (item) => getSubgroupStats(m => m.position === item))}
-           {renderSidebarSection('Status', 'status', <Tag className="w-4 h-4" />, statusList, (item) => getRawSubgroupStats(m => m.status === item))}
-           {renderSidebarSection('Tags', 'tag', <CheckSquare className="w-4 h-4" />, tagList, (item) => getSubgroupStats(m => m.tags?.includes(item) ?? false))}
+           {/* Dynamic Sections with KOREAN LABELS */}
+           {renderSidebarSection('목장', 'mokjang', <Home className="w-4 h-4" />, mokjangList, (item) => getSubgroupStats(m => m.mokjang === item))}
+           {renderSidebarSection('직분', 'position', <Briefcase className="w-4 h-4" />, positionList, (item) => getSubgroupStats(m => m.position === item))}
+           {renderSidebarSection('상태', 'status', <Tag className="w-4 h-4" />, statusList, (item) => getRawSubgroupStats(m => m.status === item))}
+           {renderSidebarSection('태그', 'tag', <CheckSquare className="w-4 h-4" />, tagList, (item) => getSubgroupStats(m => m.tags?.includes(item) ?? false))}
         </div>
         
         {/* Sidebar Footer */}
@@ -1144,62 +1157,79 @@ export function App() {
          {/* Top Header */}
          <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
              <div className="px-4 sm:px-8 py-4 flex flex-col gap-4">
-                 <div className="flex items-center justify-between gap-4">
+                 <div className="flex flex-wrap items-center justify-between gap-4">
                      <div className="flex items-center gap-4">
                          <button onClick={() => setShowMobileSidebar(true)} className="lg:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-lg"><Menu className="w-6 h-6" /></button>
-                         <div>
-                             <h1 className="text-2xl font-black text-slate-800 tracking-tight flex items-center flex-wrap gap-2">
+                         {/* Title acts as Toggle for Active Only */}
+                         <div 
+                            className="cursor-pointer group select-none" 
+                            onClick={() => setShowActiveOnly(!showActiveOnly)}
+                            title="Click to toggle Active/All"
+                         >
+                             <h1 className="text-2xl font-black text-slate-800 tracking-tight flex items-center flex-wrap gap-2 group-hover:text-brand-600 transition-colors">
                                  {getHeaderTitle()} 
                                  {getHeaderStats()}
+                                 <span className="text-xs font-normal text-slate-400 border border-slate-200 rounded px-2 py-0.5 ml-2 hidden group-hover:inline-block">Click to toggle</span>
                              </h1>
                          </div>
                      </div>
-                     <div className="flex items-center gap-2 sm:gap-3">
+                     <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                         {/* Active Only Filter - Relocated to Left of AI */}
+                         {groupingType !== 'status' && groupingType !== 'birthday' && (
+                             <button 
+                                onClick={() => setShowActiveOnly(!showActiveOnly)}
+                                className={`p-2 sm:px-4 sm:py-2.5 rounded-xl border transition-all flex items-center gap-2 font-bold text-sm whitespace-nowrap ${showActiveOnly ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'}`}
+                             >
+                                {showActiveOnly ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                                <span className="hidden sm:inline">{showActiveOnly ? 'Active Only' : 'Show All'}</span>
+                             </button>
+                         )}
+
                          <button 
                             onClick={() => setShowAiPanel(!showAiPanel)}
-                            className={`p-2 sm:px-4 sm:py-2.5 rounded-xl border transition-all flex items-center gap-2 font-bold text-sm ${showAiPanel ? 'bg-violet-600 border-violet-600 text-white shadow-lg shadow-violet-200' : 'bg-white border-slate-200 text-slate-600 hover:border-violet-300 hover:text-violet-600'}`}
+                            className={`p-2 sm:px-4 sm:py-2.5 rounded-xl border transition-all flex items-center gap-2 font-bold text-sm whitespace-nowrap ${showAiPanel ? 'bg-violet-600 border-violet-600 text-white shadow-lg shadow-violet-200' : 'bg-white border-slate-200 text-slate-600 hover:border-violet-300 hover:text-violet-600'}`}
                          >
                             <Sparkles className="w-4 h-4" /> <span className="hidden sm:inline">AI Assistant</span>
                          </button>
                          <button 
                             onClick={() => setIsImportOpen(true)}
-                            className="p-2 sm:px-4 sm:py-2.5 bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 text-slate-700 rounded-xl transition-all flex items-center gap-2 font-bold text-sm"
+                            className="p-2 sm:px-4 sm:py-2.5 bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 text-slate-700 rounded-xl transition-all flex items-center gap-2 font-bold text-sm whitespace-nowrap"
                          >
                             <Download className="w-4 h-4" /> <span className="hidden sm:inline">Import</span>
                          </button>
                          <button 
                             onClick={() => { setEditingMember(null); setIsFormOpen(true); }}
-                            className="p-2 sm:px-4 sm:py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl shadow-lg shadow-brand-200 hover:shadow-xl hover:shadow-brand-300 transition-all flex items-center gap-2 font-bold text-sm"
+                            className="p-2 sm:px-4 sm:py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl shadow-lg shadow-brand-200 hover:shadow-xl hover:shadow-brand-300 transition-all flex items-center gap-2 font-bold text-sm whitespace-nowrap"
                          >
-                            <Plus className="w-5 h-5" /> <span className="hidden sm:inline">New Member</span>
+                            <Plus className="w-5 h-5" /> <span className="hidden sm:inline">Add Member</span>
                          </button>
                      </div>
                  </div>
 
-                 {/* Filters Bar */}
-                 <div className="flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
-                     <div className="relative max-w-md w-full">
+                 {/* Filters Bar - No Scrollbar, Wrapping */}
+                 <div className="flex flex-wrap gap-4 items-center justify-between">
+                     <div className="relative w-full max-w-md min-w-[200px]">
                          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                          <input 
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            placeholder="Search members by name, phone, or mokjang..."
+                            placeholder="Search members..."
                             className="w-full pl-10 pr-4 py-2.5 bg-slate-100 border-transparent focus:bg-white focus:border-brand-300 focus:ring-4 focus:ring-brand-100 rounded-xl text-sm font-medium transition-all outline-none"
                          />
                      </div>
                      
-                     <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0 scrollbar-hide">
+                     <div className="flex flex-wrap items-center gap-2">
                          {/* View Toggles */}
                          <div className="flex bg-slate-100 p-1 rounded-xl shrink-0">
                              <button onClick={() => setViewMode('card')} className={`p-1.5 rounded-lg transition-all ${viewMode === 'card' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400 hover:text-slate-600'}`} title="Card View"><LayoutGrid className="w-4 h-4" /></button>
-                             <button onClick={() => setViewMode('family')} className={`p-1.5 rounded-lg transition-all ${viewMode === 'family' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400 hover:text-slate-600'}`} title="Family View"><Users className="w-4 h-4" /></button>
+                             <button onClick={() => setViewMode('family')} className={`p-1.5 rounded-lg transition-all ${viewMode === 'family' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400 hover:text-slate-600'}`} title="Family View"><UsersRound className="w-4 h-4" /></button>
                          </div>
                          
-                         <div className="w-px h-6 bg-slate-200 mx-1 shrink-0" />
+                         <div className="w-px h-6 bg-slate-200 mx-1 hidden sm:block" />
 
                          {/* Sort */}
                          <div className="flex items-center bg-white border border-slate-200 rounded-xl px-3 py-1.5 gap-2 shrink-0">
-                             <span className="text-xs font-bold text-slate-400 uppercase">Sort</span>
+                             <span className="text-xs font-bold text-slate-400 uppercase hidden sm:inline">Sort</span>
                              <select 
                                 value={sortBy} 
                                 onChange={(e) => setSortBy(e.target.value as any)}
@@ -1213,39 +1243,38 @@ export function App() {
                                  {sortDirection === 'asc' ? <ArrowUp className="w-3.5 h-3.5" /> : <ArrowDown className="w-3.5 h-3.5" />}
                              </button>
                          </div>
-
-                         {/* Active Filter Toggle */}
-                         {groupingType !== 'status' && (
-                             <button 
-                                onClick={() => setShowActiveOnly(!showActiveOnly)}
-                                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all shrink-0 ${showActiveOnly ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'}`}
-                             >
-                                {showActiveOnly ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-                                {showActiveOnly ? 'Active Only' : 'Show All'}
-                             </button>
-                         )}
                          
-                         {/* Bulk Actions Menu */}
-                         <div className="relative group shrink-0">
-                             <button className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-bold">
-                                 Actions <ChevronDown className="w-3 h-3" />
+                         {/* Bulk Actions Menu - Click Toggle */}
+                         <div className="relative shrink-0">
+                             <button 
+                                onClick={() => setShowActionsMenu(!showActionsMenu)}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${showActionsMenu ? 'bg-slate-100 border-slate-300 text-slate-800' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                             >
+                                <MoreHorizontal className="w-4 h-4" />
+                                Actions
+                                <ChevronDown className={`w-3 h-3 transition-transform ${showActionsMenu ? 'rotate-180' : ''}`} />
                              </button>
-                             <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 p-1 hidden group-hover:block z-50 animate-in fade-in slide-in-from-top-2">
-                                 <button onClick={handleExport} className="w-full text-left px-3 py-2 hover:bg-slate-50 rounded-lg text-xs font-medium text-slate-700 flex items-center gap-2">
-                                     <Download className="w-3.5 h-3.5" /> Export JSON
-                                 </button>
-                                 <button onClick={handlePrint} className="w-full text-left px-3 py-2 hover:bg-slate-50 rounded-lg text-xs font-medium text-slate-700 flex items-center gap-2">
-                                     <Printer className="w-3.5 h-3.5" /> Print View
-                                 </button>
-                                 <button onClick={handleBulkEmail} className="w-full text-left px-3 py-2 hover:bg-slate-50 rounded-lg text-xs font-medium text-slate-700 flex items-center gap-2">
-                                     <Mail className="w-3.5 h-3.5" /> Email Group
-                                 </button>
-                                 {groupingType === 'tag' && (selectedGroup === '새가족' || selectedGroup === 'New Family') && (
-                                     <button onClick={handleGraduateNewFamilies} className="w-full text-left px-3 py-2 hover:bg-amber-50 rounded-lg text-xs font-medium text-amber-700 flex items-center gap-2 border-t border-slate-100 mt-1">
-                                         <UserCheck className="w-3.5 h-3.5" /> Graduate New Families
-                                     </button>
-                                 )}
-                             </div>
+                             
+                             {showActionsMenu && (
+                                 <>
+                                     <div className="fixed inset-0 z-40" onClick={() => setShowActionsMenu(false)}></div>
+                                     <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-100 p-1 z-50 animate-in fade-in slide-in-from-top-2">
+                                         <button onClick={handleExport} className="w-full text-left px-3 py-2.5 hover:bg-slate-50 rounded-lg text-sm font-medium text-slate-700 flex items-center gap-3">
+                                             <Download className="w-4 h-4 text-slate-400" /> Export JSON
+                                         </button>
+                                         <button onClick={handlePrint} className="w-full text-left px-3 py-2.5 hover:bg-slate-50 rounded-lg text-sm font-medium text-slate-700 flex items-center gap-3">
+                                             <Printer className="w-4 h-4 text-slate-400" /> Print View
+                                         </button>
+                                         <button onClick={handleBulkEmail} className="w-full text-left px-3 py-2.5 hover:bg-slate-50 rounded-lg text-sm font-medium text-slate-700 flex items-center gap-3">
+                                             <Mail className="w-4 h-4 text-slate-400" /> Email Group
+                                         </button>
+                                         <div className="h-px bg-slate-100 my-1"></div>
+                                         <button onClick={handleGraduateNewFamilies} className="w-full text-left px-3 py-2.5 hover:bg-amber-50 rounded-lg text-sm font-bold text-amber-700 flex items-center gap-3">
+                                             <UserCheck className="w-4 h-4 text-amber-500" /> Graduate New Families
+                                         </button>
+                                     </div>
+                                 </>
+                             )}
                          </div>
                      </div>
                  </div>
