@@ -108,7 +108,7 @@ const MemberDetail: React.FC<MemberDetailProps> = ({
   const roleBaseColor = getRoleBaseColor(member.position as string);
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 perspective-[2000px]">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 perspective-[2000px]">
       <style>{`
           @keyframes flipIn {
             0% {
