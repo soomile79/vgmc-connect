@@ -266,7 +266,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[80vh]">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col h-[85vh]">
         <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-brand-50">
           <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
             <Settings className="w-5 h-5 text-brand-600" />
@@ -314,7 +314,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                             value={serverUrl}
                             onChange={(e) => setServerUrl(e.target.value)}
                             placeholder="https://yourchurch.com/api.php"
-                            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none text-slate-800 font-medium"
+                            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none text-slate-800 font-medium"
                         />
                     </div>
                     <div className="space-y-2">
@@ -326,7 +326,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                             value={apiSecret}
                             onChange={(e) => setApiSecret(e.target.value)}
                             placeholder="Must match $secret_key in api.php"
-                            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none text-slate-800 font-medium"
+                            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none text-slate-800 font-medium"
                         />
                     </div>
                 </div>
@@ -391,7 +391,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                 type="password" 
                                 value={masterAuth} 
                                 onChange={(e) => setMasterAuth(e.target.value)} 
-                                className="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
+                                className="flex-1 px-4 py-2 border border-slate-200 bg-white rounded-lg focus:ring-2 focus:ring-brand-500 outline-none text-slate-900"
                                 placeholder="Master Password"
                             />
                             <button onClick={handleMasterAuth} className="px-4 py-2 bg-slate-800 text-white font-bold rounded-lg hover:bg-slate-900 transition-colors">
@@ -405,7 +405,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                             <Check className="w-4 h-4" /> Identity Verified
                         </div>
                         
-                        <div className="space-y-2 max-h-48 overflow-y-auto pr-1 scrollbar-hide">
+                        <div className="space-y-2 max-h-64 overflow-y-auto pr-1 scrollbar-hide">
                               <h4 className="text-xs font-bold text-slate-400 uppercase">Sub-Admins</h4>
                               {storedAdmins.length === 0 ? <p className="text-sm text-slate-400 italic">No sub-admins found.</p> : (
                                   storedAdmins.map((admin) => (
@@ -426,10 +426,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                           <div className="pt-4 border-t border-slate-100 space-y-3">
                                <h4 className="text-xs font-bold text-brand-600 uppercase">Create New Admin</h4>
                                <div className="grid grid-cols-2 gap-2">
-                                   <input value={newAdminId} onChange={e => setNewAdminId(e.target.value)} placeholder="New ID" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:border-brand-500 outline-none"/>
-                                   <input value={newAdminPw} onChange={e => setNewAdminPw(e.target.value)} placeholder="New Password" type="password" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:border-brand-500 outline-none"/>
+                                   <input value={newAdminId} onChange={e => setNewAdminId(e.target.value)} placeholder="New ID" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:border-brand-500 outline-none text-slate-900"/>
+                                   <input value={newAdminPw} onChange={e => setNewAdminPw(e.target.value)} placeholder="New Password" type="password" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:border-brand-500 outline-none text-slate-900"/>
                                </div>
-                               <input value={newAdminNote} onChange={e => setNewAdminNote(e.target.value)} placeholder="Note (e.g. Youth Pastor)" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:border-brand-500 outline-none"/>
+                               <input value={newAdminNote} onChange={e => setNewAdminNote(e.target.value)} placeholder="Note (e.g. Youth Pastor)" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:border-brand-500 outline-none text-slate-900"/>
                                <button onClick={handleAddAdmin} disabled={!newAdminId || !newAdminPw} className="w-full py-2 bg-brand-50 text-brand-700 font-bold rounded-lg hover:bg-brand-100 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                                    <Plus className="w-4 h-4"/> Add User
                                </button>
