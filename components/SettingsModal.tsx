@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { X, Plus, Trash2, Settings, List, Tag, CheckSquare, GripVertical, Check, Cloud, Key, Globe, Loader2, AlertCircle, Download, Upload } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { X, Plus, Trash2, Settings, List, Tag, CheckSquare, GripVertical, Check, Cloud, Key, Globe, Loader2, AlertCircle, Download, Upload, ShieldAlert, User, Lock } from 'lucide-react';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -17,13 +17,21 @@ interface SettingsModalProps {
   onForceSync?: (direction: 'upload' | 'download') => Promise<void>;
 }
 
+interface AdminUser {
+    id: string;
+    pw: string;
+    note?: string;
+}
+
+const MASTER_PW = 'vgmc.org';
+
 const SettingsModal: React.FC<SettingsModalProps> = ({ 
   isOpen, onClose, 
   mokjangList, positionList, statusList, tagList,
   onUpdateMokjangs, onUpdatePositions, onUpdateStatuses, onUpdateTags,
   onRenameItem, onDeleteItem, onForceSync
 }) => {
-  const [activeTab, setActiveTab] = useState<'mokjang' | 'position' | 'status' | 'tags' | 'cloud'>('mokjang');
+  const [activeTab, setActiveTab] = useState<'mokjang' | 'position' | 'status' | 'tags' | 'cloud' | 'admins'>('mokjang');
   const [newItem, setNewItem] = useState('');
   
   // Cloud Settings
@@ -33,6 +41,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const [testResult, setTestResult] = useState<{success: boolean; message: string} | null>(null);
   const [syncStatus, setSyncStatus] = useState<string>('');
   
+  // Admin Settings
+  const [masterAuth, setMasterAuth] = useState('');
+  const [isMasterAuthenticated, setIsMasterAuthenticated] = useState(false);
+  const [storedAdmins, setStoredAdmins] = useState<AdminUser[]>([]);
+  const [newAdminId, setNewAdminId] = useState('');
+  const [newAdminPw, setNewAdminPw] = useState('');
+  const [newAdminNote, setNewAdminNote] = useState('');
+
   // Editing State
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingValue, setEditingValue] = useState('');
@@ -49,6 +65,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
   }, [onClose]);
+
+  // Load admins
+  useEffect(() => {
+      const saved = localStorage.getItem('church-admins');
+      if (saved) {
+          setStoredAdmins(JSON.parse(saved));
+      }
+  }, []);
 
   if (!isOpen) return null;
 
@@ -200,12 +224,44 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       }
   };
 
+  // Admin Management Logic
+  const handleMasterAuth = () => {
+      if (masterAuth === MASTER_PW) {
+          setIsMasterAuthenticated(true);
+      } else {
+          alert('Incorrect Master Password');
+      }
+  };
+
+  const handleAddAdmin = () => {
+      if (!newAdminId || !newAdminPw) return;
+      if (newAdminId === 'vgmc' || storedAdmins.some(a => a.id === newAdminId)) {
+          alert('ID already exists or is reserved.');
+          return;
+      }
+      const updated = [...storedAdmins, { id: newAdminId, pw: newAdminPw, note: newAdminNote }];
+      setStoredAdmins(updated);
+      localStorage.setItem('church-admins', JSON.stringify(updated));
+      setNewAdminId('');
+      setNewAdminPw('');
+      setNewAdminNote('');
+  };
+
+  const handleDeleteAdmin = (targetId: string) => {
+      if (confirm(`Delete admin "${targetId}"?`)) {
+          const updated = storedAdmins.filter(a => a.id !== targetId);
+          setStoredAdmins(updated);
+          localStorage.setItem('church-admins', JSON.stringify(updated));
+      }
+  };
+
   const tabs = [
     { id: 'mokjang', label: 'Cells', icon: List },
     { id: 'position', label: 'Roles', icon: Settings },
     { id: 'status', label: 'Status', icon: Tag },
     { id: 'tags', label: 'Tags', icon: CheckSquare },
     { id: 'cloud', label: 'Cloud', icon: Cloud },
+    { id: 'admins', label: 'Admins', icon: ShieldAlert },
   ];
 
   return (
@@ -324,6 +380,63 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     </div>
                 )}
             </div>
+          ) : activeTab === 'admins' ? (
+              <div className="space-y-6">
+                  {!isMasterAuthenticated ? (
+                      <div className="space-y-4 bg-slate-50 p-6 rounded-xl text-center">
+                          <Lock className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                          <p className="text-sm text-slate-500 font-medium">Please enter Master Password to verify identity.</p>
+                          <div className="flex gap-2">
+                            <input 
+                                type="password" 
+                                value={masterAuth} 
+                                onChange={(e) => setMasterAuth(e.target.value)} 
+                                className="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
+                                placeholder="Master Password"
+                            />
+                            <button onClick={handleMasterAuth} className="px-4 py-2 bg-slate-800 text-white font-bold rounded-lg hover:bg-slate-900 transition-colors">
+                                Verify
+                            </button>
+                          </div>
+                      </div>
+                  ) : (
+                      <>
+                        <div className="bg-emerald-50 p-3 rounded-lg border border-emerald-100 text-emerald-700 text-sm font-bold flex items-center gap-2 mb-4">
+                            <Check className="w-4 h-4" /> Identity Verified
+                        </div>
+                        
+                        <div className="space-y-2 max-h-48 overflow-y-auto pr-1 scrollbar-hide">
+                              <h4 className="text-xs font-bold text-slate-400 uppercase">Sub-Admins</h4>
+                              {storedAdmins.length === 0 ? <p className="text-sm text-slate-400 italic">No sub-admins found.</p> : (
+                                  storedAdmins.map((admin) => (
+                                      <div key={admin.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
+                                          <div className="flex items-center gap-3">
+                                              <div className="bg-white p-1.5 rounded-full shadow-sm"><User className="w-4 h-4 text-slate-400"/></div>
+                                              <div>
+                                                  <div className="font-bold text-sm text-slate-700">{admin.id}</div>
+                                                  <div className="text-[10px] text-slate-400 font-bold uppercase">{admin.note || 'Admin'}</div>
+                                              </div>
+                                          </div>
+                                          <button onClick={() => handleDeleteAdmin(admin.id)} className="text-slate-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4"/></button>
+                                      </div>
+                                  ))
+                              )}
+                          </div>
+
+                          <div className="pt-4 border-t border-slate-100 space-y-3">
+                               <h4 className="text-xs font-bold text-brand-600 uppercase">Create New Admin</h4>
+                               <div className="grid grid-cols-2 gap-2">
+                                   <input value={newAdminId} onChange={e => setNewAdminId(e.target.value)} placeholder="New ID" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:border-brand-500 outline-none"/>
+                                   <input value={newAdminPw} onChange={e => setNewAdminPw(e.target.value)} placeholder="New Password" type="password" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:border-brand-500 outline-none"/>
+                               </div>
+                               <input value={newAdminNote} onChange={e => setNewAdminNote(e.target.value)} placeholder="Note (e.g. Youth Pastor)" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:border-brand-500 outline-none"/>
+                               <button onClick={handleAddAdmin} disabled={!newAdminId || !newAdminPw} className="w-full py-2 bg-brand-50 text-brand-700 font-bold rounded-lg hover:bg-brand-100 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                                   <Plus className="w-4 h-4"/> Add User
+                               </button>
+                          </div>
+                      </>
+                  )}
+              </div>
           ) : (
             <>
                 <div className="flex gap-2 mb-6">
@@ -398,7 +511,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           )}
         </div>
 
-        {activeTab !== 'cloud' && (
+        {activeTab !== 'cloud' && activeTab !== 'admins' && (
             <div className="p-4 bg-gray-50 text-center text-xs text-gray-400 border-t border-gray-100">
             Double-click to edit. Drag to reorder.
             </div>
