@@ -245,15 +245,19 @@ export function App() {
                 const json = JSON.parse(text);
                 if (json.error) msg = json.error;
             } catch {
-                if (text.length < 100) msg = text; // Show short PHP errors
+                // If HTML error (common in PHP), extract title or body
+                if (text.includes('<title>')) {
+                    const match = text.match(/<title>(.*?)<\/title>/);
+                    if (match) msg = `Server Error: ${match[1]}`;
+                } else if (text.length < 100) {
+                     msg = text;
+                }
             }
             throw new Error(msg);
         }
         
         const data = await response.json();
         if (Array.isArray(data)) {
-            // Logic: If cloud is empty but we have local data, assume it's first setup and upload local data.
-            // This prevents wiping local data on first connect.
             if (data.length === 0 && members.length > 0) {
                  console.log("Cloud is empty. Uploading local data...");
                  await saveToCloud(members);
@@ -307,7 +311,6 @@ export function App() {
     } catch (e: any) {
         console.error("Save Error:", e);
         setSyncError('Failed to save: ' + e.message);
-        // Do not alert on save error to avoid disrupting workflow, just show badge error
     } finally {
         setIsSyncing(false);
     }
@@ -1081,7 +1084,7 @@ export function App() {
     );
   }
 
-  // --- ADDED MISSING RETURN ---
+  // --- RETURN STATEMENT ---
   if (!isLoggedIn) {
     return <Login onLogin={handleLogin} />;
   }
