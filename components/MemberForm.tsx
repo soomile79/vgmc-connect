@@ -546,7 +546,7 @@ const MemberForm: React.FC<MemberFormProps> = ({
 
                    <div className="grid grid-cols-2 gap-4">
                        <div>
-                           <label className={labelClass}>Mokjang (Cell)</label>
+                           <label className={labelClass}>목장</label>
                            <select 
                                 value={formData.mokjang || ''} 
                                 onChange={e => handleChange('mokjang', e.target.value)}
@@ -736,11 +736,11 @@ const MemberForm: React.FC<MemberFormProps> = ({
                                                     </select>
                                                 </div>
                                                 <div>
-                                                    <label className={labelClass}>Name (Korean)</label>
+                                                    <label className={labelClass}>Korean Name</label>
                                                     <input value={fm.koreanName} onChange={e => handleFamilyChange(idx, 'koreanName', e.target.value)} className={inputClass} placeholder="홍길동" />
                                                 </div>
                                                 <div>
-                                                    <label className={labelClass}>Name (English)</label>
+                                                    <label className={labelClass}>English Name</label>
                                                     <input value={fm.englishName} onChange={e => handleFamilyChange(idx, 'englishName', e.target.value)} className={inputClass} placeholder="Gil Dong" />
                                                 </div>
                                                 <div>
@@ -777,7 +777,7 @@ const MemberForm: React.FC<MemberFormProps> = ({
                                                     </select>
                                                 </div>
                                                 <div>
-                                                    <label className={labelClass}>Mokjang</label>
+                                                    <label className={labelClass}>목장</label>
                                                     <select value={fm.mokjang} onChange={e => handleFamilyChange(idx, 'mokjang', e.target.value)} className={inputClass}>
                                                         <option value="Unassigned">Unassigned</option>
                                                         {mokjangList.map(m => <option key={m} value={m}>{m}</option>)}
