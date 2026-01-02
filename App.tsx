@@ -971,47 +971,47 @@ export function App() {
                                 <div className="flex-1 min-w-0 flex flex-col justify-center">
                                     {/* Name & Age Row - Adjusted Layout */}
                                     <div className="flex items-center gap-2 mb-0.5">
-                                        <h3 className="font-bold text-slate-800 text-base truncate">{member.koreanName}</h3>
-                                        <span className="text-[10px] text-slate-400 font-bold bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 whitespace-nowrap group-hover:bg-white group-hover:border-${baseColor}-100 transition-colors">
+                                        <h3 className="font-bold text-slate-800 text-xl truncate">{member.koreanName}</h3>
+                                        <span className="text-xs text-slate-400 font-bold bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 whitespace-nowrap group-hover:bg-white group-hover:border-${baseColor}-100 transition-colors">
                                             {calculateAge(member.birthday)} · {member.gender === 'Male' ? 'M' : 'F'}
                                         </span>
                                     </div>
                                     
-                                    <p className="text-xs text-slate-500 font-medium truncate mb-2">{member.englishName}</p>
+                                    <p className="text-sm text-slate-500 font-medium truncate mb-2">{member.englishName}</p>
                                     
                                     {/* Row: Role | Mokjang | Tags */}
                                     <div className="flex flex-wrap items-center gap-1.5 mb-2 leading-none">
-                                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${getRoleStyle(member.position as string)}`}>
+                                        <span className={`px-1.5 py-0.5 rounded text-xs font-bold border ${getRoleStyle(member.position as string)}`}>
                                             {member.position}
                                         </span>
                                         {member.mokjang !== 'Unassigned' && (
                                             <>
-                                                <span className="text-[10px] text-slate-300">|</span>
-                                                <span className="text-[10px] font-bold text-slate-600 truncate max-w-[80px]">
+                                                <span className="text-xs text-slate-300">|</span>
+                                                <span className="text-xs font-bold text-slate-600 truncate max-w-[80px]">
                                                     {member.mokjang}
                                                 </span>
                                             </>
                                         )}
                                         {member.tags && member.tags.length > 0 && (
                                             <>
-                                                <span className="text-[10px] text-slate-300">|</span>
+                                                <span className="text-xs text-slate-300">|</span>
                                                 <div className="flex gap-1">
                                                     {member.tags.filter(t => t !== 'New Family' && t !== '새가족').slice(0, 2).map(tag => (
-                                                        <span key={tag} className="text-[9px] font-bold text-slate-500 bg-slate-50 px-1 rounded border border-slate-100 group-hover:bg-white">#{tag}</span>
+                                                        <span key={tag} className="text-xs font-bold text-slate-500 bg-slate-50 px-1 rounded border border-slate-100 group-hover:bg-white">#{tag}</span>
                                                     ))}
                                                 </div>
                                             </>
                                         )}
-                                        {(member.tags?.includes('New Family') || member.tags?.includes('새가족')) && <span className="bg-amber-50 text-amber-700 text-[9px] px-1.5 py-0.5 rounded border border-amber-100 font-bold ml-auto group-hover:bg-white">새가족</span>}
+                                        {(member.tags?.includes('New Family') || member.tags?.includes('새가족')) && <span className="bg-amber-50 text-amber-700 text-xs px-1.5 py-0.5 rounded border border-amber-100 font-bold ml-auto group-hover:bg-white">새가족</span>}
                                     </div>
 
                                     <div className="mt-auto">
                                         <a 
                                             href={`tel:${member.phone}`}
                                             onClick={(e) => e.stopPropagation()}
-                                            className="inline-flex items-center gap-2 text-xs font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 hover:text-brand-600 px-2 py-1.5 rounded-lg border border-slate-100 transition-colors"
+                                            className="inline-flex items-center gap-2 text-sm font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 hover:text-brand-600 px-2 py-2 rounded-lg border border-slate-100 transition-colors w-full justify-center"
                                         >
-                                            <Smartphone className="w-3 h-3 text-slate-400" />
+                                            <Smartphone className="w-4 h-4 text-slate-400" />
                                             {member.phone || '-'}
                                         </a>
                                     </div>
@@ -1157,86 +1157,107 @@ export function App() {
         {/* Main Content */}
         <div className="flex-1 flex flex-col min-w-0 bg-white lg:bg-slate-50 relative">
             
-            {/* Top Bar */}
-            <div className="h-20 px-4 lg:px-8 border-b border-slate-200 bg-white/80 backdrop-blur-xl flex items-center justify-between sticky top-0 z-30 shadow-sm lg:shadow-none">
-                <div className="flex items-center gap-4">
-                    <button onClick={() => setShowMobileSidebar(true)} className="lg:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-lg">
+            {/* Top Bar - REDESIGNED FOR MOBILE SEARCH */}
+            <div className="h-20 px-3 lg:px-8 border-b border-slate-200 bg-white/80 backdrop-blur-xl flex items-center justify-between sticky top-0 z-30 shadow-sm lg:shadow-none gap-2">
+                
+                {/* 1. Mobile Menu & Stats */}
+                <div className="flex items-center gap-2 lg:gap-4 shrink-0">
+                    <button onClick={() => setShowMobileSidebar(true)} className="lg:hidden p-2 text-slate-500 hover:bg-slate-100 rounded-lg">
                         <Menu className="w-6 h-6" />
                     </button>
-                    <div>
-                        <h2 className="text-xl font-extrabold text-slate-800 flex items-center gap-2">
+                    <div className="hidden sm:block"> {/* Hide title on very small screens to give space to search */}
+                        <h2 className="text-lg lg:text-xl font-extrabold text-slate-800 flex items-center gap-2">
                             {getHeaderTitle()}
                             {getHeaderStats()}
                         </h2>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                     <div className="hidden md:flex items-center bg-slate-100 rounded-xl px-3 py-2 border border-slate-200 focus-within:ring-2 focus-within:ring-brand-500 focus-within:bg-white transition-all w-64 lg:w-80 group">
-                        <Search className="w-5 h-5 text-slate-400 group-focus-within:text-brand-500" />
-                        <input 
-                            type="text" 
-                            placeholder="Search members..." 
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="bg-transparent border-none outline-none text-sm ml-2 w-full text-slate-800 placeholder-slate-400"
-                        />
-                        {searchTerm && (
-                            <button onClick={() => setSearchTerm('')} className="p-0.5 rounded-full hover:bg-slate-200 text-slate-400">
-                                <X className="w-3 h-3" />
-                            </button>
-                        )}
-                     </div>
+                {/* 2. SEARCH BAR - PRIORITY ON MOBILE */}
+                <div className="flex-1 max-w-lg mx-2 flex items-center bg-slate-100 rounded-xl px-3 py-2 border border-slate-200 focus-within:ring-2 focus-within:ring-brand-500 focus-within:bg-white transition-all group">
+                    <Search className="w-5 h-5 text-slate-400 group-focus-within:text-brand-500 shrink-0" />
+                    <input 
+                        type="text" 
+                        placeholder="Search..." 
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="bg-transparent border-none outline-none text-sm ml-2 w-full text-slate-800 placeholder-slate-400"
+                    />
+                    {searchTerm && (
+                        <button onClick={() => setSearchTerm('')} className="p-0.5 rounded-full hover:bg-slate-200 text-slate-400">
+                            <X className="w-4 h-4" />
+                        </button>
+                    )}
+                </div>
 
-                     <div className="h-8 w-px bg-slate-200 mx-1 hidden sm:block"></div>
+                {/* 3. Actions - HIDDEN ON MOBILE (Smaller than MD) */}
+                <div className="flex items-center gap-2">
+                     <div className="hidden md:flex items-center gap-3">
+                        <button 
+                            onClick={() => setShowAiPanel(true)}
+                            className="p-2 sm:px-4 sm:py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transition-all flex items-center gap-2 group"
+                        >
+                            <Sparkles className="w-5 h-5 group-hover:animate-pulse" />
+                            <span className="hidden lg:inline">AI Assistant</span>
+                        </button>
 
-                     <button 
-                        onClick={() => setShowAiPanel(true)}
-                        className="p-2 sm:px-4 sm:py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transition-all flex items-center gap-2 group"
-                     >
-                        <Sparkles className="w-5 h-5 group-hover:animate-pulse" />
-                        <span className="hidden sm:inline">AI Assistant</span>
-                     </button>
+                        <button 
+                            onClick={() => setIsImportOpen(true)}
+                            className="p-2 text-slate-500 hover:bg-slate-100 hover:text-brand-600 rounded-xl transition-colors border border-transparent hover:border-slate-200"
+                            title="Import / Restore"
+                        >
+                            <Download className="w-5 h-5" />
+                        </button>
 
-                     <button 
-                        onClick={() => setIsImportOpen(true)}
-                        className="p-2 text-slate-500 hover:bg-slate-100 hover:text-brand-600 rounded-xl transition-colors border border-transparent hover:border-slate-200 hidden sm:block"
-                        title="Import / Restore"
-                     >
-                        <Download className="w-5 h-5" />
-                     </button>
-
-                     <button 
+                        <button 
+                            onClick={() => { setEditingMember(null); setIsFormOpen(true); }}
+                            className="p-2 sm:px-4 sm:py-2 bg-brand-600 text-white rounded-xl font-bold shadow-lg shadow-brand-200 hover:bg-brand-700 hover:shadow-brand-300 transition-all flex items-center gap-2"
+                        >
+                            <Plus className="w-5 h-5" />
+                            <span className="hidden lg:inline">New Member</span>
+                        </button>
+                    </div>
+                    {/* Mobile Only: New Member Icon if needed, but per request hide others */}
+                    <button 
                         onClick={() => { setEditingMember(null); setIsFormOpen(true); }}
-                        className="p-2 sm:px-4 sm:py-2 bg-brand-600 text-white rounded-xl font-bold shadow-lg shadow-brand-200 hover:bg-brand-700 hover:shadow-brand-300 transition-all flex items-center gap-2"
-                     >
-                        <Plus className="w-5 h-5" />
-                        <span className="hidden sm:inline">New Member</span>
-                     </button>
+                        className="md:hidden p-2 text-brand-600 bg-brand-50 rounded-xl"
+                    >
+                        <Plus className="w-6 h-6" />
+                    </button>
                 </div>
             </div>
 
             {/* Filter / Toolbar Bar */}
             {groupingType !== 'birthday' && (
-                <div className="px-4 lg:px-8 py-4 flex flex-col sm:flex-row gap-4 items-center justify-between z-20">
+                <div className="px-4 lg:px-8 py-3 lg:py-4 flex flex-col sm:flex-row gap-3 items-center justify-between z-20">
                     {/* View Toggles */}
-                    <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-200 w-full sm:w-auto">
+                    <div className="flex w-full sm:w-auto gap-2">
+                        <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-200 flex-1 sm:flex-none">
+                            <button 
+                                onClick={() => setViewMode('card')}
+                                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${viewMode === 'card' ? 'bg-slate-100 text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                                <LayoutGrid className="w-4 h-4" /> Cards
+                            </button>
+                            <button 
+                                onClick={() => setViewMode('family')}
+                                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${viewMode === 'family' ? 'bg-slate-100 text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                                <Users className="w-4 h-4" /> Family
+                            </button>
+                        </div>
+                        
+                        {/* Mobile Active Toggle */}
                         <button 
-                            onClick={() => setViewMode('card')}
-                            className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${viewMode === 'card' ? 'bg-slate-100 text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                             onClick={() => setShowActiveOnly(!showActiveOnly)}
+                             className={`sm:hidden px-3 py-1.5 rounded-xl border font-bold text-sm flex items-center gap-2 ${showActiveOnly ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-white border-slate-200 text-slate-500'}`}
                         >
-                            <LayoutGrid className="w-4 h-4" /> Cards
-                        </button>
-                        <button 
-                            onClick={() => setViewMode('family')}
-                            className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${viewMode === 'family' ? 'bg-slate-100 text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                        >
-                            <Users className="w-4 h-4" /> Family
+                            <UserCheck className="w-4 h-4" /> {showActiveOnly ? 'Active' : 'All'}
                         </button>
                     </div>
 
                     {/* Filter / Sort Actions */}
-                    <div className="flex items-center gap-2 w-full sm:w-auto justify-end overflow-x-auto">
+                    <div className="flex items-center gap-2 w-full sm:w-auto justify-end overflow-x-auto no-scrollbar">
                         {/* Year Filter Pills - Only show recent years for quick access */}
                         {groupingType === 'all' && (
                             <div className="flex items-center gap-2 mr-2">
@@ -1259,7 +1280,7 @@ export function App() {
                                 className="text-sm font-bold text-slate-600 bg-transparent outline-none pl-2 pr-1 py-1 cursor-pointer hover:text-brand-600"
                             >
                                 <option value="name">Name</option>
-                                <option value="rep">Head of Household</option>
+                                <option value="rep">Head</option>
                                 <option value="age">Age</option>
                             </select>
                             <button onClick={toggleSortDirection} className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600">
