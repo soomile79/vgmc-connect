@@ -77,7 +77,13 @@ const useSafeLocalStorage = <T,>(key: string, initialValue: T): [T, React.Dispat
   const [value, setValue] = useState<T>(() => {
     try {
       const saved = localStorage.getItem(key);
-      return saved ? JSON.parse(saved) : initialValue;
+      const parsed = saved ? JSON.parse(saved) : initialValue;
+      // Extra safety for members list to ensure it's an array
+      if (key === 'church-members' && !Array.isArray(parsed)) {
+          console.warn('Recovered corrupted members list');
+          return initialValue;
+      }
+      return parsed;
     } catch (e) {
       console.warn(`Failed to parse localStorage key "${key}". Falling back to default.`);
       return initialValue;
@@ -166,12 +172,12 @@ export function App() {
 
   // --- Check for Data Risk ---
   useEffect(() => {
-    if (!serverUrl && members.length > 0 && !localStorage.getItem('dismiss-sync-warn')) {
+    if (!serverUrl && Array.isArray(members) && members.length > 0 && !localStorage.getItem('dismiss-sync-warn')) {
         setShowPersistenceWarning(true);
     } else {
         setShowPersistenceWarning(false);
     }
-  }, [serverUrl, members.length]);
+  }, [serverUrl, members]);
 
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -236,6 +242,7 @@ export function App() {
 
   // Helper to sort tags consistently
   const sortTags = (tags: string[]) => {
+      if (!tags) return [];
       return [...tags].sort((a, b) => {
           // 1. Baptism always first
           if (a === '세례') return -1;
@@ -357,6 +364,8 @@ export function App() {
   }, [searchTerm, groupingType, selectedGroup, sortBy, sortDirection, viewMode, showActiveOnly]);
 
   const stats = useMemo(() => {
+    if (!Array.isArray(members)) return { total: 0, active: 0, families: 0, mokjangs: 0, recentYears: [], birthdaysThisMonth: 0 };
+    
     const uniqueFamilies = new Set(members.map(m => m.representative)).size;
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth();
@@ -382,6 +391,7 @@ export function App() {
   }, [members, mokjangList]);
 
   const getSubgroupStats = (filterFn: (m: Member) => boolean) => {
+      if (!Array.isArray(members)) return { count: 0, families: 0 };
       const subgroup = members.filter(m => {
           if (!filterFn(m)) return false;
           if (showActiveOnly) return m.status === 'Active';
@@ -392,6 +402,7 @@ export function App() {
   };
 
   const getRawSubgroupStats = (filterFn: (m: Member) => boolean) => {
+      if (!Array.isArray(members)) return { count: 0, families: 0 };
       const subgroup = members.filter(filterFn); 
       const fams = new Set(subgroup.map(m => m.representative)).size;
       return { count: subgroup.length, families: fams };
@@ -407,6 +418,7 @@ export function App() {
   };
 
   const filteredMembers = useMemo(() => {
+    if (!Array.isArray(members)) return [];
     let result = members;
     if (showActiveOnly) {
         result = result.filter(m => m.status === 'Active');
@@ -1126,23 +1138,59 @@ export function App() {
             {/* Empty State or Grid */}
             {/* If Print View is Active, Show Simplified Layout */}
             {isPrintView ? (
-                <div className="hidden print:grid grid-cols-4 gap-4">
-                    {paginatedItems.map((item) => {
-                         // Type guard for Member vs FamilyGroup
-                         const m = 'members' in item ? (item as any).head : (item as Member);
-                         const age = calculateAge(m.birthday);
-                         const genderShort = m.gender === 'Male' ? 'M' : 'F';
-                         return (
-                            <div key={m.id} className="border border-gray-300 p-2 text-sm break-inside-avoid rounded">
-                                <div className="font-bold text-base">{m.koreanName} <span className="text-xs font-normal text-gray-500">{m.englishName}</span></div>
-                                <div className="text-xs text-gray-600">
-                                    {m.position} &middot; {age ? `${age} | ${genderShort}` : genderShort}
+                // Use a conditional render for FAMILY view vs CARD view in Print Mode
+                viewMode === 'family' ? (
+                    <div className="hidden print:grid grid-cols-2 gap-6">
+                        {paginatedItems.map((group: any) => (
+                            <div key={group.id} className="break-inside-avoid border border-slate-300 rounded-xl p-4">
+                                <div className="border-b border-slate-200 pb-2 mb-2">
+                                    <h3 className="font-black text-lg text-slate-900">{group.repName}'s Family</h3>
+                                    <div className="text-xs text-slate-500 mt-1 flex flex-col gap-0.5">
+                                        <span>{group.head.address || 'No Address'}</span>
+                                        <span>{group.head.phone || 'No Phone'}</span>
+                                    </div>
                                 </div>
-                                <div className="text-xs mt-1">{m.phone}</div>
+                                <div className="space-y-1">
+                                    {group.members.map((m: Member) => {
+                                        const age = calculateAge(m.birthday);
+                                        return (
+                                            <div key={m.id} className="flex justify-between items-baseline text-sm">
+                                                <div className="flex items-baseline gap-1">
+                                                    <span className="font-bold text-slate-800">{m.koreanName}</span>
+                                                    <span className="text-xs text-slate-500">{m.englishName}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2 text-xs">
+                                                    <span className="text-slate-600 font-medium">{m.relationship === 'Self' ? 'Head' : m.relationship}</span>
+                                                    <span className="text-slate-300">|</span>
+                                                    <span className="text-slate-500 w-6 text-right">{age ? age : '-'}</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
-                         );
-                    })}
-                </div>
+                        ))}
+                    </div>
+                ) : (
+                    // Regular Card Print View
+                    <div className="hidden print:grid grid-cols-4 gap-4">
+                        {paginatedItems.map((item) => {
+                             // Type guard for Member vs FamilyGroup
+                             const m = 'members' in item ? (item as any).head : (item as Member);
+                             const age = calculateAge(m.birthday);
+                             const genderShort = m.gender === 'Male' ? 'M' : 'F';
+                             return (
+                                <div key={m.id} className="border border-gray-300 p-2 text-sm break-inside-avoid rounded">
+                                    <div className="font-bold text-base">{m.koreanName} <span className="text-xs font-normal text-gray-500">{m.englishName}</span></div>
+                                    <div className="text-xs text-gray-600">
+                                        {m.position} &middot; {age ? `${age} | ${genderShort}` : genderShort}
+                                    </div>
+                                    <div className="text-xs mt-1">{m.phone}</div>
+                                </div>
+                             );
+                        })}
+                    </div>
+                )
             ) : (
                 /* Normal Card View */
                 (viewMode === 'card' ? filteredMembers.length : familyGroups.length) === 0 ? (
@@ -1258,232 +1306,259 @@ export function App() {
         </div>
     );
   };
-  
+
   if (!isLoggedIn) {
     return <Login onLogin={handleLogin} />;
   }
 
-  const activeStats = getRawSubgroupStats(m => m.status === 'Active');
-
   return (
-    <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden selection:bg-brand-100 selection:text-brand-900">
-      
+    <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
       {/* Mobile Sidebar Overlay */}
       {showMobileSidebar && (
-        <div 
-          className="fixed inset-0 bg-slate-900/50 z-40 lg:hidden backdrop-blur-sm animate-in fade-in"
-          onClick={() => setShowMobileSidebar(false)}
-        />
+        <div className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm md:hidden" onClick={() => setShowMobileSidebar(false)} />
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-72 bg-white border-r border-slate-200 transform transition-transform duration-300 ease-in-out lg:transform-none flex flex-col ${showMobileSidebar ? 'translate-x-0' : '-translate-x-full'} print:hidden`}>
-        {/* Logo Area */}
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-          <div onClick={handleTotalActiveClick} className="cursor-pointer">
-            <Logo />
-          </div>
-          <button onClick={() => setShowMobileSidebar(false)} className="lg:hidden p-2 text-slate-400 hover:bg-slate-50 rounded-full">
-            <X className="w-5 h-5" />
-          </button>
+      <aside className={`fixed md:static inset-y-0 left-0 z-40 w-72 bg-white border-r border-slate-200 transform transition-transform duration-300 ease-in-out ${showMobileSidebar ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 flex flex-col h-full shadow-2xl md:shadow-none`}>
+        <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+             <Logo />
+             <button onClick={() => setShowMobileSidebar(false)} className="md:hidden p-1 text-slate-400"><X className="w-5 h-5" /></button>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto py-4 space-y-6">
+            {/* Overview / Home */}
+            <div className="px-4">
+                 <button 
+                    onClick={handleTotalActiveClick}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${groupingType === 'all' && showActiveOnly ? 'bg-brand-600 text-white shadow-lg shadow-brand-200' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'}`}
+                 >
+                    <Home className="w-5 h-5" />
+                    <div className="flex-1 text-left">
+                        <div className="font-bold text-sm">Active Members</div>
+                        <div className={`text-xs ${groupingType === 'all' && showActiveOnly ? 'text-brand-100' : 'text-slate-400'}`}>{stats.active} people</div>
+                    </div>
+                 </button>
+            </div>
+
+            {/* Quick Stats Grid */}
+            <div className="px-6 grid grid-cols-2 gap-3">
+                 <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                     <div className="text-xs font-bold text-slate-400 uppercase mb-1">Families</div>
+                     <div className="text-xl font-black text-slate-800">{stats.families}</div>
+                 </div>
+                 <div 
+                    onClick={() => { setGroupingType('birthday'); setShowMobileSidebar(false); }}
+                    className="bg-pink-50 p-3 rounded-xl border border-pink-100 cursor-pointer hover:bg-pink-100 transition-colors group"
+                 >
+                     <div className="text-xs font-bold text-pink-400 uppercase mb-1 group-hover:text-pink-500">Birthdays</div>
+                     <div className="text-xl font-black text-pink-600 flex items-center gap-2">
+                        {stats.birthdaysThisMonth} <Cake className="w-4 h-4" />
+                     </div>
+                 </div>
+            </div>
+
+            {/* Sections */}
+            <div className="space-y-1">
+                 {renderSidebarSection('Mokjang (Cells)', 'mokjang', <Users className="w-4 h-4" />, mokjangList, (item) => getSubgroupStats(m => m.mokjang === item))}
+                 {renderSidebarSection('Positions', 'position', <Briefcase className="w-4 h-4" />, positionList, (item) => getSubgroupStats(m => m.position === item))}
+                 {renderSidebarSection('Status', 'status', <Tag className="w-4 h-4" />, statusList, (item) => getRawSubgroupStats(m => m.status === item))}
+                 {renderSidebarSection('Tags', 'tag', <CheckSquare className="w-4 h-4" />, tagList, (item) => getSubgroupStats(m => m.tags?.includes(item) ?? false))}
+                 {renderSidebarSection('Registration', 'registration', <CalendarDays className="w-4 h-4" />, stats.recentYears.map(String), (item) => getRawSubgroupStats(m => !!m.registrationDate && new Date(m.registrationDate).getFullYear() === parseInt(item)))}
+            </div>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-6 scrollbar-thin scrollbar-thumb-slate-200 hover:scrollbar-thumb-slate-300">
-           
-           {/* Primary Actions */}
-           <div className="grid grid-cols-1 gap-2 px-2">
-              <button 
-                onClick={handleCreateClick}
-                className="w-full flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 text-white p-3 rounded-xl font-bold shadow-lg shadow-brand-200 transition-all hover:-translate-y-0.5"
-              >
-                <Plus className="w-5 h-5" /> New Member
-              </button>
-           </div>
-
-           {/* Navigation Links */}
-           <div className="space-y-1">
-                {/* Enhanced Active Members Button */}
-                <div onClick={handleTotalActiveClick} className={`mx-2 mb-2 flex flex-col gap-1 px-4 py-3 rounded-xl cursor-pointer transition-all border ${groupingType === 'all' && showActiveOnly ? 'bg-brand-50 border-brand-200 shadow-sm' : 'bg-white border-slate-200 hover:border-brand-300 hover:shadow-md'}`}>
-                    <div className="flex items-center gap-3">
-                        <div className={`p-1.5 rounded-lg ${groupingType === 'all' && showActiveOnly ? 'bg-brand-100 text-brand-600' : 'bg-slate-100 text-slate-500'}`}>
-                            <Users className="w-5 h-5" />
-                        </div>
-                        <span className={`text-sm font-bold ${groupingType === 'all' && showActiveOnly ? 'text-brand-700' : 'text-slate-700'}`}>Active Members</span>
-                    </div>
-                    <div className="pl-11 text-xs text-slate-500 font-medium flex gap-2">
-                         <span>{activeStats.families} Families</span>
-                         <span className="text-slate-300">|</span>
-                         <span>{activeStats.count} People</span>
-                    </div>
-                </div>
-                
-                <div 
-                    onClick={() => { setGroupingType('birthday'); setShowMobileSidebar(false); setShowActiveOnly(true); }} 
-                    className={`mx-2 flex items-center gap-3 px-4 py-2 rounded-lg cursor-pointer transition-colors ${groupingType === 'birthday' ? 'bg-orange-50 text-orange-700 font-bold' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
-                >
-                    <Cake className="w-4 h-4" />
-                    <span className="text-sm">Birthdays <span className="text-[10px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full ml-auto">{stats.birthdaysThisMonth}</span></span>
-                </div>
-
-                <div className="pt-2">
-                    {/* Updated Order: Mokjang, Position, Tag, Status, Latest Registration */}
-                    {renderSidebarSection('Mokjang', 'mokjang', <Home className="w-3 h-3" />, mokjangList, (item) => getSubgroupStats(m => m.mokjang === item))}
-                    {renderSidebarSection('Positions', 'position', <Briefcase className="w-3 h-3" />, positionList, (item) => getSubgroupStats(m => m.position === item))}
-                    {renderSidebarSection('Tags', 'tag', <Tag className="w-3 h-3" />, tagList, (item) => getSubgroupStats(m => m.tags?.includes(item) || false))}
-                    {renderSidebarSection('Status', 'status', <UserCheck className="w-3 h-3" />, statusList, (item) => getRawSubgroupStats(m => m.status === item))}
-                    {/* New Group: Registration Years */}
-                    {renderSidebarSection('Latest Registered', 'registration', <UserPlus className="w-3 h-3" />, stats.recentYears.map(String), (year) => getRawSubgroupStats(m => !!m.registrationDate && new Date(m.registrationDate).getFullYear() === parseInt(year, 10)))}
-                </div>
-           </div>
-        </nav>
-
-        {/* Footer Actions */}
-        <div className="p-4 border-t border-slate-200 bg-slate-50">
-             
-             {/* Last Sync Indicator */}
-             {lastSyncTime && (
-                 <div className="mb-3 flex items-center justify-between px-1 animate-in slide-in-from-bottom-2">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                        <div className={`w-1.5 h-1.5 rounded-full ${isSyncing ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'}`}></div>
-                        {isSyncing ? 'Syncing...' : 'Last Sync'}
-                    </span>
-                    <span className="text-[10px] font-bold text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200 shadow-sm font-mono">
-                        {lastSyncTime.toLocaleString([], {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'})}
-                    </span>
-                 </div>
-             )}
-
-             <div className="grid grid-cols-2 gap-2">
-                 <button onClick={() => { setIsSettingsOpen(true); setShowActionsMenu(false); }} className="col-span-2 p-2 flex items-center justify-center gap-2 bg-white border border-slate-200 rounded-lg text-slate-600 text-xs font-bold hover:bg-slate-100 hover:text-slate-800 transition-colors">
-                     <Settings className="w-3.5 h-3.5" /> Settings
+        {/* User / Settings Footer */}
+        <div className="p-4 border-t border-slate-100 bg-slate-50">
+             <div className="flex items-center gap-2 mb-3">
+                 <button onClick={() => setIsSettingsOpen(true)} className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-600 hover:text-brand-600 hover:border-brand-300 transition-all shadow-sm">
+                     <Settings className="w-4 h-4" /> System
                  </button>
-                 <button onClick={handleLogout} className="col-span-2 p-2 flex items-center justify-center gap-2 bg-slate-200 border border-transparent rounded-lg text-slate-600 text-xs font-bold hover:bg-slate-300 hover:text-slate-800 transition-colors">
-                     <LogOut className="w-3.5 h-3.5" /> Sign Out
+                 <button onClick={handleLogout} className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-400 hover:text-red-500 hover:border-red-200 transition-all shadow-sm">
+                     <LogOut className="w-4 h-4" />
                  </button>
              </div>
-             
-             <div className="mt-4 flex items-center justify-between text-[10px] text-slate-400 font-medium">
-                 <span>v2.4.1</span>
-                 {serverUrl && (
-                     <span className={`flex items-center gap-1 ${isSyncing ? 'text-blue-500 animate-pulse' : syncError ? 'text-red-500' : 'text-emerald-500'}`}>
-                         <Cloud className="w-3 h-3" />
-                         {isSyncing ? 'Syncing...' : syncError ? 'Sync Error' : 'Synced'}
-                     </span>
-                 )}
-             </div>
+             <button 
+                onClick={() => setShowAiPanel(true)}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transition-all"
+             >
+                <Sparkles className="w-4 h-4" /> AI Assistant
+             </button>
         </div>
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col h-full overflow-hidden relative print:overflow-visible print:h-auto">
-          
-          {/* TOP STICKY HEADER (Mobile & Desktop) */}
-          <header className="bg-white border-b border-slate-200 p-4 z-20 shrink-0 sticky top-0 flex flex-col gap-3 print:hidden">
-               
-               {/* Header Row: Mobile Menu + Search (Combined to remove duplicate title) */}
-               <div className="flex items-center gap-3">
-                   <button onClick={() => setShowMobileSidebar(true)} className="lg:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-50 rounded-lg shrink-0">
-                       <Menu className="w-6 h-6" />
-                   </button>
-                   <div className="lg:hidden shrink-0">
-                       <Logo showText={false} className="scale-75 origin-left" />
-                   </div>
-                   
-                   {/* Persistent Search Bar (Reduced Width: max-w-md) */}
-                   <div className="flex-1 relative group max-w-sm">
-                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
-                        <input 
-                            type="text" 
-                            placeholder="Search members..." 
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-9 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none transition-all"
-                        />
-                        {searchTerm && (
-                            <button 
-                                onClick={() => setSearchTerm('')}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-200 transition-colors"
-                            >
-                                <X className="w-3 h-3" />
-                            </button>
-                        )}
-                   </div>
-
-                   {/* AI Assistant Button Only */}
-                   <button 
-                        onClick={() => setShowAiPanel(true)}
-                        className="p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-xl transition-colors border border-indigo-200 shadow-sm shrink-0 flex items-center justify-center w-10 h-10"
-                        title="AI Assistant"
-                    >
-                        <Sparkles className="w-5 h-5" />
-                    </button>
-               </div>
-          </header>
-
-          {/* AI Panel Modal */}
-          {showAiPanel && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/20 backdrop-blur-sm p-4 animate-in fade-in">
-                    <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col ring-1 ring-slate-900/5">
-                        <div className="p-4 bg-indigo-600 text-white flex justify-between items-center">
-                            <div className="flex items-center gap-2 font-bold">
-                                <Sparkles className="w-5 h-5 text-yellow-300" />
-                                AI Assistant
-                            </div>
-                            <button onClick={() => setShowAiPanel(false)} className="p-1 hover:bg-white/20 rounded-full transition-colors"><X className="w-5 h-5" /></button>
-                        </div>
-                        <div className="p-6 bg-slate-50 min-h-[200px] max-h-[60vh] overflow-y-auto">
-                            {aiResponse ? (
-                                <div className="prose prose-sm text-slate-700">
-                                    <p className="whitespace-pre-wrap">{aiResponse}</p>
-                                </div>
-                            ) : (
-                                <div className="text-center text-slate-400 py-8">
-                                    <Sparkles className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                                    <p>Ask me anything about the church members!</p>
-                                    <p className="text-xs mt-2">"How many active members?"<br/>"List all elders."</p>
-                                </div>
-                            )}
-                            {isAiLoading && (
-                                <div className="flex items-center justify-center py-8 text-indigo-600">
-                                    <Loader2 className="w-8 h-8 animate-spin" />
-                                </div>
-                            )}
-                        </div>
-                        <div className="p-4 bg-white border-t border-slate-100 flex gap-2">
-                            <input 
-                                value={aiQuery}
-                                onChange={e => setAiQuery(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && handleAiAsk()}
-                                placeholder="Ask a question..."
-                                className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                                autoFocus
-                            />
-                            <button 
-                                onClick={handleAiAsk}
-                                disabled={!aiQuery.trim() || isAiLoading}
-                                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold disabled:opacity-50 transition-colors"
-                            >
-                                Ask
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-          {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto scroll-smooth print:overflow-visible print:h-auto">
-             {renderMainContent()}
+      <main className="flex-1 flex flex-col h-full overflow-hidden relative bg-white">
+          {/* Mobile Header */}
+          <div className="md:hidden px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-white shrink-0 z-30">
+              <button onClick={() => setShowMobileSidebar(true)} className="p-2 text-slate-500 hover:bg-slate-50 rounded-lg">
+                  <Menu className="w-6 h-6" />
+              </button>
+              <Logo showText={false} className="scale-75" />
+              <button onClick={() => setShowAiPanel(true)} className="p-2 text-violet-600 bg-violet-50 rounded-lg">
+                  <Sparkles className="w-5 h-5" />
+              </button>
           </div>
-          
+
+          {/* Search Header */}
+          <div className="px-4 sm:px-8 py-4 border-b border-slate-100 bg-white/80 backdrop-blur-sm z-20 flex flex-col sm:flex-row gap-4 justify-between items-center print:hidden">
+              <div className="relative w-full sm:max-w-md group">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
+                  <input 
+                      type="text" 
+                      placeholder="Search members..." 
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-12 pr-4 py-3 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-brand-100 text-slate-800 placeholder:text-slate-400 font-medium transition-all"
+                  />
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  {serverUrl && (
+                    <div className="flex items-center gap-2 mr-2">
+                        {isSyncing ? (
+                             <span className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 text-slate-400 rounded-lg text-xs font-bold border border-slate-100">
+                                 <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Syncing...
+                             </span>
+                        ) : (
+                             <button 
+                                onClick={fetchFromCloud} 
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${syncError ? 'bg-red-50 text-red-500 border-red-100' : 'bg-slate-50 text-slate-500 border-slate-100 hover:bg-white hover:border-slate-200'}`}
+                                title={lastSyncTime ? `Last synced: ${lastSyncTime.toLocaleTimeString()}` : 'Click to sync'}
+                             >
+                                 {syncError ? <CloudOff className="w-3.5 h-3.5" /> : <Cloud className="w-3.5 h-3.5" />}
+                                 {syncError ? 'Sync Failed' : 'Synced'}
+                             </button>
+                        )}
+                    </div>
+                  )}
+
+                  <button 
+                      onClick={handleCreateClick}
+                      className="flex items-center gap-2 px-5 py-3 bg-brand-600 hover:bg-brand-700 text-white rounded-2xl font-bold shadow-lg shadow-brand-200 transition-all hover:-translate-y-0.5"
+                  >
+                      <Plus className="w-5 h-5" />
+                      <span className="hidden sm:inline">Add Member</span>
+                  </button>
+                  
+                  {/* Actions Dropdown */}
+                  <div className="relative" ref={actionMenuRef}>
+                      <button 
+                        onClick={() => setShowActionsMenu(!showActionsMenu)}
+                        className={`p-3 rounded-2xl border transition-all ${showActionsMenu ? 'bg-brand-50 border-brand-200 text-brand-600' : 'bg-white border-slate-200 text-slate-500 hover:border-brand-200 hover:text-brand-600'}`}
+                      >
+                         {showActionsMenu ? <X className="w-5 h-5"/> : <ListFilter className="w-5 h-5" />}
+                      </button>
+                      
+                      {showActionsMenu && (
+                          <div className="absolute top-full right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 p-2 z-50 animate-in fade-in slide-in-from-top-2 origin-top-right">
+                              <button onClick={() => { setIsImportOpen(true); setShowActionsMenu(false); }} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-brand-600 transition-colors text-left">
+                                  <Upload className="w-4 h-4" /> Import Data
+                              </button>
+                              <button onClick={handleExport} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-brand-600 transition-colors text-left">
+                                  <Download className="w-4 h-4" /> Export Data
+                              </button>
+                              <div className="h-px bg-slate-100 my-1"></div>
+                              <button onClick={handlePrint} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-brand-600 transition-colors text-left">
+                                  <Printer className="w-4 h-4" /> Print View
+                              </button>
+                              <button onClick={handleBulkEmail} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-brand-600 transition-colors text-left">
+                                  <Mail className="w-4 h-4" /> Email Group
+                              </button>
+                              <div className="h-px bg-slate-100 my-1"></div>
+                              <button onClick={handleGraduateNewFamilies} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-amber-600 hover:bg-amber-50 transition-colors text-left">
+                                  <UserCheck className="w-4 h-4" /> Graduate 'New Family'
+                              </button>
+                          </div>
+                      )}
+                  </div>
+              </div>
+          </div>
+
+          {/* Scroll Container */}
+          <div className="flex-1 overflow-y-auto bg-slate-50/50" id="main-scroll">
+              {renderMainContent()}
+          </div>
       </main>
+      
+      {/* AI Panel Overlay */}
+      {showAiPanel && (
+          <div className="fixed inset-0 z-50 flex justify-end">
+              <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm" onClick={() => setShowAiPanel(false)} />
+              <div className="relative w-full max-w-md bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+                  <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-violet-600 to-indigo-600 text-white">
+                      <div className="flex items-center gap-3">
+                          <Sparkles className="w-6 h-6" />
+                          <div>
+                              <h3 className="font-bold text-lg leading-none">AI Assistant</h3>
+                              <p className="text-xs text-violet-200 mt-1">Powered by Gemini</p>
+                          </div>
+                      </div>
+                      <button onClick={() => setShowAiPanel(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X className="w-5 h-5" /></button>
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50">
+                      {aiResponse ? (
+                          <div className="space-y-4">
+                              <div className="flex justify-end">
+                                  <div className="bg-violet-600 text-white px-4 py-3 rounded-2xl rounded-tr-none shadow-sm max-w-[85%] text-sm">
+                                      {aiQuery}
+                                  </div>
+                              </div>
+                              <div className="flex justify-start">
+                                  <div className="bg-white text-slate-700 px-5 py-4 rounded-2xl rounded-tl-none shadow-sm border border-slate-200 max-w-[90%] text-sm leading-relaxed prose prose-sm">
+                                      <div dangerouslySetInnerHTML={{ __html: aiResponse.replace(/\n/g, '<br/>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+                                  </div>
+                              </div>
+                              <div className="text-center pt-4">
+                                  <button onClick={() => { setAiResponse(''); setAiQuery(''); }} className="text-xs font-bold text-slate-400 hover:text-brand-600">Ask another question</button>
+                              </div>
+                          </div>
+                      ) : (
+                          <div className="h-full flex flex-col items-center justify-center text-center opacity-50">
+                               <Sparkles className="w-12 h-12 text-violet-300 mb-4" />
+                               <h4 className="font-bold text-slate-600 mb-2">How can I help you?</h4>
+                               <p className="text-sm text-slate-400 max-w-xs">Ask about member stats, find specific people, or summarize data.</p>
+                               
+                               <div className="mt-8 grid grid-cols-1 gap-2 w-full max-w-xs">
+                                    {['How many active members?', 'List all teachers', 'Who has a birthday in May?'].map(q => (
+                                        <button key={q} onClick={() => setAiQuery(q)} className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-500 hover:text-violet-600 hover:border-violet-200 transition-colors text-left">
+                                            "{q}"
+                                        </button>
+                                    ))}
+                               </div>
+                          </div>
+                      )}
+                  </div>
+                  
+                  <div className="p-4 bg-white border-t border-slate-100">
+                      <div className="relative">
+                          <textarea 
+                              value={aiQuery}
+                              onChange={e => setAiQuery(e.target.value)}
+                              onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleAiAsk())}
+                              placeholder="Ask anything about the members..."
+                              className="w-full pl-4 pr-12 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 outline-none resize-none text-sm"
+                              rows={2}
+                          />
+                          <button 
+                              onClick={handleAiAsk}
+                              disabled={!aiQuery.trim() || isAiLoading}
+                              className="absolute right-2 top-2 p-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:bg-slate-300 transition-colors shadow-sm"
+                          >
+                              {isAiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+                          </button>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      )}
 
       {/* Modals */}
-      <MemberForm
+      <MemberForm 
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
         onSubmit={handleSaveMembers}
-        onDelete={editingMember ? handleDeleteMember : undefined}
+        onDelete={handleDeleteMember}
         initialData={editingMember}
         allMembers={members}
         mokjangList={mokjangList}
@@ -1492,41 +1567,40 @@ export function App() {
         tagList={tagList}
       />
 
-      <MemberDetail
+      <MemberDetail 
         member={viewingMember}
         isOpen={isDetailOpen}
         onClose={() => setIsDetailOpen(false)}
         onEdit={handleEditClick}
         allMembers={members}
         onMemberClick={handleCardClick}
-        tagList={tagList} // Pass tagList for sorting
+        tagList={tagList}
       />
-      
-      <ImportModal
+
+      <ImportModal 
         isOpen={isImportOpen}
         onClose={() => setIsImportOpen(false)}
         onImport={handleImport}
       />
-      
-      <SettingsModal
+
+      <SettingsModal 
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         mokjangList={mokjangList}
         positionList={positionList}
         statusList={statusList}
         tagList={tagList}
-        onUpdateMokjangs={setMokjangList}
-        onUpdatePositions={setPositionList}
-        onUpdateStatuses={setStatusList}
-        onUpdateTags={setTagList}
+        onUpdateMokjangs={(list) => setMokjangList(list)}
+        onUpdatePositions={(list) => setPositionList(list)}
+        onUpdateStatuses={(list) => setStatusList(list)}
+        onUpdateTags={(list) => setTagList(list)}
         onRenameItem={handleRenameItem}
         onDeleteItem={handleDeleteItem}
-        onForceSync={serverUrl ? handleForceSync : undefined}
+        onForceSync={handleForceSync}
         lastSyncTime={lastSyncTime}
         onImportClick={() => setIsImportOpen(true)}
         onExportClick={handleExport}
       />
-
     </div>
   );
 }
