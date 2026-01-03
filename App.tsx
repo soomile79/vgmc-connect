@@ -234,6 +234,26 @@ export function App() {
       return () => window.removeEventListener('keydown', handleEsc);
   }, [showAiPanel]);
 
+  // Helper to sort tags consistently
+  const sortTags = (tags: string[]) => {
+      return [...tags].sort((a, b) => {
+          // 1. Baptism always first
+          if (a === '세례') return -1;
+          if (b === '세례') return 1;
+          
+          // 2. Defined Global Order
+          const idxA = tagList.indexOf(a);
+          const idxB = tagList.indexOf(b);
+          
+          if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+          if (idxA !== -1) return -1; // a is in list, b is not -> a comes first
+          if (idxB !== -1) return 1;  // b is in list, a is not -> b comes first
+          
+          // 3. Alphabetical for custom tags
+          return a.localeCompare(b);
+      });
+  };
+
   // Cloud Sync Functions
   const fetchFromCloud = async () => {
     if (!serverUrl) return;
@@ -1110,10 +1130,14 @@ export function App() {
                     {paginatedItems.map((item) => {
                          // Type guard for Member vs FamilyGroup
                          const m = 'members' in item ? (item as any).head : (item as Member);
+                         const age = calculateAge(m.birthday);
+                         const genderShort = m.gender === 'Male' ? 'M' : 'F';
                          return (
                             <div key={m.id} className="border border-gray-300 p-2 text-sm break-inside-avoid rounded">
                                 <div className="font-bold text-base">{m.koreanName} <span className="text-xs font-normal text-gray-500">{m.englishName}</span></div>
-                                <div className="text-xs text-gray-600">{m.position} &middot; {m.gender === 'Male' ? 'M' : 'F'}/{calculateAge(m.birthday)}</div>
+                                <div className="text-xs text-gray-600">
+                                    {m.position} &middot; {age ? `${age} | ${genderShort}` : genderShort}
+                                </div>
                                 <div className="text-xs mt-1">{m.phone}</div>
                             </div>
                          );
@@ -1158,7 +1182,8 @@ export function App() {
                                             <div className="flex flex-wrap items-center gap-1.5 mb-2 leading-none">
                                                 <span className={`px-1.5 py-0.5 rounded text-xs font-bold border ${getRoleStyle(member.position as string)}`}>{member.position}</span>
                                                 {member.mokjang !== 'Unassigned' && (<><span className="text-xs text-slate-300">|</span><span className="text-xs font-bold text-slate-600 truncate max-w-[80px]">{member.mokjang}</span></>)}
-                                                {member.tags && member.tags.length > 0 && (<><span className="text-xs text-slate-300">|</span><div className="flex gap-1">{member.tags.filter(t => t !== 'New Family' && t !== '새가족').slice(0, 2).map(tag => (<span key={tag} className="text-xs font-bold text-slate-500 bg-slate-50 px-1 rounded border border-slate-100 group-hover:bg-white whitespace-nowrap">#{tag}</span>))}</div></>)}
+                                                {/* TAGS SORTED HERE */}
+                                                {member.tags && member.tags.length > 0 && (<><span className="text-xs text-slate-300">|</span><div className="flex gap-1">{sortTags(member.tags.filter(t => t !== 'New Family' && t !== '새가족')).slice(0, 2).map(tag => (<span key={tag} className="text-xs font-bold text-slate-500 bg-slate-50 px-1 rounded border border-slate-100 group-hover:bg-white whitespace-nowrap">#{tag}</span>))}</div></>)}
                                                 {(member.tags?.includes('New Family') || member.tags?.includes('새가족')) && <span className="bg-amber-50 text-amber-700 text-xs px-1.5 py-0.5 rounded border border-amber-100 font-bold ml-auto group-hover:bg-white whitespace-nowrap">새가족</span>}
                                             </div>
                                             <div className="mt-auto pt-3">
@@ -1474,6 +1499,7 @@ export function App() {
         onEdit={handleEditClick}
         allMembers={members}
         onMemberClick={handleCardClick}
+        tagList={tagList} // Pass tagList for sorting
       />
       
       <ImportModal
