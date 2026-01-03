@@ -27,11 +27,12 @@ const MemberDetail: React.FC<MemberDetailProps> = ({
   if (!isOpen || !member) return null;
 
   const calculateAge = (dob: string) => {
-    if (!dob) return 'N/A';
+    if (!dob) return '';
     const birthDate = new Date(dob);
     const ageDifMs = Date.now() - birthDate.getTime();
     const ageDate = new Date(ageDifMs);
-    return Math.abs(ageDate.getUTCFullYear() - 1970);
+    const age = Math.abs(ageDate.getUTCFullYear() - 1970);
+    return age;
   };
 
   const calculateTenure = (regDateStr: string) => {
@@ -71,9 +72,9 @@ const MemberDetail: React.FC<MemberDetailProps> = ({
         const rankA = getRank(a);
         const rankB = getRank(b);
         if (rankA !== rankB) return rankA - rankB;
-        const ageA = calculateAge(a.birthday) === 'N/A' ? 0 : Number(calculateAge(a.birthday));
-        const ageB = calculateAge(b.birthday) === 'N/A' ? 0 : Number(calculateAge(b.birthday));
-        return ageB - ageA;
+        const ageA = calculateAge(a.birthday) || 0;
+        const ageB = calculateAge(b.birthday) || 0;
+        return (ageB as number) - (ageA as number);
     });
 
   const googleMapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(member.address)}`;
@@ -116,9 +117,10 @@ const MemberDetail: React.FC<MemberDetailProps> = ({
 
   // Theme based on role (using pastel 50/100 scales for BG)
   const roleBaseColor = getRoleBaseColor(member.position as string);
+  const age = calculateAge(member.birthday);
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 perspective-[2000px]">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 pt-16 sm:pt-4 perspective-[2000px]">
       <style>{`
           @keyframes flipIn {
             0% {
@@ -135,7 +137,7 @@ const MemberDetail: React.FC<MemberDetailProps> = ({
             transform-origin: center;
           }
       `}</style>
-      <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[92vh] relative animate-flip-in ring-1 ring-slate-900/5">
+      <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[85vh] sm:max-h-[92vh] relative animate-flip-in ring-1 ring-slate-900/5">
         
         {/* Header - Clean Pastel Background without Overlaps */}
         <div className={`flex flex-col relative bg-${roleBaseColor}-50`}>
@@ -166,7 +168,7 @@ const MemberDetail: React.FC<MemberDetailProps> = ({
                                 {member.koreanName}
                             </h1>
                             <span className="text-sm sm:text-lg font-medium text-slate-500">
-                                {calculateAge(member.birthday)} · {member.gender === 'Male' ? 'M' : 'F'}
+                                {age ? `${age} · ` : ''}{member.gender === 'Male' ? 'M' : 'F'}
                             </span>
                         </div>
                         <div className="text-sm sm:text-xl text-slate-500 font-medium mb-2 sm:mb-3 truncate">
@@ -334,6 +336,7 @@ const MemberDetail: React.FC<MemberDetailProps> = ({
                         {familyMembers.map(fm => {
                             const avatar = getDisplayAvatar(fm);
                             const fmRoleColor = getRoleBaseColor(fm.position as string);
+                            const fmAge = calculateAge(fm.birthday);
                             return (
                                 <button 
                                 key={fm.id}
@@ -359,7 +362,7 @@ const MemberDetail: React.FC<MemberDetailProps> = ({
                                     <div className="text-xs text-slate-500 font-medium flex items-center gap-1.5">
                                         <span className="text-brand-600 font-bold">{getDisplayRelationship(fm)}</span>
                                         <span className="w-0.5 h-0.5 rounded-full bg-slate-300"></span>
-                                        <span>{calculateAge(fm.birthday)} yrs</span>
+                                        <span>{fmAge ? `${fmAge} yrs` : ''}</span>
                                     </div>
                                 </div>
                                 </button>
