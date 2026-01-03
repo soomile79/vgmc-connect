@@ -1216,8 +1216,8 @@ export function App() {
              <div className="space-y-1">
                  {renderSidebarSection('Cells', 'mokjang', <Home className="w-3 h-3" />, mokjangList, (item) => getRawSubgroupStats(m => m.mokjang === item))}
                  {renderSidebarSection('Roles', 'position', <Briefcase className="w-3 h-3" />, positionList, (item) => getSubgroupStats(m => m.position === item))}
-                 {renderSidebarSection('Status', 'status', <UserCheck className="w-3 h-3" />, statusList, (item) => getRawSubgroupStats(m => m.status === item))}
                  {renderSidebarSection('Tags', 'tag', <Tag className="w-3 h-3" />, tagList, (item) => getSubgroupStats(m => m.tags?.includes(item)))}
+                 {renderSidebarSection('Status', 'status', <UserCheck className="w-3 h-3" />, statusList, (item) => getRawSubgroupStats(m => m.status === item))}
              </div>
         </div>
 
