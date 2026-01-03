@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, Save, Trash2, UserPlus, Users, Camera, Crown, Calendar, User, Briefcase, MapPin, Phone, Mail, FileText, ChevronDown, ChevronUp, Copy, Check, Smartphone, Plus } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { X, Save, Trash2, UserPlus, Users, Camera, Crown, Calendar, User, Briefcase, MapPin, Phone, Mail, FileText, ChevronDown, ChevronUp, Copy, Check, Smartphone, Plus, AlertCircle } from 'lucide-react';
 import { Member, MemberStatus, Position } from '../types';
 
 interface MemberFormProps {
@@ -53,6 +53,21 @@ const MemberForm: React.FC<MemberFormProps> = ({
     const ageDate = new Date(ageDifMs);
     return Math.abs(ageDate.getUTCFullYear() - 1970);
   };
+
+  // --- DUPLICATE DETECTION LOGIC ---
+  const duplicateMembers = useMemo(() => {
+    if (!formData.koreanName || formData.koreanName.trim().length < 2) return [];
+    
+    // Normalize string for comparison
+    const targetName = formData.koreanName.trim();
+    
+    return allMembers.filter(m => {
+        // Exclude the member currently being edited
+        if (initialData && m.id === initialData.id) return false;
+        
+        return m.koreanName === targetName;
+    });
+  }, [formData.koreanName, allMembers, initialData]);
 
   useEffect(() => {
     if (isOpen) {
@@ -461,6 +476,23 @@ const MemberForm: React.FC<MemberFormProps> = ({
                                     placeholder="Gil Dong"
                                 />
                             </div>
+                            
+                            {/* Duplicate Warning */}
+                            {duplicateMembers.length > 0 && (
+                                <div className="col-span-2 p-2 bg-amber-50 border border-amber-200 rounded-lg text-[11px] text-amber-800 animate-in slide-in-from-top-1">
+                                    <div className="font-bold flex items-center gap-1.5 mb-1 text-amber-900">
+                                        <AlertCircle className="w-3.5 h-3.5" /> 
+                                        Same Name Exists ({duplicateMembers.length})
+                                    </div>
+                                    <ul className="list-disc pl-4 space-y-0.5 opacity-80">
+                                        {duplicateMembers.map(d => (
+                                            <li key={d.id}>
+                                                {d.koreanName} ({d.position}) {d.birthday ? `- Born ${d.birthday}` : ''}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
                           </div>
                           
                           <div className="grid grid-cols-2 gap-4">
