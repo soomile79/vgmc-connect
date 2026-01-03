@@ -10,10 +10,11 @@ interface MemberDetailProps {
   onEdit: (member: Member) => void;
   allMembers: Member[];
   onMemberClick: (member: Member) => void;
+  tagList?: string[];
 }
 
 const MemberDetail: React.FC<MemberDetailProps> = ({ 
-  member, isOpen, onClose, onEdit, allMembers, onMemberClick 
+  member, isOpen, onClose, onEdit, allMembers, onMemberClick, tagList = [] 
 }) => {
   
   useEffect(() => {
@@ -115,6 +116,24 @@ const MemberDetail: React.FC<MemberDetailProps> = ({
     }
   };
 
+  // Sort Logic shared
+  const sortedTags = [...(member.tags || [])].sort((a, b) => {
+      // 1. Baptism always first
+      if (a === '세례') return -1;
+      if (b === '세례') return 1;
+      
+      // 2. Defined Global Order
+      const idxA = tagList.indexOf(a);
+      const idxB = tagList.indexOf(b);
+      
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1; // a is in list, b is not -> a comes first
+      if (idxB !== -1) return 1;  // b is in list, a is not -> b comes first
+      
+      // 3. Alphabetical for custom tags
+      return a.localeCompare(b);
+  });
+
   // Theme based on role (using pastel 50/100 scales for BG)
   const roleBaseColor = getRoleBaseColor(member.position as string);
   const age = calculateAge(member.birthday);
@@ -196,11 +215,11 @@ const MemberDetail: React.FC<MemberDetailProps> = ({
                                 </span>
                                 </>
                             )}
-                            {member.tags && member.tags.length > 0 && (
+                            {sortedTags.length > 0 && (
                                 <>
                                 <span className="text-slate-300 text-xs">|</span>
                                 <div className="flex flex-wrap gap-1">
-                                {member.tags.filter(t => t !== 'New Family' && t !== '새가족').map(tag => (
+                                {sortedTags.filter(t => t !== 'New Family' && t !== '새가족').map(tag => (
                                     <span key={tag} className="px-1.5 py-0.5 bg-white text-slate-500 rounded border border-slate-200 text-[10px] sm:text-xs font-bold">
                                         #{tag}
                                     </span>
