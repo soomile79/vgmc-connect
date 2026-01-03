@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Trash2, UserPlus, Users, Camera, Crown, Calendar, User, Briefcase, MapPin, Phone, Mail, FileText, ChevronDown, ChevronUp, Copy, Check, Smartphone } from 'lucide-react';
+import { X, Save, Trash2, UserPlus, Users, Camera, Crown, Calendar, User, Briefcase, MapPin, Phone, Mail, FileText, ChevronDown, ChevronUp, Copy, Check, Smartphone, Plus } from 'lucide-react';
 import { Member, MemberStatus, Position } from '../types';
 
 interface MemberFormProps {
@@ -30,6 +30,9 @@ const MemberForm: React.FC<MemberFormProps> = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
   const [currentRepName, setCurrentRepName] = useState('');
+  
+  // Custom Tag Input State
+  const [customTagInput, setCustomTagInput] = useState('');
 
   // Close on ESC
   useEffect(() => {
@@ -93,6 +96,7 @@ const MemberForm: React.FC<MemberFormProps> = ({
         setCurrentRepName('');
       }
       setErrors({});
+      setCustomTagInput('');
     }
   }, [initialData, isOpen, positionList, statusList, allMembers]);
 
@@ -130,6 +134,16 @@ const MemberForm: React.FC<MemberFormProps> = ({
     if (next.has(tag)) next.delete(tag);
     else next.add(tag);
     setSelectedTags(next);
+  };
+  
+  const addCustomTag = () => {
+      const tag = customTagInput.trim();
+      if (tag) {
+          const next = new Set(selectedTags);
+          next.add(tag);
+          setSelectedTags(next);
+          setCustomTagInput('');
+      }
   };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -318,6 +332,9 @@ const MemberForm: React.FC<MemberFormProps> = ({
 
        const fmTags = fm.tags || [];
 
+       // Correctly handle empty memo strings. If fm.memo is undefined, use existing/default. If it is string (even empty), use it.
+       const finalMemo = fm.memo !== undefined ? fm.memo : (existingOriginal?.memo || '');
+
        return {
          ...fm,
          id: fm.id || crypto.randomUUID(),
@@ -328,7 +345,7 @@ const MemberForm: React.FC<MemberFormProps> = ({
          // Ensure fallback to main member data if missing
          address: fm.address || mainMember.address,
          mokjang: fm.mokjang || mainMember.mokjang,
-         memo: fm.memo || existingOriginal?.memo || `Family of ${mainMember.koreanName}`
+         memo: finalMemo
        } as Member;
     });
 
@@ -593,16 +610,37 @@ const MemberForm: React.FC<MemberFormProps> = ({
                    {/* Tags Section */}
                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
                        <label className={`${labelClass} mb-3`}>Tags</label>
-                       <div className="grid grid-cols-2 gap-2">
-                            {tagList.map(tag => (
-                                <label key={tag} className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-200 hover:border-brand-300 cursor-pointer shadow-sm transition-all hover:bg-slate-50">
+                       
+                       {/* Add Custom Tag Input */}
+                       <div className="flex gap-2 mb-3">
+                           <input 
+                              type="text" 
+                              value={customTagInput} 
+                              onChange={(e) => setCustomTagInput(e.target.value)}
+                              onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCustomTag())}
+                              placeholder="Add custom tag (e.g. Teacher)"
+                              className="flex-1 px-3 py-1.5 text-sm border border-slate-300 rounded-lg outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-200 bg-white"
+                           />
+                           <button 
+                             type="button" 
+                             onClick={addCustomTag}
+                             className="px-3 py-1.5 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors"
+                           >
+                               <Plus className="w-4 h-4" />
+                           </button>
+                       </div>
+
+                       <div className="flex flex-wrap gap-2">
+                            {/* Combined List: Predefined + Current Custom Selection */}
+                            {Array.from(new Set([...tagList, ...Array.from(selectedTags)])).map(tag => (
+                                <label key={tag} className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer shadow-sm transition-all ${selectedTags.has(tag) ? 'bg-brand-50 border-brand-300 ring-1 ring-brand-100' : 'bg-white border-slate-200 hover:bg-slate-50 hover:border-brand-200'}`}>
                                     <input 
                                         type="checkbox" 
                                         checked={selectedTags.has(tag)} 
                                         onChange={() => toggleTag(tag)}
                                         className="w-4 h-4 text-brand-600 rounded border-gray-300 focus:ring-brand-500" 
                                     />
-                                    <span className="text-sm font-medium text-slate-700">{tag}</span>
+                                    <span className={`text-sm font-medium ${selectedTags.has(tag) ? 'text-brand-700' : 'text-slate-700'}`}>{tag}</span>
                                 </label>
                             ))}
                        </div>
@@ -799,10 +837,21 @@ const MemberForm: React.FC<MemberFormProps> = ({
                                                     <label className={labelClass}>Slip #</label>
                                                     <input value={fm.forSlip} onChange={e => handleFamilyChange(idx, 'forSlip', e.target.value)} className={`${inputClass} font-mono`} placeholder="Slip#" />
                                                 </div>
+                                                <div className="lg:col-span-2">
+                                                    <label className={`${labelClass} mb-1`}>Notes</label>
+                                                    <textarea 
+                                                        value={fm.memo} 
+                                                        onChange={e => handleFamilyChange(idx, 'memo', e.target.value)} 
+                                                        rows={1}
+                                                        className={inputClass} 
+                                                        placeholder="Notes..." 
+                                                    />
+                                                </div>
                                                 <div className="lg:col-span-2 p-3 bg-slate-50 rounded-xl border border-slate-100">
                                                     <label className={`${labelClass} mb-2`}>Tags & Sacraments</label>
                                                     <div className="flex flex-wrap gap-2">
-                                                        {tagList.map(tag => (
+                                                        {/* Similar logic for Family Tags - Combine predefined and existing */}
+                                                        {Array.from(new Set([...tagList, ...(fm.tags || [])])).map(tag => (
                                                             <label key={tag} className="flex items-center gap-2 p-1.5 bg-white rounded-lg border border-slate-200 cursor-pointer shadow-sm hover:bg-slate-50 transition-colors">
                                                                 <input 
                                                                     type="checkbox" 
