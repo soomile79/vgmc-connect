@@ -170,11 +170,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
     try {
         const noCacheUrl = `${serverUrl}${serverUrl.includes('?') ? '&' : '?'}t=${new Date().getTime()}`;
+        // Removing Content-Type from GET requests to avoid 403 Forbidden on strict servers
         const response = await fetch(noCacheUrl, {
             method: 'GET',
             headers: {
                 'X-Api-Secret': apiSecret,
-                'Content-Type': 'application/json'
+                'Accept': 'application/json'
             }
         });
 
@@ -190,6 +191,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             let errorMsg = `Server Error (${response.status})`;
             if (response.status === 401) errorMsg = "Incorrect Secret Key.";
             if (response.status === 404) errorMsg = "api.php not found. Check URL.";
+            if (response.status === 403) errorMsg = "Access Forbidden (403). Check Server CORS or Firewall.";
             throw new Error(errorMsg);
         }
     } catch (e: any) {
