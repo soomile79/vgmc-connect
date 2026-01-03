@@ -31,8 +31,11 @@ const MemberForm: React.FC<MemberFormProps> = ({
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
   const [currentRepName, setCurrentRepName] = useState('');
   
-  // Custom Tag Input State
+  // Custom Tag Input State for Main Member
   const [customTagInput, setCustomTagInput] = useState('');
+  
+  // Custom Tag Input State for Family Members (Map of index -> value)
+  const [familyCustomTagInputs, setFamilyCustomTagInputs] = useState<Record<number, string>>({});
 
   // Close on ESC
   useEffect(() => {
@@ -97,6 +100,7 @@ const MemberForm: React.FC<MemberFormProps> = ({
       }
       setErrors({});
       setCustomTagInput('');
+      setFamilyCustomTagInputs({});
     }
   }, [initialData, isOpen, positionList, statusList, allMembers]);
 
@@ -206,6 +210,22 @@ const MemberForm: React.FC<MemberFormProps> = ({
       if (tag === '세례') updated[index].isBaptized = currentTags.has('세례');
       
       setFamilyMembers(updated);
+  };
+
+  const addFamilyCustomTag = (index: number) => {
+      const tag = familyCustomTagInputs[index]?.trim();
+      if (tag) {
+          const updated = [...familyMembers];
+          const currentTags = new Set(updated[index].tags || []);
+          currentTags.add(tag);
+          updated[index].tags = Array.from(currentTags);
+          setFamilyMembers(updated);
+          
+          // Clear input
+          const newInputs = { ...familyCustomTagInputs };
+          delete newInputs[index];
+          setFamilyCustomTagInputs(newInputs);
+      }
   };
 
   const toggleExpand = (index: number) => {
@@ -849,6 +869,26 @@ const MemberForm: React.FC<MemberFormProps> = ({
                                                 </div>
                                                 <div className="lg:col-span-2 p-3 bg-slate-50 rounded-xl border border-slate-100">
                                                     <label className={`${labelClass} mb-2`}>Tags & Sacraments</label>
+                                                    
+                                                    {/* Family Custom Tag Input */}
+                                                    <div className="flex gap-2 mb-2">
+                                                        <input 
+                                                            type="text" 
+                                                            value={familyCustomTagInputs[idx] || ''} 
+                                                            onChange={(e) => setFamilyCustomTagInputs(prev => ({...prev, [idx]: e.target.value}))}
+                                                            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addFamilyCustomTag(idx))}
+                                                            placeholder="Add tag (e.g. Choir)"
+                                                            className="flex-1 px-2 py-1 text-xs border border-slate-300 rounded outline-none focus:border-brand-500"
+                                                        />
+                                                        <button 
+                                                            type="button" 
+                                                            onClick={() => addFamilyCustomTag(idx)}
+                                                            className="px-2 py-1 bg-brand-600 text-white rounded hover:bg-brand-700 transition-colors text-xs"
+                                                        >
+                                                            <Plus className="w-3 h-3" />
+                                                        </button>
+                                                    </div>
+
                                                     <div className="flex flex-wrap gap-2">
                                                         {/* Similar logic for Family Tags - Combine predefined and existing */}
                                                         {Array.from(new Set([...tagList, ...(fm.tags || [])])).map(tag => (
