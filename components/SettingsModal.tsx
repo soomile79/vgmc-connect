@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Plus, Trash2, Settings, List, Tag, CheckSquare, GripVertical, Check, Cloud, Key, Globe, Loader2, AlertCircle, Download, Upload, ShieldAlert, User, Lock } from 'lucide-react';
+import { X, Plus, Trash2, Settings, List, Tag, CheckSquare, GripVertical, Check, Cloud, Key, Globe, Loader2, AlertCircle, Download, Upload, ShieldAlert, User, Lock, Database } from 'lucide-react';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -15,6 +15,10 @@ interface SettingsModalProps {
   onRenameItem: (type: string, oldVal: string, newVal: string) => void;
   onDeleteItem: (type: string, item: string) => void;
   onForceSync?: (direction: 'upload' | 'download') => Promise<void>;
+  lastSyncTime?: Date | null;
+  // Data Actions
+  onImportClick: () => void;
+  onExportClick: () => void;
 }
 
 interface AdminUser {
@@ -23,15 +27,14 @@ interface AdminUser {
     note?: string;
 }
 
-const MASTER_PW = 'vgmc.org';
-
 const SettingsModal: React.FC<SettingsModalProps> = ({ 
   isOpen, onClose, 
   mokjangList, positionList, statusList, tagList,
   onUpdateMokjangs, onUpdatePositions, onUpdateStatuses, onUpdateTags,
-  onRenameItem, onDeleteItem, onForceSync
+  onRenameItem, onDeleteItem, onForceSync, lastSyncTime,
+  onImportClick, onExportClick
 }) => {
-  const [activeTab, setActiveTab] = useState<'mokjang' | 'position' | 'status' | 'tags' | 'cloud' | 'admins'>('mokjang');
+  const [activeTab, setActiveTab] = useState<'mokjang' | 'position' | 'status' | 'tags' | 'cloud' | 'admins' | 'data'>('mokjang');
   const [newItem, setNewItem] = useState('');
   
   // Cloud Settings
@@ -228,7 +231,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
   // Admin Management Logic
   const handleMasterAuth = () => {
-      if (masterAuth === MASTER_PW) {
+      if (masterAuth === 'vgmc.org') {
           setIsMasterAuthenticated(true);
       } else {
           alert('Incorrect Master Password');
@@ -262,6 +265,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     { id: 'position', label: 'Roles', icon: Settings },
     { id: 'status', label: 'Status', icon: Tag },
     { id: 'tags', label: 'Tags', icon: CheckSquare },
+    { id: 'data', label: 'Data', icon: Database },
     { id: 'cloud', label: 'Cloud', icon: Cloud },
     { id: 'admins', label: 'Admins', icon: ShieldAlert },
   ];
@@ -357,31 +361,56 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         </>
                     )}
                 </button>
-                
-                {/* Manual Sync Actions */}
-                {localStorage.getItem('church-server-url') && onForceSync && (
-                    <div className="pt-6 border-t border-slate-100">
-                        <h4 className="text-xs font-bold text-slate-400 uppercase mb-3">Advanced Sync Actions</h4>
-                        <div className="grid grid-cols-2 gap-3">
+            </div>
+          ) : activeTab === 'data' ? (
+              <div className="space-y-8">
+                  {/* Backup / Restore */}
+                  <div className="space-y-4">
+                      <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-2">
+                          <Database className="w-4 h-4" /> Backup & Restore
+                      </h3>
+                      <div className="grid grid-cols-2 gap-4">
+                          <button onClick={() => { onExportClick(); onClose(); }} className="flex flex-col items-center justify-center p-6 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl transition-colors text-slate-600 gap-2">
+                              <Download className="w-8 h-8 text-blue-500 mb-1" />
+                              <div className="text-center">
+                                  <div className="font-bold text-sm">Export Data</div>
+                                  <div className="text-xs text-slate-400">Save as JSON file</div>
+                              </div>
+                          </button>
+                          <button onClick={() => { onImportClick(); onClose(); }} className="flex flex-col items-center justify-center p-6 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl transition-colors text-slate-600 gap-2">
+                              <Upload className="w-8 h-8 text-emerald-500 mb-1" />
+                              <div className="text-center">
+                                  <div className="font-bold text-sm">Import Data</div>
+                                  <div className="text-xs text-slate-400">From JSON or CSV</div>
+                              </div>
+                          </button>
+                      </div>
+                  </div>
+
+                  {/* Manual Cloud Sync */}
+                  {localStorage.getItem('church-server-url') && onForceSync && (
+                    <div className="space-y-4">
+                        <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-2">
+                            <Cloud className="w-4 h-4" /> Manual Cloud Sync
+                        </h3>
+                        <div className="grid grid-cols-2 gap-4">
                             <button 
                                 onClick={() => handleManualSync('download')}
-                                className="flex flex-col items-center justify-center p-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors text-slate-600 gap-1 text-xs font-bold"
+                                className="flex items-center justify-center gap-2 p-4 bg-white border border-slate-200 rounded-xl hover:border-brand-300 hover:shadow-sm transition-all text-sm font-bold text-slate-700"
                             >
-                                <Download className="w-5 h-5 mb-1 text-blue-500" />
-                                Download from Server
+                                <Download className="w-4 h-4" /> Download from Cloud
                             </button>
                             <button 
                                 onClick={() => handleManualSync('upload')}
-                                className="flex flex-col items-center justify-center p-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors text-slate-600 gap-1 text-xs font-bold"
+                                className="flex items-center justify-center gap-2 p-4 bg-white border border-slate-200 rounded-xl hover:border-brand-300 hover:shadow-sm transition-all text-sm font-bold text-slate-700"
                             >
-                                <Upload className="w-5 h-5 mb-1 text-rose-500" />
-                                Upload Local to Server
+                                <Upload className="w-4 h-4" /> Upload to Cloud
                             </button>
                         </div>
-                        {syncStatus && <div className="text-center text-xs font-bold text-brand-600 mt-2 animate-pulse">{syncStatus}</div>}
+                        {syncStatus && <div className="text-center text-xs font-bold text-brand-600 animate-pulse">{syncStatus}</div>}
                     </div>
-                )}
-            </div>
+                  )}
+              </div>
           ) : activeTab === 'admins' ? (
               <div className="space-y-6">
                   {!isMasterAuthenticated ? (
@@ -431,7 +460,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                    <input value={newAdminId} onChange={e => setNewAdminId(e.target.value)} placeholder="New ID" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:border-brand-500 outline-none text-slate-900"/>
                                    <input value={newAdminPw} onChange={e => setNewAdminPw(e.target.value)} placeholder="New Password" type="password" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:border-brand-500 outline-none text-slate-900"/>
                                </div>
-                               <input value={newAdminNote} onChange={e => setNewAdminNote(e.target.value)} placeholder="Note (e.g. Youth Pastor)" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:border-brand-500 outline-none text-slate-900"/>
+                               <input value={newAdminNote} onChange={e => setNewAdminNote(e.target.value)} placeholder="Note (e.g. Finance Team)" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:border-brand-500 outline-none text-slate-900"/>
                                <button onClick={handleAddAdmin} disabled={!newAdminId || !newAdminPw} className="w-full py-2 bg-brand-50 text-brand-700 font-bold rounded-lg hover:bg-brand-100 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                                    <Plus className="w-4 h-4"/> Add User
                                </button>
@@ -513,7 +542,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           )}
         </div>
 
-        {activeTab !== 'cloud' && activeTab !== 'admins' && (
+        {activeTab !== 'cloud' && activeTab !== 'admins' && activeTab !== 'data' && (
             <div className="p-4 bg-gray-50 text-center text-xs text-gray-400 border-t border-gray-100">
             Double-click to edit. Drag to reorder.
             </div>
