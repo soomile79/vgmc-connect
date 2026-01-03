@@ -23,7 +23,7 @@ export interface Member {
   // Personal Info
   koreanName: string;
   englishName: string;
-  gender: 'Male' | 'Female'; // New field
+  gender: 'Male' | 'Female'
   pictureUrl?: string;
   birthday: string; // YYYY-MM-DD
   phone: string; // xxx-xxx-xxxx
