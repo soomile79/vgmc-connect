@@ -26,7 +26,7 @@ type MemberData = {
   status: string;
   role: string;
   mokjang: string;
-  is_head: boolean;
+  is_head: boolean; // ← 이건 프론트에서만 쓰는 플래그
 };
 
 interface MemberFormProps {
@@ -74,15 +74,20 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
   };
 
   const handleDateChange = (field: keyof MemberData, value: string) => {
-    if (value) {
-      const [year, month, day] = value.split('-');
-      if (year && year.length > 4) {
-        const restrictedValue = `${year.slice(0, 4)}-${month || ''}-${day || ''}`;
-        updateMember(activeMemberIndex, { [field]: restrictedValue });
-        return;
-      }
+    // Remove all non-numeric characters
+    const numbers = value.replace(/\D/g, '');
+    
+    // Format as yyyy-mm-dd automatically
+    let formatted = '';
+    if (numbers.length <= 4) {
+      formatted = numbers;
+    } else if (numbers.length <= 6) {
+      formatted = `${numbers.slice(0, 4)}-${numbers.slice(4)}`;
+    } else {
+      formatted = `${numbers.slice(0, 4)}-${numbers.slice(4, 6)}-${numbers.slice(6, 8)}`;
     }
-    updateMember(activeMemberIndex, { [field]: value });
+    
+    updateMember(activeMemberIndex, { [field]: formatted });
   };
 
   const checkDuplicateName = async (name: string) => {
@@ -123,6 +128,22 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
     }
   };
 
+  useEffect(() => {
+  if (!isOpen) return;
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();   // ⭐ 아래 Detail로 전파 차단
+      onClose();             // X 버튼과 동일
+    }
+  };
+
+  window.addEventListener('keydown', handleKeyDown, true); // ⭐ capture
+  return () => window.removeEventListener('keydown', handleKeyDown, true);
+}, [isOpen, onClose]);
+
+
 
   useEffect(() => {
     if (members[activeMemberIndex]) {
@@ -134,10 +155,10 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
+      // if (e.key === 'Escape') onClose();
+       };
     if (isOpen) {
-      window.addEventListener('keydown', handleEsc);
+      // window.addEventListener('keydown', handleEsc);
       setLocalChildLists(childLists);
       setDuplicateWarning(null);
       if (initialData) {
@@ -147,7 +168,7 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
         setActiveMemberIndex(0);
       }
     } else {
-      window.removeEventListener('keydown', handleEsc);
+      // window.removeEventListener('keydown', handleEsc);
       setMembers([]);
       setActiveMemberIndex(0);
       setDuplicateWarning(null);
@@ -387,6 +408,17 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
   };
 
   const handleSave = async () => {
+    // Validate that all members have a Korean name
+    const membersWithoutName = members.filter(m => !m.korean_name || !m.korean_name.trim());
+    if (membersWithoutName.length > 0) {
+      alert(`⚠️ 한글 이름은 필수 입력 사항입니다.\n\n모든 가족 구성원의 한글 이름을 입력해주세요!`);
+      
+      // Switch to the first member without a name
+      const firstMissingIdx = members.findIndex(m => !m.korean_name || !m.korean_name.trim());
+      if (firstMissingIdx >= 0) setActiveMemberIndex(firstMissingIdx);
+      return;
+    }
+
     // Validate that all members have a relationship
     const membersWithoutRelationship = members.filter(m => !m.relationship);
     if (membersWithoutRelationship.length > 0) {
@@ -432,38 +464,90 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
 
       // 2. Save members
       for (const member of members) {
-        // Clean up data for database
-        const { is_head, ...cleanMemberData } = member as any;
-        const memberData = { 
-          ...cleanMemberData, 
-          family_id: familyId,
-          // Ensure empty strings are converted to null for date/optional fields if needed
-          birthday: cleanMemberData.birthday || null,
-          baptism_date: cleanMemberData.baptism_date || null,
-          registration_date: cleanMemberData.registration_date || null,
-          gender: cleanMemberData.gender || null,
-          photo_url: cleanMemberData.photo_url || null,
-        };
-        
-        if (member.id) {
-          const { error } = await supabase.from('members').update(memberData).eq('id', member.id);
-          if (error) {
-            console.error('Member update error:', error);
-            throw error;
-          }
-        } else {
-          const { error } = await supabase.from('members').insert(memberData);
-          if (error) {
-            console.error('Member insert error:', error);
-            throw error;
-          }
+      const {
+        id,
+        korean_name,
+        english_name,
+        gender,
+        birthday,
+        phone,
+        email,
+        address,
+        relationship,
+        is_baptized,
+        baptism_date,
+        registration_date,
+        offering_number,
+        for_slip,
+        memo,
+        photo_url,
+        tags,
+        status,
+        role,
+        mokjang,
+        // is_head는 DB에 없으므로 여기서 구조 분해만 하고 memberData에는 넣지 않음
+        is_head,
+      } = member;
+
+      const memberData = {
+        family_id: familyId,                    // members 테이블에 존재
+        korean_name,
+        english_name,
+        gender: gender || null,                 // text + check
+        birthday: birthday || null,             // date
+        phone,
+        email,
+        address,
+        mokjang,
+        relationship,                           // Head / Spouse / Son ...
+        is_baptized,
+        baptism_date: baptism_date || null,     // date
+        role,
+        registration_date: registration_date || null, // date
+        status,
+        memo,
+        offering_number,
+        for_slip,
+        tags,                                   // text[]
+        // is_head 없음
+      };
+
+      if (id) {
+        // UPDATE
+        const { error } = await supabase
+          .from('members')
+          .update(memberData)
+          .eq('id', id);
+
+        if (error) {
+          console.error('Member update error', error);
+          throw error;
         }
+      } else {
+        // INSERT
+        const { data, error } = await supabase
+          .from('members')
+          .insert(memberData)
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Member insert error', error);
+          throw error;
+        }
+
+        // 새로 생성된 멤버의 id를 상태에 반영
+        setMembers(prev =>
+          prev.map(m => (m === member ? { ...m, id: data.id } : m))
+        );
+
+        (member as any).id = data.id;
       }
-      
+    }   
       // Pass 'save' action and the ID of the active member to show their detail
       const savedMemberId = members[activeMemberIndex]?.id || initialData?.id;
       onSuccess('save', savedMemberId);
-      onClose(); 
+      // onClose(); 
     } catch (error: any) {
       console.error('Error saving members:', error);
       alert(`저장 중 오류가 발생했습니다: ${error.message || '알 수 없는 오류'}`);
@@ -646,307 +730,339 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
                   </button>
                 </div>
               ))}
-            </div>
-            <button onClick={handleAddFamilyMember} className="flex-shrink-0 w-40 lg:w-full py-3 sm:py-4 rounded-xl sm:rounded-2xl border-2 border-dashed border-slate-200 text-slate-400 font-bold hover:border-[#3c8fb5] hover:text-[#3c8fb5] hover:bg-blue-50/50 transition-all flex items-center justify-center gap-2 text-sm">
-              <Plus className="w-4 h-4 sm:w-5 sm:h-5" /> <span className="hidden sm:inline">Add Family</span><span className="sm:hidden">Add</span>
-            </button>
-          </div>
+</div>
+<button onClick={handleAddFamilyMember} className="flex-shrink-0 w-40 lg:w-full py-3 sm:py-4 rounded-xl sm:rounded-2xl border-2 border-dashed border-slate-200 text-slate-400 font-bold hover:border-[#3c8fb5] hover:text-[#3c8fb5] hover:bg-blue-50/50 transition-all flex items-center justify-center gap-2 text-sm">
+<Plus className="w-4 h-4 sm:w-5 sm:h-5" /> <span className="hidden sm:inline">Add Family</span><span className="sm:hidden">Add</span>
+</button>
+</div>
 
-          {/* Main Form Area */}
-          <div className="flex-1 overflow-y-auto p-4 sm:p-10 custom-scrollbar">
-            <div className="max-w-3xl mx-auto space-y-8 sm:space-y-12">
-              
-              {/* Profile Header Section */}
-              <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-10">
-                <div className="relative group">
-                  <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-[2rem] sm:rounded-[2.5rem] bg-slate-100 border-4 border-white shadow-xl flex items-center justify-center overflow-hidden">
-                    {currentMember.photo_url ? <img src={currentMember.photo_url} alt="" className="w-full h-full object-cover" /> : <User className="w-12 h-12 sm:w-16 sm:h-16 text-slate-200" />}
-                  </div>
-                  <button onClick={() => fileInputRef.current?.click()} className="absolute bottom-1 -right-1 sm:bottom-2 sm:-right-2 w-10 h-10 sm:w-12 sm:h-12 bg-[#3c8fb5] text-white rounded-xl sm:rounded-2xl shadow-lg flex items-center justify-center hover:scale-110 transition-all border-4 border-white">
-                    <Camera className="w-4 h-4 sm:w-5 sm:h-5" />
-                  </button>
-                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => handlePhotoUpload(e, activeMemberIndex)} />
-                  
-                  {currentMember.birthday && calculateAge(currentMember.birthday) !== null && (
-                    <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 bg-white px-3 py-1 rounded-full border border-slate-200 shadow-sm whitespace-nowrap">
-                      <span className="text-xs font-black text-[#3c8fb5]">Age: {calculateAge(currentMember.birthday)}</span>
-                    </div>
-                  )}
-                </div>
-                <div className="w-full sm:flex-1 space-y-4 sm:space-y-6">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Relationship</label>
-                      <div className="relative">
-                        <select 
-                          value={currentMember.relationship} 
-                          onChange={(e) => updateMember(activeMemberIndex, { relationship: e.target.value, is_head: e.target.value === 'Head' })} 
-                          className={`w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border-2 transition-all font-bold text-slate-800 appearance-none text-sm sm:text-base ${!currentMember.relationship ? 'border-red-400 focus:border-red-500' : 'border-transparent focus:bg-white focus:border-[#3c8fb5]'}`}
-                        >
-                          <option value="">Select Relationship</option>
-                          {RELATIONSHIPS.map(r => <option key={r} value={r}>{r}</option>)}
-                        </select>
-                        {!currentMember.relationship && (
-                          <p className="text-red-500 text-[10px] sm:text-xs font-bold mt-1 ml-1 animate-pulse">
-                            ⚠️ 가족 관계를 선택해주세요!
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Gender</label>
-                      <div className="flex p-1 bg-slate-100 rounded-xl sm:rounded-2xl">
-                        {['Male', 'Female'].map(g => (
-                          <button 
-                            key={g} 
-                            onClick={() => updateMember(activeMemberIndex, { gender: g as any })} 
-                            className={`flex-1 py-2 sm:py-2.5 rounded-lg sm:rounded-xl font-bold text-xs sm:text-sm transition-all ${
-                              currentMember.gender === g 
-                                ? g === 'Male' 
-                                  ? 'bg-blue-500 text-white shadow-md' 
-                                  : 'bg-pink-300 text-white shadow-md' 
-                                : 'text-slate-400 hover:text-slate-600'
-                            }`}
-                          >
-                            {g}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+{/* Main Form Area */}
+      <div className="flex-1 overflow-y-auto p-4 sm:p-10 custom-scrollbar">
+        <div className="max-w-3xl mx-auto space-y-8 sm:space-y-12">
+          
+          {/* Profile Header Section */}
+          <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-10">
+            <div className="relative group">
+              <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-[2rem] sm:rounded-[2.5rem] bg-slate-100 border-4 border-white shadow-xl flex items-center justify-center overflow-hidden">
+                {currentMember.photo_url ? <img src={currentMember.photo_url} alt="" className="w-full h-full object-cover" /> : <User className="w-12 h-12 sm:w-16 sm:h-16 text-slate-200" />}
               </div>
-
-              {/* Personal Info Section */}
-              <section className="space-y-4 sm:space-y-6">
-                <div className="flex items-center gap-3 pb-2 border-b border-slate-100">
-                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-blue-50 flex items-center justify-center"><User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#3c8fb5]" /></div>
-                  <h3 className="font-black text-slate-800 uppercase tracking-wider text-xs sm:text-sm">Personal Information</h3>
+              <button onClick={() => fileInputRef.current?.click()} className="absolute bottom-1 -right-1 sm:bottom-2 sm:-right-2 w-10 h-10 sm:w-12 sm:h-12 bg-[#3c8fb5] text-white rounded-xl sm:rounded-2xl shadow-lg flex items-center justify-center hover:scale-110 transition-all border-4 border-white">
+                <Camera className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
+              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => handlePhotoUpload(e, activeMemberIndex)} />
+              
+              {currentMember.birthday && calculateAge(currentMember.birthday) !== null && (
+                <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 bg-white px-3 py-1 rounded-full border border-slate-200 shadow-sm whitespace-nowrap">
+                  <span className="text-xs font-black text-[#3c8fb5]">Age: {calculateAge(currentMember.birthday)}</span>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Korean Name</label>
-                    <input 
-                      type="text" 
-                      value={currentMember.korean_name} 
-                      onChange={(e) => {
-                        const newName = e.target.value;
-                        updateMember(activeMemberIndex, { korean_name: newName });
-                        checkDuplicateName(newName);
-                      }} 
-                      className={`w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border-2 transition-all font-bold text-slate-800 text-sm sm:text-base ${duplicateWarning ? "border-red-400 focus:border-red-500" : "border-transparent focus:bg-white focus:border-[#3c8fb5]"}`} 
-                      placeholder="홍길동" 
-                    />
-                    {duplicateWarning && (
+              )}
+            </div>
+            <div className="w-full sm:flex-1 space-y-4 sm:space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Relationship</label>
+                  <div className="relative">
+                    <select 
+                      value={currentMember.relationship} 
+                      onChange={(e) => updateMember(activeMemberIndex, { relationship: e.target.value, is_head: e.target.value === 'Head' })} 
+                      className={`w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border-2 transition-all font-bold text-slate-800 appearance-none text-sm sm:text-base ${!currentMember.relationship ? 'border-red-400 focus:border-red-500' : 'border-transparent focus:bg-white focus:border-[#3c8fb5]'}`}
+                    >
+                      <option value="">Select Relationship</option>
+                      {RELATIONSHIPS.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                    {!currentMember.relationship && (
                       <p className="text-red-500 text-[10px] sm:text-xs font-bold mt-1 ml-1 animate-pulse">
-                        {duplicateWarning}
+                        ⚠️ 가족 관계를 선택해주세요!
                       </p>
                     )}
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">English Name</label>
-                    <input type="text" value={currentMember.english_name} onChange={(e) => updateMember(activeMemberIndex, { english_name: e.target.value })} className="w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800 text-sm sm:text-base" placeholder="Gildong Hong" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Birthday</label>
-                    <input type="date" value={currentMember.birthday} onChange={(e) => handleDateChange('birthday', e.target.value)} className="w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800 text-sm sm:text-base" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Registration Date</label>
-                    <input type="date" value={currentMember.registration_date} onChange={(e) => handleDateChange('registration_date', e.target.value)} className="w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800 text-sm sm:text-base" />
-                  </div>
                 </div>
-              </section>
-
-              {/* Contact Section */}
-              <section className="space-y-4 sm:space-y-6">
-                <div className="flex items-center gap-3 pb-2 border-b border-slate-100">
-                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-blue-50 flex items-center justify-center"><Phone className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#3c8fb5]" /></div>
-                  <h3 className="font-black text-slate-800 uppercase tracking-wider text-xs sm:text-sm">Contact & Address</h3>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Phone Number</label>
-                    <input type="tel" value={currentMember.phone} onChange={(e) => updateMember(activeMemberIndex, { phone: formatPhoneNumber(e.target.value) })} className="w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800 text-sm sm:text-base" placeholder="000-000-0000" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Email Address</label>
-                    <input type="email" value={currentMember.email} onChange={(e) => updateMember(activeMemberIndex, { email: e.target.value })} className="w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800 text-sm sm:text-base" placeholder="example@email.com" />
-                  </div>
-                  <div className="sm:col-span-2 space-y-1.5">
-                    <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Home Address</label>
-                    <input type="text" value={currentMember.address} onChange={(e) => updateMember(activeMemberIndex, { address: e.target.value })} className="w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800 text-sm sm:text-base" placeholder="Enter full address" />
-                  </div>
-                </div>
-              </section>
-
-              {/* Church Info Section */}
-              <section className="space-y-4 sm:space-y-6">
-                <div className="flex items-center gap-3 pb-2 border-b border-slate-100">
-                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-blue-50 flex items-center justify-center"><Briefcase className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#3c8fb5]" /></div>
-                  <h3 className="font-black text-slate-800 uppercase tracking-wider text-xs sm:text-sm">Church & Administration</h3>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
-                  {parentLists?.filter(p => !['tags', '태그'].some(s => p.name.toLowerCase().includes(s))).map(parent => (
-                    <div key={parent.id} className="space-y-1.5">
-                      <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">{parent.name}</label>
-                      <select value={(currentMember as any)[parent.type] || ''} onChange={(e) => updateMember(activeMemberIndex, { [parent.type]: e.target.value })} className="w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800 appearance-none text-sm sm:text-base">
-                        <option value="">Select {parent.name}</option>
-                        {childLists?.filter(c => c.parent_id === parent.id).map(child => (
-                          <option key={child.id} value={child.name}>{child.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                  <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-slate-50/50 border border-slate-100 space-y-4">
-                    <label className="flex items-center gap-3 cursor-pointer group">
-                      <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-lg border-2 flex items-center justify-center transition-all ${currentMember.is_baptized ? 'bg-[#3c8fb5] border-[#3c8fb5]' : 'border-slate-300 group-hover:border-[#3c8fb5]'}`}>
-                        {currentMember.is_baptized && <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />}
-                      </div>
-                      <input type="checkbox" className="hidden" checked={currentMember.is_baptized} onChange={(e) => updateMember(activeMemberIndex, { is_baptized: e.target.checked })} />
-                      <span className="font-bold text-slate-700 text-sm sm:text-base">세례 여부 (Baptized)</span>
-                    </label>
-                    {currentMember.is_baptized && (
-                      <div className="space-y-1.5 animate-in slide-in-from-top-2">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Baptism Date</label>
-                        <input type="date" value={currentMember.baptism_date} onChange={(e) => handleDateChange('baptism_date', e.target.value)} className="w-full px-4 py-2.5 rounded-xl bg-white border-slate-200 focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800 text-sm" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Offering #</label>
-                      <input type="text" value={currentMember.offering_number} onChange={(e) => updateMember(activeMemberIndex, { offering_number: e.target.value })} className="w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800 text-sm sm:text-base" placeholder="000" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Slip #</label>
-                      <input type="text" value={currentMember.for_slip} onChange={(e) => updateMember(activeMemberIndex, { for_slip: e.target.value })} className="w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800 text-sm sm:text-base" placeholder="000" />
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              {/* Tags Section */}
-              <section className="space-y-6">
-                <div className="flex items-center gap-3 pb-2 border-b border-slate-100">
-                  <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center"><Tag className="w-4 h-4 text-[#3c8fb5]" /></div>
-                  <h3 className="font-black text-slate-800 uppercase tracking-wider text-sm">Tags & Categories</h3>
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  {localChildLists
-                    .filter(c => {
-                      const p = parentLists.find(pl => pl.id === c.parent_id);
-                      return p?.type === 'tags' || p?.name.toLowerCase().includes('태그');
-                    })
-                    .sort((a, b) => (Number((a as any).order) || 0) - (Number((b as any).order) || 0))
-                    .map(tag => (
-                      <label
-                        key={tag.id}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-xl border-2 cursor-pointer transition-all ${
-                          (currentMember.tags || []).includes(tag.name)
-                            ? 'bg-blue-50 border-[#3c8fb5] text-[#3c8fb5]'
-                            : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'
+                <div className="space-y-1.5">
+                  <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Gender</label>
+                  <div className="flex p-1 bg-slate-100 rounded-xl sm:rounded-2xl">
+                    {['Male', 'Female'].map(g => (
+                      <button 
+                        key={g} 
+                        onClick={() => updateMember(activeMemberIndex, { gender: g as any })} 
+                        className={`flex-1 py-2 sm:py-2.5 rounded-lg sm:rounded-xl font-bold text-xs sm:text-sm transition-all ${
+                          currentMember.gender === g 
+                            ? g === 'Male' 
+                              ? 'bg-blue-500 text-white shadow-md' 
+                              : 'bg-pink-300 text-white shadow-md' 
+                            : 'text-slate-400 hover:text-slate-600'
                         }`}
                       >
-                        <input
-                          type="checkbox"
-                          className="hidden"
-                          checked={(currentMember.tags || []).includes(tag.name)}
-                          onChange={(e) => {
-                            const currentTags = currentMember.tags || [];
-                            const newTags = e.target.checked
-                              ? [...currentTags, tag.name]
-                              : currentTags.filter(t => t !== tag.name);
-                            updateMember(activeMemberIndex, { tags: newTags });
-                          }}
-                        />
-                        <span className="text-sm font-bold">{tag.name}</span>
-                      </label>
+                        {g}
+                      </button>
                     ))}
-
-                  <div className="relative flex items-center">
-                    <input type="text" placeholder="Add Tag..." className="pl-4 pr-10 py-2 rounded-xl border-2 border-dashed border-slate-200 focus:border-[#3c8fb5] focus:outline-none text-sm font-bold w-32 transition-all focus:w-48" 
-                           onKeyDown={(e) => { if (e.key === 'Enter') { handleAddTag((e.target as HTMLInputElement).value); (e.target as HTMLInputElement).value = ''; } }} />
-                    <Plus className="absolute right-3 w-4 h-4 text-slate-300" />
                   </div>
                 </div>
-              </section>
-
-              {/* Memo Section */}
-              <section className="space-y-6">
-                <div className="flex items-center gap-3 pb-2 border-b border-slate-100">
-                  <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center"><Info className="w-4 h-4 text-[#3c8fb5]" /></div>
-                  <h3 className="font-black text-slate-800 uppercase tracking-wider text-sm">Administrative Memo Log</h3>
-                </div>
-                
-                <div className="space-y-4">
-                  <div className="flex gap-3">
-                    <textarea 
-                      value={newMemo} 
-                      onChange={(e) => setNewMemo(e.target.value)} 
-                      className="flex-1 px-6 py-4 rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-medium text-slate-700 min-h-[80px] text-sm" 
-                      placeholder="새로운 메모를 입력하세요..." 
-                    />
-                    <button 
-                      onClick={handleAddMemo}
-                      className="px-6 bg-[#3c8fb5] text-white rounded-2xl font-bold hover:bg-[#327a9c] transition-colors flex items-center justify-center"
-                    >
-                      등록
-                    </button>
-                  </div>
-
-                  <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                    {currentMember.memo ? String(currentMember.memo).split('\n\n').map(m => m.trim()).filter(Boolean).map((entry, i) => {
-                      const match = String(entry).match(/^\[(.*?)\] (.*)$/s);
-                      const timestamp = match ? match[1] : '';
-                      const content = match ? match[2] : String(entry);
-
-                      return (
-                        <div key={i} className="group/memo p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-2 relative">
-                          {editingMemoIndex === i ? (
-                            <div className="space-y-2">
-                              <textarea 
-                                value={editingMemoText} 
-                                onChange={(e) => setEditingMemoText(e.target.value)}
-                                className="w-full p-3 rounded-xl border-slate-200 text-sm focus:border-[#3c8fb5] focus:ring-2 focus:ring-blue-50"
-                                rows={3}
-                              />
-                              <div className="flex justify-end gap-2">
-                                <button onClick={() => setEditingMemoIndex(null)} className="px-3 py-1 text-xs font-bold text-slate-400 hover:text-slate-600">취소</button>
-                                <button onClick={() => handleUpdateMemo(i)} className="px-3 py-1 text-xs font-bold text-white bg-[#3c8fb5] rounded-lg">저장</button>
-                              </div>
-                            </div>
-                          ) : (
-                            <>
-                              <div className="flex items-center justify-between">
-                                <div className="text-[10px] font-bold text-[#3c8fb5] uppercase tracking-widest">{timestamp || '기존 메모'}</div>
-                                <div className="flex gap-1 opacity-0 group-hover/memo:opacity-100 transition-opacity">
-                                  <button onClick={() => { setEditingMemoIndex(i); setEditingMemoText(content); }} className="p-1 hover:bg-blue-100 rounded text-blue-600"><Edit className="w-3 h-3" /></button>
-                                  <button onClick={() => handleDeleteMemo(i)} className="p-1 hover:bg-red-100 rounded text-red-600"><Trash2 className="w-3 h-3" /></button>
-                                </div>
-                              </div>
-                              <div className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{content}</div>
-                            </>
-                          )}
-                        </div>
-                      );
-                    }) : (
-                      <div className="py-10 text-center text-slate-400 font-medium text-sm bg-slate-50/50 rounded-3xl border-2 border-dashed border-slate-100">
-                        등록된 메모가 없습니다.
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </section>
-
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Footer */}
+          {/* Personal Info Section */}
+          <section className="space-y-4 sm:space-y-6">
+            <div className="flex items-center gap-3 pb-2 border-b border-slate-100">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-blue-50 flex items-center justify-center"><User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#3c8fb5]" /></div>
+              <h3 className="font-black text-slate-800 uppercase tracking-wider text-xs sm:text-sm">Personal Information</h3>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+              <div className="space-y-1.5">
+                <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Korean Name</label>
+                <input 
+                  type="text" 
+                  value={currentMember.korean_name} 
+                  onChange={(e) => {
+                    const newName = e.target.value;
+                    updateMember(activeMemberIndex, { korean_name: newName });
+                    checkDuplicateName(newName);
+                  }} 
+                  className={`w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border-2 transition-all font-bold text-slate-800 text-sm sm:text-base ${
+                    (!currentMember.korean_name || !currentMember.korean_name.trim()) 
+                      ? "border-red-400 focus:border-red-500" 
+                      : duplicateWarning 
+                        ? "border-orange-400 focus:border-orange-500" 
+                        : "border-transparent focus:bg-white focus:border-[#3c8fb5]"
+                  }`} 
+                  placeholder="홍길동" 
+                />
+                {(!currentMember.korean_name || !currentMember.korean_name.trim()) && (
+                  <p className="text-red-500 text-[10px] sm:text-xs font-bold mt-1 ml-1 animate-pulse">
+                    ⚠️ 필수 입력 사항입니다!
+                  </p>
+                )}
+                {currentMember.korean_name && currentMember.korean_name.trim() && duplicateWarning && (
+                  <p className="text-orange-500 text-[10px] sm:text-xs font-bold mt-1 ml-1 animate-pulse">
+                    {duplicateWarning}
+                  </p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">English Name</label>
+                <input type="text" value={currentMember.english_name} onChange={(e) => updateMember(activeMemberIndex, { english_name: e.target.value })} className="w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800 text-sm sm:text-base" placeholder="Gildong Hong" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Birthday</label>
+                <input 
+                  type="text" 
+                  value={currentMember.birthday} 
+                  onChange={(e) => handleDateChange('birthday', e.target.value)} 
+                  className="w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800 text-sm sm:text-base" 
+                  placeholder="YYYY-MM-DD"
+                  maxLength={10}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Registration Date</label>
+                <input 
+                  type="text" 
+                  value={currentMember.registration_date} 
+                  onChange={(e) => handleDateChange('registration_date', e.target.value)} 
+                  className="w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800 text-sm sm:text-base" 
+                  placeholder="YYYY-MM-DD"
+                  maxLength={10}
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* Contact Section */}
+          <section className="space-y-4 sm:space-y-6">
+            <div className="flex items-center gap-3 pb-2 border-b border-slate-100">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-blue-50 flex items-center justify-center"><Phone className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#3c8fb5]" /></div>
+              <h3 className="font-black text-slate-800 uppercase tracking-wider text-xs sm:text-sm">Contact & Address</h3>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+              <div className="space-y-1.5">
+                <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Phone Number</label>
+                <input type="tel" value={currentMember.phone} onChange={(e) => updateMember(activeMemberIndex, { phone: formatPhoneNumber(e.target.value) })} className="w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800 text-sm sm:text-base" placeholder="000-000-0000" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Email Address</label>
+                <input type="email" value={currentMember.email} onChange={(e) => updateMember(activeMemberIndex, { email: e.target.value })} className="w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800 text-sm sm:text-base" placeholder="example@email.com" />
+              </div>
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Home Address</label>
+                <input type="text" value={currentMember.address} onChange={(e) => updateMember(activeMemberIndex, { address: e.target.value })} className="w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800 text-sm sm:text-base" placeholder="Enter full address" />
+              </div>
+            </div>
+          </section>
+
+          {/* Church Info Section */}
+          <section className="space-y-4 sm:space-y-6">
+            <div className="flex items-center gap-3 pb-2 border-b border-slate-100">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-blue-50 flex items-center justify-center"><Briefcase className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#3c8fb5]" /></div>
+              <h3 className="font-black text-slate-800 uppercase tracking-wider text-xs sm:text-sm">Church & Administration</h3>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+              {parentLists?.filter(p => !['tags', '태그'].some(s => p.name.toLowerCase().includes(s))).map(parent => (
+                <div key={parent.id} className="space-y-1.5">
+                  <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">{parent.name}</label>
+                  <select value={(currentMember as any)[parent.type] || ''} onChange={(e) => updateMember(activeMemberIndex, { [parent.type]: e.target.value })} className="w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800 appearance-none text-sm sm:text-base">
+                    <option value="">Select {parent.name}</option>
+                    {childLists?.filter(c => c.parent_id === parent.id).map(child => (
+                      <option key={child.id} value={child.name}>{child.name}</option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+              <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-slate-50/50 border border-slate-100 space-y-4">
+                <label className="flex items-center gap-3 cursor-pointer group">
+                  <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-lg border-2 flex items-center justify-center transition-all ${currentMember.is_baptized ? 'bg-[#3c8fb5] border-[#3c8fb5]' : 'border-slate-300 group-hover:border-[#3c8fb5]'}`}>
+                    {currentMember.is_baptized && <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />}
+                  </div>
+                  <input type="checkbox" className="hidden" checked={currentMember.is_baptized} onChange={(e) => updateMember(activeMemberIndex, { is_baptized: e.target.checked })} />
+                  <span className="font-bold text-slate-700 text-sm sm:text-base">세례 여부 (Baptized)</span>
+                </label>
+                {currentMember.is_baptized && (
+                  <div className="space-y-1.5 animate-in slide-in-from-top-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Baptism Date</label>
+                    <input 
+                      type="text" 
+                      value={currentMember.baptism_date} 
+                      onChange={(e) => handleDateChange('baptism_date', e.target.value)} 
+                      className="w-full px-4 py-2.5 rounded-xl bg-white border-slate-200 focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800 text-sm" 
+                      placeholder="YYYY-MM-DD"
+                      maxLength={10}
+                    />
+                  </div>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Offering #</label>
+                  <input type="text" value={currentMember.offering_number} onChange={(e) => updateMember(activeMemberIndex, { offering_number: e.target.value })} className="w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800 text-sm sm:text-base" placeholder="000" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Slip #</label>
+                  <input type="text" value={currentMember.for_slip} onChange={(e) => updateMember(activeMemberIndex, { for_slip: e.target.value })} className="w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800 text-sm sm:text-base" placeholder="000" />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Tags Section */}
+          <section className="space-y-6">
+            <div className="flex items-center gap-3 pb-2 border-b border-slate-100">
+              <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center"><Tag className="w-4 h-4 text-[#3c8fb5]" /></div>
+              <h3 className="font-black text-slate-800 uppercase tracking-wider text-sm">Tags & Categories</h3>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {localChildLists
+                .filter(c => {
+                  const p = parentLists.find(pl => pl.id === c.parent_id);
+                  return p?.type === 'tags' || p?.name.toLowerCase().includes('태그');
+                })
+                .sort((a, b) => (Number((a as any).order) || 0) - (Number((b as any).order) || 0))
+                .map(tag => (
+                  <label
+                    key={tag.id}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl border-2 cursor-pointer transition-all ${
+                      (currentMember.tags || []).includes(tag.name)
+                        ? 'bg-blue-50 border-[#3c8fb5] text-[#3c8fb5]'
+                        : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="hidden"
+                      checked={(currentMember.tags || []).includes(tag.name)}
+                      onChange={(e) => {
+                        const currentTags = currentMember.tags || [];
+                        const newTags = e.target.checked
+                          ? [...currentTags, tag.name]
+                          : currentTags.filter(t => t !== tag.name);
+                        updateMember(activeMemberIndex, { tags: newTags });
+                      }}
+                    />
+                    <span className="text-sm font-bold">{tag.name}</span>
+                  </label>
+                ))}
+
+              <div className="relative flex items-center">
+                <input type="text" placeholder="Add Tag..." className="pl-4 pr-10 py-2 rounded-xl border-2 border-dashed border-slate-200 focus:border-[#3c8fb5] focus:outline-none text-sm font-bold w-32 transition-all focus:w-48" 
+                       onKeyDown={(e) => { if (e.key === 'Enter') { handleAddTag((e.target as HTMLInputElement).value); (e.target as HTMLInputElement).value = ''; } }} />
+                <Plus className="absolute right-3 w-4 h-4 text-slate-300" />
+              </div>
+            </div>
+          </section>
+
+          {/* Memo Section */}
+          <section className="space-y-6">
+            <div className="flex items-center gap-3 pb-2 border-b border-slate-100">
+              <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center"><Info className="w-4 h-4 text-[#3c8fb5]" /></div>
+              <h3 className="font-black text-slate-800 uppercase tracking-wider text-sm">Administrative Memo Log</h3>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="flex gap-3">
+                <textarea 
+                  value={newMemo} 
+                  onChange={(e) => setNewMemo(e.target.value)} 
+                  className="flex-1 px-6 py-4 rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-medium text-slate-700 min-h-[80px] text-sm" 
+                  placeholder="새로운 메모를 입력하세요..." 
+                />
+                <button 
+                  onClick={handleAddMemo}
+                  className="px-6 bg-[#3c8fb5] text-white rounded-2xl font-bold hover:bg-[#327a9c] transition-colors flex items-center justify-center"
+                >
+                  등록
+                </button>
+              </div>
+
+              <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                {currentMember.memo ? String(currentMember.memo).split('\n\n').map(m => m.trim()).filter(Boolean).map((entry, i) => {
+                  const match = String(entry).match(/^\[(.*?)\] (.*)$/s);
+                  const timestamp = match ? match[1] : '';
+                  const content = match ? match[2] : String(entry);
+
+                  return (
+                    <div key={i} className="group/memo p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-2 relative">
+                      {editingMemoIndex === i ? (
+                        <div className="space-y-2">
+                          <textarea 
+                            value={editingMemoText} 
+                            onChange={(e) => setEditingMemoText(e.target.value)}
+                            className="w-full p-3 rounded-xl border-slate-200 text-sm focus:border-[#3c8fb5] focus:ring-2 focus:ring-blue-50"
+                            rows={3}
+                          />
+                          <div className="flex justify-end gap-2">
+                            <button onClick={() => setEditingMemoIndex(null)} className="px-3 py-1 text-xs font-bold text-slate-400 hover:text-slate-600">취소</button>
+                            <button onClick={() => handleUpdateMemo(i)} className="px-3 py-1 text-xs font-bold text-white bg-[#3c8fb5] rounded-lg">저장</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-center justify-between">
+                            <div className="text-[10px] font-bold text-[#3c8fb5] uppercase tracking-widest">{timestamp || '기존 메모'}</div>
+                            <div className="flex gap-1 opacity-0 group-hover/memo:opacity-100 transition-opacity">
+                              <button onClick={() => { setEditingMemoIndex(i); setEditingMemoText(content); }} className="p-1 hover:bg-blue-100 rounded text-blue-600"><Edit className="w-3 h-3" /></button>
+                              <button onClick={() => handleDeleteMemo(i)} className="p-1 hover:bg-red-100 rounded text-red-600"><Trash2 className="w-3 h-3" /></button>
+                            </div>
+                          </div>
+                          <div className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{content}</div>
+                        </>
+                      )}
+                    </div>
+                  );
+                }) : (
+                  <div className="py-10 text-center text-slate-400 font-medium text-sm bg-slate-50/50 rounded-3xl border-2 border-dashed border-slate-100">
+                    등록된 메모가 없습니다.
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+
+        </div>
+      </div>
+    </div>
+
+            {/* Footer */}
         <div className="px-4 sm:px-10 py-4 sm:py-8 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="hidden sm:flex items-center gap-6">
             <div className="flex -space-x-3">
