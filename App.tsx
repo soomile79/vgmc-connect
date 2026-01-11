@@ -649,10 +649,10 @@ function MemoSection({ member, onRefresh }: { member: Member; onRefresh: () => v
 
   return (
     <div className="space-y-6">
-      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Memo Log</div>
-      <div className="flex gap-3">
+      {/* <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Memo Log</div> */}
+      <div className="flex gap-2">
         <textarea value={newMemo} onChange={(e) => setNewMemo(e.target.value)} className="flex-1 px-4 py-3 rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-2 focus:ring-blue-50 transition-all font-medium text-slate-700 min-h-[80px] text-sm" placeholder="새로운 메모를 입력하세요..." />
-        <button onClick={handleAddMemo} disabled={loading} className="px-6 bg-[#3c8fb5] text-white rounded-2xl font-black uppercase tracking-widest hover:bg-[#327a9c] transition-colors text-xs disabled:opacity-50">등록</button>
+        <button onClick={handleAddMemo} disabled={loading} className="px-3 bg-[#3c8fb5] text-white rounded-2xl font-black uppercase tracking-widest hover:bg-[#327a9c] transition-colors text-xs disabled:opacity-50">등록</button>
       </div>
       <div className="space-y-4">
         {memoList.map((entry, i) => {
@@ -790,10 +790,10 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
           </div>
         </div>
 
-        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+        <div className="flex-1 flex flex-col lg:flex-row lg:overflow-hidden overflow-y-auto custom-scrollbar">
           
           {/* Main Content Area */}
-          <div className={`flex-1 overflow-y-auto custom-scrollbar ${userRole === 'admin' ? 'lg:border-r lg:border-slate-100' : ''}`}>
+          <div className={`flex-1 ${userRole === 'admin' ? 'lg:border-r lg:border-slate-100 lg:overflow-y-auto custom-scrollbar' : 'overflow-y-auto custom-scrollbar'}`}>
             <div className="p-4 sm:p-6 lg:p-8 pt-6 sm:pt-8">
               
               {/* Contact Info Grid - REORDERED: Phone, Email, Address */}
@@ -947,7 +947,7 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
                   <h3 className="text-xs sm:text-sm font-bold text-slate-800">Admin Memos</h3>
                 </div>
               </div>
-              <div className="flex-1 overflow-y-auto custom-scrollbar p-6 sm:p-8">
+              <div className="flex-1 lg:overflow-y-auto custom-scrollbar p-6 sm:p-8">
                 <MemoSection member={member} onRefresh={onRefresh} />
               </div>
             </div>
