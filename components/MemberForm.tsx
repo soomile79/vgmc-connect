@@ -50,6 +50,29 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
   const [editingMemoText, setEditingMemoText] = useState('');
   const [localChildLists, setLocalChildLists] = useState<ChildList[]>(childLists);
 
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
+
+  const checkDuplicateName = async (name: string) => {
+    if (!name.trim() || initialData) {
+      setDuplicateWarning(null);
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from('members')
+        .select('korean_name, birthday')
+        .eq('korean_name', name.trim())
+        .maybeSingle();
+      if (data) {
+        setDuplicateWarning(`⚠️ 이미 등록된 이름입니다: ${data.korean_name} (${data.birthday || '생일 미등록'})`);
+      } else {
+        setDuplicateWarning(null);
+      }
+    } catch (err) {
+      console.error('Duplicate check error:', err);
+    }
+  };
+
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -448,7 +471,22 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Korean Name</label>
-                    <input type="text" value={currentMember.korean_name} onChange={(e) => updateMember(activeMemberIndex, { korean_name: e.target.value })} className="w-full px-5 py-3.5 rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800" placeholder="홍길동" />
+                    <input 
+                      type="text" 
+                      value={currentMember.korean_name} 
+                      onChange={(e) => {
+                        const newName = e.target.value;
+                        updateMember(activeMemberIndex, { korean_name: newName });
+                        checkDuplicateName(newName);
+                      }} 
+                      className={`w-full px-5 py-3.5 rounded-2xl bg-slate-50 border-2 transition-all font-bold text-slate-800 ${duplicateWarning ? "border-red-400 focus:border-red-500" : "border-transparent focus:bg-white focus:border-[#3c8fb5]"}`} 
+                      placeholder="홍길동" 
+                    />
+                    {duplicateWarning && (
+                      <p className="text-red-500 text-xs font-bold mt-1 ml-1 animate-pulse">
+                        {duplicateWarning}
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">English Name</label>
