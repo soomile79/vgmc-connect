@@ -364,9 +364,22 @@ function MemberCard({ member, age, roles, onClick }: { member: Member; age: numb
 function FamilyCard({ familyLabel, members, roles, familyAddress, onMemberClick }: { familyLabel: string; members: Member[]; roles: Role[]; familyAddress?: string | null; onMemberClick: (member: Member) => void; }) {
   if (!members || members.length === 0) return null;
   const sorted = [...members].sort((a, b) => {
-    const order = (m: Member) => { const r = m.relationship?.toLowerCase(); if (r === 'head' || r === 'self') return 0; if (r === 'spouse') return 1; return 2; };
-    const oa = order(a); const ob = order(b); if (oa !== ob) return oa - ob;
-    if (oa === 2 && a.birthday && b.birthday) return new Date(a.birthday).getTime() - new Date(b.birthday).getTime();
+    const getRank = (m: Member) => {
+      const r = m.relationship?.toLowerCase();
+      if (r === 'head' || r === 'self') return 0;
+      if (r === 'spouse') return 1;
+      return 2;
+    };
+    const rankA = getRank(a);
+    const rankB = getRank(b);
+    if (rankA !== rankB) return rankA - rankB;
+    
+    // If same rank (e.g., both are children), sort by age (oldest first)
+    const ageA = calcAge(a.birthday);
+    const ageB = calcAge(b.birthday);
+    if (ageA !== null && ageB !== null) return ageB - ageA;
+    if (ageA !== null) return -1;
+    if (ageB !== null) return 1;
     return 0;
   });
   const head = sorted.find((m) => m.relationship?.toLowerCase() === 'head' || m.relationship?.toLowerCase() === 'self');
@@ -1117,23 +1130,18 @@ function App() {
         return nameKo.includes(query) || nameEn.includes(query) || (queryDigits && phoneDigits.includes(queryDigits));
       });
 
-      if (!familyView) {
-        // 2. For Card View, we want to show the matched person AND their family members
-        const matchedFamilyIds = Array.from(new Set(matchedMembers.map(m => m.family_id).filter(Boolean)));
-        
-        // Get all members of families that have at least one match
-        filtered = members.filter(m => m.family_id && matchedFamilyIds.includes(m.family_id));
-        
-        // If some matched members don't have a family_id, include them too
-        const noFamilyMatches = matchedMembers.filter(m => !m.family_id);
-        filtered = [...filtered, ...noFamilyMatches];
-      } else {
-        // For Family View, just keep the filtered list as is (it will be grouped by family anyway)
-        filtered = matchedMembers;
-      }
+      // 2. Show the matched person AND their family members for both Card View and Family View
+      const matchedFamilyIds = Array.from(new Set(matchedMembers.map(m => m.family_id).filter(Boolean)));
+      
+      // Get all members of families that have at least one match
+      filtered = members.filter(m => m.family_id && matchedFamilyIds.includes(m.family_id));
+      
+      // If some matched members don't have a family_id, include them too
+      const noFamilyMatches = matchedMembers.filter(m => !m.family_id);
+      filtered = [...filtered, ...noFamilyMatches];
     }
     const sorted = [...filtered].sort((a, b) => {
-      // Priority 1: Birthday View sorting (by day of month)
+      // Priority 1: Birthday View sorting (by day of month, then name)
       if (activeMenu === 'birthdays') {
         const getDay = (dateStr?: string | null) => {
           if (!dateStr) return 0;
@@ -1146,9 +1154,16 @@ function App() {
         return (a.korean_name || '').localeCompare(b.korean_name || '', 'ko');
       }
 
-      // When searching in Card View, sort by: Matched Person -> Head -> Spouse -> Age (oldest first)
-      if (query && !familyView) {
-        // Check if the member themselves matched the query
+      // Priority 2: Recent Members sorting (by registration date desc, then name asc)
+      if (activeMenu === 'recent') {
+        const dateA = a.registration_date || '';
+        const dateB = b.registration_date || '';
+        if (dateA !== dateB) return dateB.localeCompare(dateA);
+        return (a.korean_name || '').localeCompare(b.korean_name || '', 'ko');
+      }
+
+      // Priority 3: Search sorting (Matched Person -> Head -> Spouse -> Age)
+      if (query) {
         const isMatch = (m: Member) => {
           const nameKo = (m.korean_name || '').toLowerCase(); const nameEn = (m.english_name || '').toLowerCase();
           const phoneDigits = (m.phone || '').replace(/[^0-9]/g, ''); const queryDigits = query.replace(/[^0-9]/g, '');
