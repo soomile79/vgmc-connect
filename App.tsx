@@ -414,10 +414,17 @@ function FamilyCard({ familyLabel, members, roles, familyAddress, onMemberClick 
                   {member.photo_url ? <img src={member.photo_url} alt={member.korean_name} className="w-full h-full rounded-lg object-cover" /> : <svg className={`w-5 h-5 ${text}`} style={{ opacity: 0.5 }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>}
                   {isHead && <CrownBadge />}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline gap-2 flex-wrap"><span className="text-sm font-bold text-slate-800">{member.korean_name}</span>{(age !== null || gender) && <span className="text-[10px] text-slate-400 font-bold">{age !== null && age}{age !== null && gender && ' · '}{gender}</span>}</div>
-                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">{member.english_name && <span className="text-[10px] text-slate-400 font-bold">{member.english_name}</span>}{member.relationship && <span className={`text-[10px] font-black uppercase tracking-widest ${isHead ? 'text-[#4292b8]' : 'text-slate-400'}`}>· {member.relationship}</span>}{member.role && <span className={`px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-widest ${bg} ${text}`} style={{ opacity: 0.6 }}>{member.role}</span>}</div>
-                </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline gap-2 flex-wrap"><span className="text-sm font-bold text-slate-800">{member.korean_name}</span>{(age !== null || gender) && <span className="text-[10px] text-slate-400 font-bold">{age !== null && age}{age !== null && gender && ' · '}{gender}</span>}</div>
+                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                      {member.english_name && <span className="text-[10px] text-slate-400 font-bold">{member.english_name}</span>}
+                      {member.relationship && <span className={`text-[10px] font-black uppercase tracking-widest ${isHead ? 'text-[#4292b8]' : 'text-slate-400'}`}>· {member.relationship}</span>}
+                      {member.role && <span className={`px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-widest ${bg} ${text}`} style={{ opacity: 0.6 }}>{member.role}</span>}
+                      {member.tags?.map(tag => (
+                        <span key={tag} className="text-[9px] font-bold text-slate-400">#{tag}</span>
+                      ))}
+                    </div>
+                  </div>
                 <span className={`w-2 h-2 rounded-full ${statusColor} flex-shrink-0`} />
               </div>
             );
@@ -538,7 +545,7 @@ function BirthdayCard({ member, roles, onClick }: { member: Member; roles: Role[
           </div>
           <span className="text-xs font-bold tracking-tight">{member.phone || '-'}</span>
         </div>
-        <div className="flex gap-1.5">
+        <div className="flex flex-wrap gap-1.5 justify-end">
           {member.tags?.slice(0, 2).map(tag => (
             <span key={tag} className="px-2 py-1 rounded-lg bg-slate-50 text-[9px] font-black text-slate-400 uppercase tracking-widest border border-slate-100 group-hover:bg-white transition-colors">
               #{tag}
@@ -727,8 +734,15 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
                 </div>
               </div>
                 <div className="text-sm sm:text-base md:text-xl font-medium text-slate-400 mb-2 sm:mb-3 break-words">{member.english_name}</div>
-                <div className={`inline-block px-3 sm:px-4 py-1 rounded-lg sm:rounded-xl text-[15px] sm:text-m font-bold tracking-wide ${roleBg} ${roleText} bg-opacity-20`}>
-                  {member.role || 'Member'}
+                <div className="flex flex-wrap gap-2 mt-2">
+                  <div className={`inline-block px-3 sm:px-4 py-1 rounded-lg sm:rounded-xl text-[15px] sm:text-m font-bold tracking-wide ${roleBg} ${roleText} bg-opacity-20`}>
+                    {member.role || 'Member'}
+                  </div>
+                  {member.tags?.map(tag => (
+                    <span key={tag} className="px-3 py-1 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-500 shadow-sm">
+                      #{tag}
+                    </span>
+                  ))}
                 </div>
               </div>
             </div>
@@ -872,8 +886,11 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm sm:text-lg font-bold text-slate-800 group-hover:text-blue-600 transition-colors break-words">{fm.korean_name}</p>
-                          <p className="text-xs  text-grey-300 tracking-wide">
-                            {displayRelationship} <span className="text-slate-300 mx-1">·</span> <span className="text-slate-400">{fmAge ? `${fmAge} yrs` : '-'}</span>
+                          <p className="text-xs text-slate-400 tracking-wide flex items-center gap-2 flex-wrap">
+                            {displayRelationship} <span className="text-slate-300">·</span> <span>{fmAge ? `${fmAge} yrs` : '-'}</span>
+                            {fm.tags?.map(tag => (
+                              <span key={tag} className="text-[10px] font-bold text-slate-300">#{tag}</span>
+                            ))}
                           </p>
                         </div>
                       </button>
@@ -1030,7 +1047,7 @@ function App() {
 
 
 
-  const load = async () => {
+  const load = async (actionType?: 'save' | 'delete', memberId?: string) => {
     try {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
@@ -1054,7 +1071,12 @@ function App() {
       setRoles(rolesRes.data || []);
       setUserRole((profileRes.data?.role as 'admin' | 'user') || 'user');
       
-      if (selectedMember) {
+      if (actionType === 'delete') {
+        setSelectedMember(null);
+      } else if (actionType === 'save' && memberId) {
+        const savedMember = newMembers.find(m => m.id === memberId);
+        if (savedMember) setSelectedMember(savedMember);
+      } else if (selectedMember) {
         const updatedSelectedMember = newMembers.find(m => m.id === selectedMember.id);
         if (updatedSelectedMember) setSelectedMember(updatedSelectedMember);
       }
@@ -1357,7 +1379,7 @@ function App() {
       <MemberForm
         isOpen={isMemberFormOpen}
         onClose={() => setIsMemberFormOpen(false)}
-        onSuccess={load}
+        onSuccess={(type, id) => load(type, id)}
         initialData={editingMember}
         parentLists={parentLists}
         childLists={childLists}
