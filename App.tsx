@@ -4,7 +4,12 @@ import SettingsPage from './components/SettingsPage';
 import MemberForm from './components/MemberForm';
 import Login from './components/Login';
 
-
+const getTagLabel = (tag: string, childLists: ChildList[]) => {
+  const matched = childLists.find(
+    c => c.name.trim().toLowerCase() === tag.trim().toLowerCase()
+  );
+  return matched ? matched.name : tag;
+};
 
 /* ================= DATA NORMALIZATION ================= */
 const normalizeMember = (m: any): Member => {
@@ -170,12 +175,13 @@ function Sidebar({ activeMembersCount, familiesCount, birthdaysCount, activeOnly
   const toggleParent = (parentId: string) => {
     setExpandedParents(prev => ({ ...prev, [parentId]: !prev[parentId] }));
   };
-
+ 
+   
   // 통계 계산 로직 수정: 완전 동적 필드 매칭
   const getChildStats = (parentType: string, parentName: string, childName: string) => {
-    const pType = (parentType || '').trim().toLowerCase();
-    const pName = (parentName || '').trim().toLowerCase();
-    const cName = (childName || '').trim().toLowerCase().replace(/\s+/g, '');
+  const pType = (parentType || '').trim().toLowerCase();
+  const pName = (parentName || '').trim().toLowerCase();
+  const cName = (childName || '').trim().toLowerCase().replace(/\s+/g, '');
     
     const filtered = members.filter((m) => {
       const memberValue = (m as any)[pType];
@@ -319,7 +325,19 @@ function CrownBadge() {
 }
 
 /* ================= MEMBER CARD ================= */
-function MemberCard({ member, age, roles, onClick }: { member: Member; age: number | null; roles: Role[]; onClick: () => void; }) {
+function MemberCard({
+    member,
+    age,
+    roles,
+    onClick,
+    childLists
+  }: {
+    member: Member;
+    age: number | null;
+    roles: Role[];
+    onClick: () => void;
+    childLists: ChildList[];
+  }) {
   const roleMeta = roles.find((r) => r.name === member.role);
   const roleBg = roleMeta?.bg_color ?? 'bg-slate-50';
   const roleText = roleMeta?.text_color ?? 'text-slate-400';
@@ -328,7 +346,7 @@ function MemberCard({ member, age, roles, onClick }: { member: Member; age: numb
   const genderLabel = member.gender?.toLowerCase() === 'male' ? 'M' : member.gender?.toLowerCase() === 'female' ? 'F' : null;
   const isHead = member.relationship?.toLowerCase() === 'head' || member.relationship?.toLowerCase() === 'self';
   const isActive = statusKey === 'active';
-
+  
   return (
     <div onClick={onClick} className={`bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer group relative overflow-hidden ${!isActive ? 'opacity-50' : ''}`}>
       <div className="absolute top-0 right-0 w-24 h-24 bg-slate-50 rounded-bl-[5rem] -mr-8 -mt-8 transition-colors group-hover:bg-blue-50/50" />
@@ -350,7 +368,7 @@ function MemberCard({ member, age, roles, onClick }: { member: Member; age: numb
         {(member.role || (member.tags && member.tags.length > 0)) && (
           <div className="flex flex-wrap gap-1.5">
             {member.role && <span className={`px-2 py-0.5 rounded-md text-xs font-bold ${roleBg} ${roleText}`} style={{ opacity: 0.6 }}>{member.role}</span>}
-            {member.tags?.map((tag) => <span key={tag} className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-white border border-slate-200 text-slate-500">#{tag}</span>)}
+            {member.tags?.map((tag) => <span key={tag} className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-white border border-slate-200 text-slate-500">#{getTagLabel(tag, childLists)}</span>)}
           </div>
         )}
         {member.address && <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(member.address)}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="flex items-start gap-1.5 text-xs text-slate-500 hover:text-blue-600 transition-colors"><MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0" /><span className="break-words">{member.address}</span></a>}
@@ -421,7 +439,7 @@ function FamilyCard({ familyLabel, members, roles, familyAddress, onMemberClick 
                       {member.relationship && <span className={`text-[10px] font-black uppercase tracking-widest ${isHead ? 'text-[#4292b8]' : 'text-slate-400'}`}>· {member.relationship}</span>}
                       {member.role && <span className={`px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-widest ${bg} ${text}`} style={{ opacity: 0.6 }}>{member.role}</span>}
                       {member.tags?.map(tag => (
-                        <span key={tag} className="text-[9px] font-bold text-slate-400">#{tag}</span>
+                        <span key={tag} className="text-[9px] font-bold text-slate-400">#{getTagLabel(tag, childLists)}</span>
                       ))}
                     </div>
                   </div>
@@ -947,14 +965,29 @@ function App() {
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [activeMenu, setActiveMenu] = useState<MenuKey>('active');
+
   const [selectedFilter, setSelectedFilter] = useState<ChildList | null>(null)
   const [parentLists, setParentLists] = useState<ParentList[]>([])
   const [childLists, setChildLists] = useState<ChildList[]>([])
+  
   const [userRole, setUserRole] = useState<'admin' | 'user' | null>(null)
+  
+  const resetToInitialView = () => {
+    setSelectedMember(null);   // Detail 닫기
+    goToActiveMembers();       // ⭐ Active Members 버튼 누른 것과 동일
+  };
   const [recentDateRange, setRecentDateRange] = useState<{ from: string; to: string }>({
     from: new Date(new Date().setFullYear(new Date().getFullYear() - 3)).toISOString().split('T')[0],
     to: new Date().toISOString().split('T')[0]
   });
+
+  useEffect(() => {
+  const handleCloseDetail = () => {
+    setSelectedMember(null);
+  };
+
+  return () => window.removeEventListener('closeMemberDetail', handleCloseDetail);
+}, []);
   
   useEffect(() => {
   const handleTagDeleted = (e: Event) => {
@@ -1354,7 +1387,7 @@ function App() {
             ) : activeMenu === 'recent' ? (
               displayedMembers.map((member) => <RecentMemberCard key={member.id} member={member} roles={roles} onClick={() => { if (member) setSelectedMember(member); }} />)
             ) : !familyView ? (
-              displayedMembers.map((member) => <MemberCard key={member.id} member={member} age={calcAge(member.birthday)} roles={roles} onClick={() => { if (member) setSelectedMember(member); }} />)
+              displayedMembers.map((member) => <MemberCard key={member.id} member={member} age={calcAge(member.birthday)} roles={roles} childLists={childLists} onClick={() => { if (member) setSelectedMember(member); }} />)
             ) : (
               displayedFamilies.map((familyId) => <FamilyCard key={familyId} familyLabel={getFamilyLabel(familyId)} members={displayedMembers.filter(m => m.family_id === familyId)} roles={roles} familyAddress={displayedMembers.filter(m => m.family_id === familyId).find(m => m.address)?.address} onMemberClick={(m) => { if (m) setSelectedMember(m); }} />)
             )}
@@ -1379,7 +1412,20 @@ function App() {
       <MemberForm
         isOpen={isMemberFormOpen}
         onClose={() => setIsMemberFormOpen(false)}
-        onSuccess={(type, id) => load(type, id)}
+        onSuccess={async (type, id) => {
+          await load(type, id);
+
+          if (type === 'delete') {
+            resetToInitialView(); // ⭐ 핵심
+          } else if (id) {
+            const updated = members.find(m => m.id === id);
+            if (updated) setSelectedMember(updated);
+          }
+
+          setIsMemberFormOpen(false);
+          setEditingMember(null);
+        }}
+
         initialData={editingMember}
         parentLists={parentLists}
         childLists={childLists}
