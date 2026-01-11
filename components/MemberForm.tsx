@@ -745,7 +745,7 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">English Name</label>
-                    <input type="text" value={currentMember.english_name} onChange={(e) => updateMember(activeMemberIndex, { english_name: e.target.value })} className="w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800 text-sm sm:text-base" placeholder="Hong, Gildong" />
+                    <input type="text" value={currentMember.english_name} onChange={(e) => updateMember(activeMemberIndex, { english_name: e.target.value })} className="w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800 text-sm sm:text-base" placeholder="Gildong Hong" />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Birthday</label>
