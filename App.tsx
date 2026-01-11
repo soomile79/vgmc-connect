@@ -788,7 +788,14 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
               </div>
             </div>
 
-            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+            <div className="
+              absolute
+              top-4 right-4
+              sm:static
+              sm:flex
+              items-center
+              gap-2 sm:gap-3
+            ">
               {userRole === 'admin' && (
                 <button onClick={() => onEdit(member)} className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center bg-white text-slate-400 hover:text-slate-600 rounded-full shadow-sm border border-slate-100 transition-all hover:shadow-md">
                   <Edit className="w-4 h-4 sm:w-5 sm:h-5" />
