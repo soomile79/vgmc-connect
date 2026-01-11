@@ -392,7 +392,22 @@ function MemberCard({
 }
 
 /* ================= FAMILY CARD ================= */
-function FamilyCard({ familyLabel, members, roles, familyAddress, onMemberClick }: { familyLabel: string; members: Member[]; roles: Role[]; familyAddress?: string | null; onMemberClick: (member: Member) => void; }) {
+function FamilyCard({
+    familyLabel,
+    members,
+    roles,
+    familyAddress,
+    onMemberClick,
+    childLists
+  }: {
+    familyLabel: string;
+    members: Member[];
+    roles: Role[];
+    familyAddress?: string | null;
+    onMemberClick: (member: Member) => void;
+    childLists: ChildList[];
+  }) {
+
   if (!members || members.length === 0) return null;
   const sorted = [...members].sort((a, b) => {
     const getRank = (m: Member) => {
@@ -1631,7 +1646,22 @@ function App() {
             ) : !familyView ? (
               displayedMembers.map((member) => <MemberCard key={member.id} member={member} age={calcAge(member.birthday)} roles={roles} childLists={childLists} onClick={() => { if (member) setSelectedMember(member); }} />)
             ) : (
-              displayedFamilies.map((familyId) => <FamilyCard key={familyId} familyLabel={getFamilyLabel(familyId)} members={displayedMembers.filter(m => m.family_id === familyId)} roles={roles} familyAddress={displayedMembers.filter(m => m.family_id === familyId).find(m => m.address)?.address} onMemberClick={(m) => { if (m) setSelectedMember(m); }} />)
+              displayedFamilies.map((familyId) => (
+              <FamilyCard
+                key={familyId}
+                familyLabel={getFamilyLabel(familyId)}
+                members={displayedMembers.filter(m => m.family_id === familyId)}
+                roles={roles}
+                familyAddress={displayedMembers
+                  .filter(m => m.family_id === familyId)
+                  .find(m => m.address)?.address}
+                onMemberClick={(m) => {
+                  if (m) setSelectedMember(m);
+                }}
+                childLists={childLists}   // ⭐ 이 줄 추가
+              />
+            ))
+
             )}
           </div>
           {displayedMembers.length === 0 && <div className="text-center py-12"><div className="text-slate-400 text-lg">No members found</div></div>}
