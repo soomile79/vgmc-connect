@@ -3,6 +3,35 @@ import { supabase } from './lib/supabase';
 import SettingsPage from './components/SettingsPage';
 import MemberForm from './components/MemberForm';
 import Login from './components/Login';
+import {
+  LayoutGrid,
+  Users,
+  Search,
+  X,
+  Check,
+  ChevronDown,
+  MapPin,
+  Smartphone,
+  Mail,
+  Calendar,
+  DollarSign,
+  Edit,
+  Trash2,
+  Plus,
+  Cake,
+  Home,
+  Briefcase,
+  Tag,
+  Award,
+  UserCog,
+  Settings,
+  LogOut,
+  ChevronRight,
+  ChevronUp,
+  Crown,
+  Clock,
+} from 'lucide-react';
+
 
 const getTagLabel = (tag: string, childLists: ChildList[]) => {
   const matched = childLists.find(
@@ -42,34 +71,6 @@ const normalizeMember = (m: any): Member => {
     return { id: '', korean_name: 'Error', tags: [], memo: '' } as any;
   }
 };
-import {
-  LayoutGrid,
-  Users,
-  Search,
-  X,
-  Check,
-  ChevronDown,
-  MapPin,
-  Smartphone,
-  Mail,
-  Calendar,
-  DollarSign,
-  Edit,
-  Trash2,
-  Plus,
-  Cake,
-  Home,
-  Briefcase,
-  Tag,
-  Award,
-  UserCog,
-  Settings,
-  LogOut,
-  ChevronRight,
-  ChevronUp,
-  Crown,
-  Clock,
-} from 'lucide-react';
 
 /* ================= TYPES ================= */
 
@@ -735,7 +736,17 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
 
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300" onClick={onClose}>
-      <div className="bg-white w-full max-w-6xl max-h-[95vh] rounded-2xl sm:rounded-[3rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300" onClick={(e) => e.stopPropagation()}>
+      <div className="
+            bg-white
+            w-full
+            max-w-6xl
+            h-[100dvh] sm:h-[95vh]
+            rounded-2xl sm:rounded-[3rem]
+            shadow-2xl
+            flex flex-col
+            overflow-hidden
+            animate-in zoom-in-95 duration-300
+          " onClick={(e) => e.stopPropagation()}>
         
         {/* Header Section with Role Background Band */}
         <div className={`relative flex-shrink-0 ${roleBg} bg-opacity-10 p-4 sm:p-6 lg:p-8 pb-6`}>
@@ -1305,8 +1316,167 @@ function App() {
       <Sidebar activeMembersCount={activeMembersCount} familiesCount={familiesCount} birthdaysCount={birthdaysCount} activeOnly={activeOnly} sidebarOpen={sidebarOpen} onCloseSidebar={() => setSidebarOpen(false)} onClickActiveMembers={goToActiveMembers} onSelectMenu={goToMenu} parentLists={parentLists} childLists={childLists} onSelectFilter={goToFilter} activeMenu={activeMenu} selectedFilter={selectedFilter} members={members} onNewMember={handleNewMember} onSignOut={handleSignOut} userRole={userRole} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="bg-white/95 backdrop-blur-lg border-b border-slate-200 shadow-sm">
-          <div className="px-4 lg:px-6 py-3"><div className="flex items-center gap-2 lg:gap-3"><button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 rounded-lg hover:bg-slate-100 transition flex-shrink-0"><svg className="w-5 h-5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg></button><div className="relative flex-1 max-w-md"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" /><input type="text" placeholder="Search Members by Name or Phone" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-9 pr-9 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-transparent text-sm text-slate-700 placeholder:text-slate-400" />{searchQuery && <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"><X size={16} /></button>}</div><div className="flex items-center gap-2 flex-shrink-0"><button onClick={() => setActiveOnly(!activeOnly)} className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border transition-all ${activeOnly ? 'border-emerald-400 text-emerald-600 bg-emerald-50' : 'border-slate-200 text-slate-400 bg-white'}`}><Check className="w-4 h-4" /><span className="hidden lg:inline text-xs font-semibold">Active Only</span></button><div className="hidden md:flex items-center gap-2"><div className="flex items-center gap-0.5 bg-slate-100 rounded-lg p-0.5"><button onClick={() => setFamilyView(false)} className={`p-1.5 rounded-md transition-all ${!familyView ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`} title="Card View"><LayoutGrid size={16} /></button><button onClick={() => setFamilyView(true)} className={`p-1.5 rounded-md transition-all ${familyView ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`} title="Family View"><Users size={16} /></button></div><div className="w-px h-5 bg-slate-300" /><div className="relative"><button onClick={(e) => { e.stopPropagation(); setShowSortDropdown(!showSortDropdown); }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all"><span className="text-slate-500">Sort:</span>{sortBy === 'name' ? '이름' : '나이'}<ChevronDown className="w-3.5 h-3.5" /></button>{showSortDropdown && <div className="absolute right-0 mt-1 w-28 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-30"><button onClick={() => { setSortBy('name'); setShowSortDropdown(false); }} className={`w-full px-3 py-1.5 text-left text-xs font-semibold transition-colors ${sortBy === 'name' ? 'bg-slate-100 text-slate-800' : 'text-slate-600 hover:bg-slate-50'}`}>이름</button><button onClick={() => { setSortBy('age'); setShowSortDropdown(false); }} className={`w-full px-3 py-1.5 text-left text-xs font-semibold transition-colors ${sortBy === 'age' ? 'bg-slate-100 text-slate-800' : 'text-slate-600 hover:bg-slate-50'}`}>나이</button></div>}</div><button onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')} className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition-all" title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}><svg className={`w-4 h-4 transition-transform ${sortOrder === 'desc' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11l5-5m0 0l5 5m-5-5v12" /></svg></button></div></div></div></div>
+          <div className="px-4 lg:px-6 py-3">
+            <div className="flex items-center gap-2 lg:gap-3">
+              
+              {/* Mobile sidebar button */}
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="lg:hidden p-2 rounded-lg hover:bg-slate-100 transition flex-shrink-0"
+              >
+                <svg
+                  className="w-5 h-5 text-slate-700"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+
+              {/* Search */}
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search Members by Name or Phone"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-9 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-transparent text-sm text-slate-700 placeholder:text-slate-400"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {/* Active Only */}
+                <button
+                  onClick={() => setActiveOnly(!activeOnly)}
+                  className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border transition-all ${
+                    activeOnly
+                      ? 'border-emerald-400 text-emerald-600 bg-emerald-50'
+                      : 'border-slate-200 text-slate-400 bg-white'
+                  }`}
+                >
+                  <Check className="w-4 h-4" />
+                  <span className="hidden lg:inline text-xs font-semibold">Active Only</span>
+                </button>
+
+                {/* ⭐ Mobile: Card / Family toggle */}
+                <div className="flex md:hidden items-center gap-0.5 bg-slate-100 rounded-lg p-0.5">
+                  <button
+                    onClick={() => setFamilyView(false)}
+                    className={`p-1.5 rounded-md transition-all ${
+                      !familyView ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'
+                    }`}
+                  >
+                    <LayoutGrid size={16} />
+                  </button>
+                  <button
+                    onClick={() => setFamilyView(true)}
+                    className={`p-1.5 rounded-md transition-all ${
+                      familyView ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'
+                    }`}
+                  >
+                    <Users size={16} />
+                  </button>
+                </div>
+
+                {/* Desktop controls (기존 그대로) */}
+                <div className="hidden md:flex items-center gap-2">
+                  <div className="flex items-center gap-0.5 bg-slate-100 rounded-lg p-0.5">
+                    <button
+                      onClick={() => setFamilyView(false)}
+                      className={`p-1.5 rounded-md transition-all ${
+                        !familyView ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'
+                      }`}
+                      title="Card View"
+                    >
+                      <LayoutGrid size={16} />
+                    </button>
+                    <button
+                      onClick={() => setFamilyView(true)}
+                      className={`p-1.5 rounded-md transition-all ${
+                        familyView ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'
+                      }`}
+                      title="Family View"
+                    >
+                      <Users size={16} />
+                    </button>
+                  </div>
+
+                  <div className="w-px h-5 bg-slate-300" />
+
+                  <div className="relative">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowSortDropdown(!showSortDropdown);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all"
+                    >
+                      <span className="text-slate-500">Sort:</span>
+                      {sortBy === 'name' ? '이름' : '나이'}
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    </button>
+
+                    {showSortDropdown && (
+                      <div className="absolute right-0 mt-1 w-28 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-30">
+                        <button
+                          onClick={() => {
+                            setSortBy('name');
+                            setShowSortDropdown(false);
+                          }}
+                          className={`w-full px-3 py-1.5 text-left text-xs font-semibold transition-colors ${
+                            sortBy === 'name'
+                              ? 'bg-slate-100 text-slate-800'
+                              : 'text-slate-600 hover:bg-slate-50'
+                          }`}
+                        >
+                          이름
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSortBy('age');
+                            setShowSortDropdown(false);
+                          }}
+                          className={`w-full px-3 py-1.5 text-left text-xs font-semibold transition-colors ${
+                            sortBy === 'age'
+                              ? 'bg-slate-100 text-slate-800'
+                              : 'text-slate-600 hover:bg-slate-50'
+                          }`}
+                        >
+                          나이
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                    className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition-all"
+                  >
+                    <svg
+                      className={`w-4 h-4 transition-transform ${sortOrder === 'desc' ? 'rotate-180' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11l5-5m0 0l5 5m-5-5v12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </header>
+
         <main className="flex-1 overflow-y-auto px-4 lg:px-6 py-5">
           <div className="mb-6">
             <h2 className="text-3xl font-black text-slate-800">
