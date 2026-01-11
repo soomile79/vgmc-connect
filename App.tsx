@@ -169,7 +169,19 @@ function Sidebar({ activeMembersCount, familiesCount, birthdaysCount, activeOnly
 
   useEffect(() => {
     const interval = setInterval(() => setNow(new Date()), 60_000);
-    return () => clearInterval(interval);
+    
+    // Viewport height fix for mobile browsers
+    const setVh = () => {
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
+    };
+    setVh();
+    window.addEventListener('resize', setVh);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('resize', setVh);
+    };
   }, []);
 
   const toggleParent = (parentId: string) => {
@@ -723,15 +735,15 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
 
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300" onClick={onClose}>
-      <div className="bg-white w-full max-w-6xl max-h-[95vh] rounded-[3rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white w-full max-w-6xl max-h-[95vh] rounded-2xl sm:rounded-[3rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300" onClick={(e) => e.stopPropagation()}>
         
         {/* Header Section with Role Background Band */}
-        <div className={`relative flex-shrink-0 ${roleBg} bg-opacity-10 p-6 sm:p-8 lg:p-10 pb-8`}>
-          <div className="flex flex-col sm:flex-row items-start justify-between gap-4 sm:gap-6">
-            <div className="flex items-start gap-4 sm:gap-6 md:gap-8">
+        <div className={`relative flex-shrink-0 ${roleBg} bg-opacity-10 p-4 sm:p-6 lg:p-8 pb-6`}>
+          <div className="flex flex-col sm:flex-row items-start justify-between gap-3 sm:gap-4">
+            <div className="flex items-start gap-3 sm:gap-5 md:gap-6">
               {/* Profile Image Card */}
               <div className="relative">
-                <div className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 lg:w-36 lg:h-36 rounded-2xl sm:rounded-[2rem] bg-white shadow-xl flex items-center justify-center overflow-hidden ring-1 ring-black/5">
+                <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 lg:w-32 lg:h-32 rounded-xl sm:rounded-[1.5rem] bg-white shadow-xl flex items-center justify-center overflow-hidden ring-1 ring-black/5">
                   {member.photo_url ? (
                     <img src={member.photo_url} alt={member.korean_name} className="w-full h-full object-cover" />
                   ) : (
@@ -782,12 +794,12 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
           
           {/* Main Content Area */}
           <div className={`flex-1 overflow-y-auto custom-scrollbar ${userRole === 'admin' ? 'lg:border-r lg:border-slate-100' : ''}`}>
-            <div className="p-6 sm:p-8 lg:p-12 pt-8 sm:pt-10">
+            <div className="p-4 sm:p-6 lg:p-8 pt-6 sm:pt-8">
               
               {/* Contact Info Grid - REORDERED: Phone, Email, Address */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 mb-10 sm:mb-12">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
                 {/* Phone */}
-                <div className="flex items-center gap-4 sm:gap-5 p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-white  border-slate-50 hover:shadow-md transition-shadow">
+                <div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-white border-slate-50 hover:shadow-md transition-shadow">
                   <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 flex-shrink-0">
                     <Smartphone className="w-5 h-5 sm:w-6 sm:h-6" />
                   </div>
@@ -798,7 +810,7 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
                 </div>
 
                 {/* Email - MOVED BEFORE ADDRESS */}
-                <div className="flex items-center gap-4 sm:gap-5 p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-white border-slate-50 hover:shadow-md transition-shadow">
+                <div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-white border-slate-50 hover:shadow-md transition-shadow">
                   <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 flex-shrink-0">
                     <Mail className="w-5 h-5 sm:w-6 sm:h-6" />
                   </div>
@@ -809,7 +821,7 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
                 </div>
 
                 {/* Address - MOVED AFTER EMAIL */}
-                <div className="flex items-center gap-4 sm:gap-5 p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-white  border-slate-50 hover:shadow-md transition-shadow md:col-span-2">
+                <div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-white border-slate-50 hover:shadow-md transition-shadow md:col-span-2">
                   <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 flex-shrink-0">
                     <MapPin className="w-5 h-5 sm:w-6 sm:h-6" />
                   </div>
@@ -823,7 +835,7 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
               <hr className="border-t border-slate-200 my-4" />
               
               {/* Detailed Info Row */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 py-8 sm:py-10 border-t border-slate-50">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 py-6 sm:py-8 border-t border-slate-50">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 mb-2 sm:mb-3">
                     <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-slate-300 flex-shrink-0" />
@@ -859,12 +871,12 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
               </div>
 
               {/* Family Members Section */}
-              <div className="mt-10 sm:mt-12">
-                <div className="flex items-center gap-2 sm:gap-3 mb-6 sm:mb-8">
-                  <Users className="w-4 h-4 sm:w-5 sm:h-5 text-slate-300 flex-shrink-0" />
-                  <h3 className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-[0.2em]">Family Members</h3>
+              <div className="mt-6 sm:mt-8">
+                <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+                  <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-300 flex-shrink-0" />
+                  <h3 className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Family Members</h3>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
                   {otherFamilyMembers.map((fm) => {
                     const isFmHead = fm.relationship?.toLowerCase() === 'head' || fm.relationship?.toLowerCase() === 'self';
                     const fmAge = calcAge(fm.birthday);
@@ -926,8 +938,8 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
 
           {/* Admin Memo Column */}
           {userRole === 'admin' && (
-            <div className="w-full lg:w-96 bg-slate-50/50 flex flex-col overflow-hidden border-t lg:border-t-0 lg:border-l lg:border-slate-100">
-              <div className="p-6 sm:p-8 border-b border-slate-100 bg-white/50 backdrop-blur-sm sticky top-0 z-10">
+            <div className="w-full lg:w-96 bg-slate-50/50 flex flex-col lg:overflow-hidden border-t lg:border-t-0 lg:border-l lg:border-slate-100">
+              <div className="p-6 sm:p-8 border-b border-slate-100 bg-white/50 backdrop-blur-sm lg:sticky top-0 z-10">
                 <div className="flex items-center gap-2 sm:gap-3">
                   <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-md sm:rounded-lg bg-amber-100 flex items-center justify-center text-amber-600 flex-shrink-0">
                     <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
@@ -1281,7 +1293,7 @@ function App() {
 
   if (activeMenu === 'settings') {
     return (
-      <div className="h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-100 flex">
+      <div className="h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-100 flex" style={{ height: 'calc(var(--vh, 1vh) * 100)' }}>
         <Sidebar activeMembersCount={activeMembersCount} familiesCount={familiesCount} birthdaysCount={birthdaysCount} activeOnly={activeOnly} sidebarOpen={sidebarOpen} onCloseSidebar={() => setSidebarOpen(false)} onClickActiveMembers={goToActiveMembers} onSelectMenu={goToMenu} parentLists={parentLists} childLists={childLists} onSelectFilter={goToFilter} activeMenu={activeMenu} selectedFilter={selectedFilter} members={members} onNewMember={handleNewMember} onSignOut={handleSignOut} userRole={userRole} />
         <div className="flex-1 overflow-y-auto"><SettingsPage parentLists={parentLists} childLists={childLists} onUpdate={fetchSystemLists} /></div>
       </div>
@@ -1289,7 +1301,7 @@ function App() {
   }
 
   return (
-    <div className="h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-100 flex">
+    <div className="h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-100 flex" style={{ height: 'calc(var(--vh, 1vh) * 100)' }}>
       <Sidebar activeMembersCount={activeMembersCount} familiesCount={familiesCount} birthdaysCount={birthdaysCount} activeOnly={activeOnly} sidebarOpen={sidebarOpen} onCloseSidebar={() => setSidebarOpen(false)} onClickActiveMembers={goToActiveMembers} onSelectMenu={goToMenu} parentLists={parentLists} childLists={childLists} onSelectFilter={goToFilter} activeMenu={activeMenu} selectedFilter={selectedFilter} members={members} onNewMember={handleNewMember} onSignOut={handleSignOut} userRole={userRole} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="bg-white/95 backdrop-blur-lg border-b border-slate-200 shadow-sm">
