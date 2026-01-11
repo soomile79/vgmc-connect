@@ -46,7 +46,50 @@ export const getRoleStyle = (position: string) => {
   }
 };
 
-export const INITIAL_MEMBERS: Member[] = [];
+export const INITIAL_MEMBERS: Member[] = [
+  {
+    id: 'sample-1',
+    koreanName: '김철수',
+    englishName: 'Charles Kim',
+    gender: 'Male',
+    birthday: '1980-05-15',
+    phone: '604-555-0101',
+    email: 'charles@example.com',
+    address: '1234 Main St, Vancouver, BC',
+    mokjang: '에녹',
+    representative: '김철수',
+    relationship: 'Self',
+    isBaptized: true,
+    isRegularMember: true,
+    position: '안수집사',
+    registrationDate: '2023-01-15',
+    status: 'Active',
+    memo: 'Sample member for testing display.',
+    forSlip: '2024-001',
+    tags: ['세례', '성가대']
+  },
+  {
+    id: 'sample-2',
+    koreanName: '이영희',
+    englishName: 'Younghee Lee',
+    gender: 'Female',
+    birthday: '1982-08-20',
+    phone: '604-555-0102',
+    email: 'yhlee@example.com',
+    address: '1234 Main St, Vancouver, BC',
+    mokjang: '에녹',
+    representative: '김철수',
+    relationship: 'Spouse',
+    isBaptized: true,
+    isRegularMember: true,
+    position: '서리집사',
+    registrationDate: '2023-01-15',
+    status: 'Active',
+    memo: '',
+    forSlip: '',
+    tags: ['세례', '교사']
+  }
+];
 
 export const MOKJANG_LIST = [
   '에녹', 
