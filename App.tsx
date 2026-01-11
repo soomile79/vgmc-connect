@@ -652,9 +652,49 @@ function MemoSection({ member, onRefresh }: { member: Member; onRefresh: () => v
     <div className="space-y-6">
       {/* <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Memo Log</div> */}
       <div className="flex gap-2">
-        <textarea value={newMemo} onChange={(e) => setNewMemo(e.target.value)} className="flex-1 px-4 py-3 rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-2 focus:ring-blue-50 transition-all font-medium text-slate-700 min-h-[80px] text-sm" placeholder="새로운 메모를 입력하세요..." />
-        <button onClick={handleAddMemo} disabled={loading} className="px-3 bg-[#3c8fb5] text-white rounded-2xl font-black uppercase tracking-widest hover:bg-[#327a9c] transition-colors text-xs disabled:opacity-50">등록</button>
+        <textarea
+          value={newMemo}
+          onChange={(e) => setNewMemo(e.target.value)}
+          placeholder="새로운 메모를 입력하세요..."
+          className="
+            flex-1
+            px-3 py-2
+            rounded-xl
+            bg-slate-50
+            border border-transparent
+            focus:bg-white
+            focus:border-[#3c8fb5]
+            focus:ring-1 focus:ring-blue-50
+            transition-all
+            font-medium
+            text-slate-700
+            min-h-[56px]
+            text-sm
+          "
+        />
+
+        <button
+          onClick={handleAddMemo}
+          disabled={loading}
+          className="
+            px-3
+            h-[56px]
+            bg-[#3c8fb5]
+            text-white
+            rounded-xl
+            font-bold
+            tracking-wide
+            hover:bg-[#327a9c]
+            transition-colors
+            text-xs
+            disabled:opacity-50
+            flex items-center justify-center
+          "
+        >
+          등록
+        </button>
       </div>
+
       <div className="space-y-4">
         {memoList.map((entry, i) => {
           const safeEntry = String(entry || '');
@@ -686,11 +726,24 @@ function MemoSection({ member, onRefresh }: { member: Member; onRefresh: () => v
             </div>
           );
         })}
-        {memoList.length === 0 && <div className="py-12 text-center text-slate-400 font-bold text-xs bg-slate-50/50 rounded-[2rem] border-2 border-dashed border-slate-100 uppercase tracking-widest">등록된 메모가 없습니다.</div>}
-      </div>
-    </div>
-  );
-}
+        {memoList.length === 0 && (
+          <div className="
+            py-6
+            text-center
+            text-slate-400
+            text-xs
+            bg-slate-50
+            rounded-xl
+            border border-dashed border-slate-200
+          ">
+            등록된 메모가 없습니다.
+          </div>
+        )}
+
+              </div>
+            </div>
+          );
+        }
 
 /* ================= MEMBER DETAIL MODAL ================= */
 function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, onSelectMember, onEdit, userRole, onRefresh }: { member: Member; onClose: () => void; roles: Role[]; familyMembers: Member[]; onSelectMember: (member: Member) => void; onEdit: (member: Member) => void; userRole: 'admin' | 'user'; onRefresh: () => void; }) {
@@ -749,7 +802,7 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
           " onClick={(e) => e.stopPropagation()}>
         
         {/* Header Section with Role Background Band */}
-        <div className={`relative flex-shrink-0 ${roleBg} bg-opacity-10 p-4 sm:p-6 lg:p-8 pb-6`}>
+        <div className={`relative flex-shrink-0 ${roleBg} bg-opacity-10 pt-16 sm:pt-6 p-4 sm:p-6 lg:p-8 pb-6`}>
           <div className="flex flex-col sm:flex-row items-start justify-between gap-3 sm:gap-4">
             <div className="flex items-start gap-3 sm:gap-5 md:gap-6">
               {/* Profile Image Card */}
@@ -956,8 +1009,8 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
 
           {/* Admin Memo Column */}
           {userRole === 'admin' && (
-            <div className="w-full lg:w-96 bg-slate-50/50 flex flex-col lg:overflow-hidden border-t lg:border-t-0 lg:border-l lg:border-slate-100">
-              <div className="p-6 sm:p-8 border-b border-slate-100 bg-white/50 backdrop-blur-sm lg:sticky top-0 z-10">
+            <div className="w-full lg:w-80 xl:w-96 bg-slate-50/50 flex flex-col lg:overflow-hidden border-t lg:border-t-0 lg:border-l lg:border-slate-100 border-t border-slate-200">
+              <div className="p-4 sm:p-5 border-b border-slate-100 bg-white/50 backdrop-blur-sm lg:sticky top-0 z-10">
                 <div className="flex items-center gap-2 sm:gap-3">
                   <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-md sm:rounded-lg bg-amber-100 flex items-center justify-center text-amber-600 flex-shrink-0">
                     <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
@@ -965,7 +1018,7 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
                   <h3 className="text-xs sm:text-sm font-bold text-slate-800">Admin Memos</h3>
                 </div>
               </div>
-              <div className="flex-1 lg:overflow-y-auto custom-scrollbar p-6 sm:p-8">
+              <div className="flex-1 lg:overflow-y-auto custom-scrollbar p-4 sm:p-5">
                 <MemoSection member={member} onRefresh={onRefresh} />
               </div>
             </div>
