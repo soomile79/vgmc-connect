@@ -32,7 +32,7 @@ type MemberData = {
 interface MemberFormProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (actionType: 'save' | 'delete', memberId?: string) => void;
   initialData?: any;
   parentLists: ParentList[];
   childLists: ChildList[];
@@ -51,28 +51,86 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
   const [localChildLists, setLocalChildLists] = useState<ChildList[]>(childLists);
 
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
+  const [showHeadTransferModal, setShowHeadTransferModal] = useState<{ index: number; members: MemberData[] } | null>(null);
+
+  const formatPhoneNumber = (value: string) => {
+    const digits = value.replace(/\D/g, '');
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+    return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
+  };
+
+  const calculateAge = (birthday: string) => {
+    if (!birthday) return null;
+    const birthDate = new Date(birthday);
+    if (isNaN(birthDate.getTime())) return null;
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  const handleDateChange = (field: keyof MemberData, value: string) => {
+    if (value) {
+      const [year, month, day] = value.split('-');
+      if (year && year.length > 4) {
+        const restrictedValue = `${year.slice(0, 4)}-${month || ''}-${day || ''}`;
+        updateMember(activeMemberIndex, { [field]: restrictedValue });
+        return;
+      }
+    }
+    updateMember(activeMemberIndex, { [field]: value });
+  };
 
   const checkDuplicateName = async (name: string) => {
-    if (!name.trim() || initialData) {
+    if (!name.trim()) {
       setDuplicateWarning(null);
       return;
     }
-    try {
-      const { data, error } = await supabase
-        .from('members')
-        .select('korean_name, birthday')
-        .eq('korean_name', name.trim())
-        .maybeSingle();
-      if (data) {
-        setDuplicateWarning(`⚠️ 이미 등록된 이름입니다: ${data.korean_name} (${data.birthday || '생일 미등록'})`);
-      } else {
-        setDuplicateWarning(null);
+
+    // 1. Check if name exists in the current family members being added (excluding the active one)
+    const isDuplicateInForm = members.some((m, idx) => 
+      idx !== activeMemberIndex && m.korean_name.trim() === name.trim()
+    );
+
+    if (isDuplicateInForm) {
+      setDuplicateWarning(`⚠️ 현재 입력 중인 가족 명단에 이미 같은 이름이 있습니다.`);
+      return;
+    }
+
+    // 2. Check database (only for new members, not when editing existing ones)
+    if (!initialData) {
+      try {
+        const { data, error } = await supabase
+          .from('members')
+          .select('korean_name, birthday')
+          .eq('korean_name', name.trim())
+          .maybeSingle();
+        
+        if (data) {
+          setDuplicateWarning(`⚠️ 이미 등록된 이름입니다: ${data.korean_name} (${data.birthday || '생일 미등록'})`);
+        } else {
+          setDuplicateWarning(null);
+        }
+      } catch (err) {
+        console.error('Duplicate check error:', err);
       }
-    } catch (err) {
-      console.error('Duplicate check error:', err);
+    } else {
+      setDuplicateWarning(null);
     }
   };
 
+
+  useEffect(() => {
+    if (members[activeMemberIndex]) {
+      checkDuplicateName(members[activeMemberIndex].korean_name);
+    } else {
+      setDuplicateWarning(null);
+    }
+  }, [activeMemberIndex, members]);
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -81,6 +139,7 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
     if (isOpen) {
       window.addEventListener('keydown', handleEsc);
       setLocalChildLists(childLists);
+      setDuplicateWarning(null);
       if (initialData) {
         loadFamily(initialData);
       } else {
@@ -91,6 +150,7 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
       window.removeEventListener('keydown', handleEsc);
       setMembers([]);
       setActiveMemberIndex(0);
+      setDuplicateWarning(null);
     }
     return () => window.removeEventListener('keydown', handleEsc);
   }, [isOpen, initialData, onClose, childLists]);
@@ -176,9 +236,37 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
 
   const updateMember = (index: number, updates: Partial<MemberData>) => {
     if (!members[index]) return;
-    const newMembers = [...members];
-    const current = newMembers[index];
-    const updated = { ...current, ...updates };
+    let newMembers = [...members];
+    
+    // If setting someone as Head, unset others
+    if (updates.relationship === 'Head' || updates.is_head === true) {
+      const currentHeadIndex = newMembers.findIndex(m => m.is_head);
+      if (currentHeadIndex !== -1 && currentHeadIndex !== index) {
+        if (confirm(`이미 대표자(${newMembers[currentHeadIndex].korean_name})가 있습니다. ${newMembers[index].korean_name}님을 새로운 대표자로 지정하시겠습니까?`)) {
+          newMembers = newMembers.map((m, i) => ({
+            ...m,
+            is_head: i === index,
+            relationship: i === index ? 'Head' : (m.relationship === 'Head' ? '' : m.relationship)
+          }));
+          updates.is_head = true;
+          updates.relationship = 'Head';
+        } else {
+          // If user cancels, don't change to Head
+          updates.is_head = false;
+          if (updates.relationship === 'Head') updates.relationship = '';
+        }
+      } else {
+        newMembers = newMembers.map((m, i) => ({
+          ...m,
+          is_head: i === index,
+          relationship: i === index ? 'Head' : (m.relationship === 'Head' ? '' : m.relationship)
+        }));
+        updates.is_head = true;
+        updates.relationship = 'Head';
+      }
+    }
+
+    const updated = { ...newMembers[index], ...updates };
 
     if (updates.relationship) {
       const head = newMembers.find(m => m.is_head);
@@ -235,20 +323,22 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
     updateMember(activeMemberIndex, { memo: updatedMemos.join('\n\n') });
   };
 
-  const handleDeleteMember = async (index: number) => {
+  const confirmDeleteMember = async (index: number, newHeadIndex?: number) => {
     const memberToDelete = members[index];
     if (!memberToDelete) return;
-    if (!confirm(`${memberToDelete.korean_name || '이 멤버'}를 삭제하시겠습니까?`)) return;
 
     let updatedMembers = members.filter((_, i) => i !== index);
     
     if (memberToDelete.is_head && updatedMembers.length > 0) {
-      const spouseIdx = updatedMembers.findIndex(m => m.relationship?.toLowerCase() === 'spouse');
-      if (spouseIdx >= 0) {
-        updatedMembers[spouseIdx] = { ...updatedMembers[spouseIdx], is_head: true, relationship: 'Head' };
-      } else {
-        updatedMembers[0] = { ...updatedMembers[0], is_head: true, relationship: 'Head' };
-      }
+      const headIdx = newHeadIndex !== undefined 
+        ? (newHeadIndex > index ? newHeadIndex - 1 : newHeadIndex)
+        : 0;
+      
+      updatedMembers = updatedMembers.map((m, i) => ({
+        ...m,
+        is_head: i === headIdx,
+        relationship: i === headIdx ? 'Head' : m.relationship
+      }));
     }
 
     if (memberToDelete.id) {
@@ -256,6 +346,12 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
         setLoading(true);
         const { error } = await supabase.from('members').delete().eq('id', memberToDelete.id);
         if (error) throw error;
+
+        // If this was the last member, we might want to delete the family record too
+        if (updatedMembers.length === 0 && memberToDelete.family_id) {
+          const { error: familyError } = await supabase.from('families').delete().eq('id', memberToDelete.family_id);
+          if (familyError) console.error('Error deleting empty family:', familyError);
+        }
       } catch (error) {
         console.error('Error deleting member:', error);
         alert('멤버 삭제 중 오류가 발생했습니다.');
@@ -265,42 +361,112 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
       }
     }
 
-    setMembers(sortMembers(updatedMembers));
-    setActiveMemberIndex(0);
+    // After any deletion, close the modal and refresh the list to go back to the main screen
+    onSuccess('delete');
+    onClose();
+    setShowHeadTransferModal(null);
+  };
+
+  const handleDeleteMember = (index: number) => {
+    const memberToDelete = members[index];
+    if (!memberToDelete) return;
+    
+    if (!confirm(`${memberToDelete.korean_name || '이 멤버'}를 삭제하시겠습니까?`)) return;
+
+    const otherMembers = members.filter((_, i) => i !== index);
+    
+    if (memberToDelete.is_head && otherMembers.length > 0) {
+      setShowHeadTransferModal({ index, members: otherMembers });
+    } else {
+      confirmDeleteMember(index);
+    }
+  };
+
+  const handleDeleteCurrentMember = () => {
+    handleDeleteMember(activeMemberIndex);
   };
 
   const handleSave = async () => {
+    // Validate that all members have a relationship
+    const membersWithoutRelationship = members.filter(m => !m.relationship);
+    if (membersWithoutRelationship.length > 0) {
+      const names = membersWithoutRelationship.map(m => m.korean_name || '이름 미입력').join(', ');
+      alert(`⚠️ 가족 관계는 필수 조건입니다.\n\n가족 구성원 중 [${names}]님의 관계가 비어있으니 입력해주세요!`);
+      
+      // Switch to the first member without a relationship
+      const firstMissingIdx = members.findIndex(m => !m.relationship);
+      if (firstMissingIdx >= 0) setActiveMemberIndex(firstMissingIdx);
+      return;
+    }
+
+    // Validate that there is exactly one Head
+    const heads = members.filter(m => m.is_head || m.relationship === 'Head');
+    if (heads.length === 0) {
+      alert('⚠️ 가족 대표자(Head)가 지정되지 않았습니다. 한 명의 대표자를 지정해주세요.');
+      return;
+    }
+    if (heads.length > 1) {
+      alert('⚠️ 가족 대표자(Head)는 한 명이어야 합니다.');
+      return;
+    }
+
     try {
       setLoading(true);
       let familyId = initialData?.family_id;
+      
+      // 1. Create family if it doesn't exist
       if (!familyId) {
         const head = members.find(m => m.is_head) || members[0];
         const { data: familyData, error: familyError } = await supabase
           .from('families')
-          .insert({ name: head.korean_name })
+          .insert({ family_name: head.korean_name }) // Use family_name instead of name
           .select()
           .single();
-        if (familyError) throw familyError;
+        
+        if (familyError) {
+          console.error('Family creation error:', familyError);
+          throw familyError;
+        }
         familyId = familyData.id;
       }
 
+      // 2. Save members
       for (const member of members) {
-        const memberData = { ...member, family_id: familyId };
-        delete (memberData as any).is_head;
+        // Clean up data for database
+        const { is_head, ...cleanMemberData } = member as any;
+        const memberData = { 
+          ...cleanMemberData, 
+          family_id: familyId,
+          // Ensure empty strings are converted to null for date/optional fields if needed
+          birthday: cleanMemberData.birthday || null,
+          baptism_date: cleanMemberData.baptism_date || null,
+          registration_date: cleanMemberData.registration_date || null,
+          gender: cleanMemberData.gender || null,
+          photo_url: cleanMemberData.photo_url || null,
+        };
         
         if (member.id) {
           const { error } = await supabase.from('members').update(memberData).eq('id', member.id);
-          if (error) throw error;
+          if (error) {
+            console.error('Member update error:', error);
+            throw error;
+          }
         } else {
           const { error } = await supabase.from('members').insert(memberData);
-          if (error) throw error;
+          if (error) {
+            console.error('Member insert error:', error);
+            throw error;
+          }
         }
       }
-      onSuccess();
-      onClose();
-    } catch (error) {
+      
+      // Pass 'save' action and the ID of the active member to show their detail
+      const savedMemberId = members[activeMemberIndex]?.id || initialData?.id;
+      onSuccess('save', savedMemberId);
+      onClose(); 
+    } catch (error: any) {
       console.error('Error saving members:', error);
-      alert('저장 중 오류가 발생했습니다.');
+      alert(`저장 중 오류가 발생했습니다: ${error.message || '알 수 없는 오류'}`);
     } finally {
       setLoading(false);
     }
@@ -313,41 +479,33 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
   const tagParent = parentLists.find(
     p => p.name.toLowerCase().includes('태그') || p.type === 'tags'
   );
+  
   if (!tagParent) {
-    alert('태그 카테고리를 찾을 수 없습니다. 시스템 설정에서 "태그" 카테고리를 먼저 생성해주세요.');
+    alert('태그 카테고리를 찾을 수 없습니다.');
     return;
   }
 
   try {
-    // 로컬 기준으로 기존 태그 확인
-    let existingTag = localChildLists.find(
-      c => c.parent_id === tagParent.id && c.name === trimmedName
-    );
+    const { data: existingTag } = await supabase
+      .from('child_lists')
+      .select('*')
+      .eq('parent_id', tagParent.id)
+      .eq('name', trimmedName)
+      .maybeSingle();
 
     if (!existingTag) {
-      const tags = localChildLists.filter(c => c.parent_id === tagParent.id);
-      const maxOrder = tags.length > 0
-        ? Math.max(...tags.map(t => (t as any).order || 0))
-        : 0;
-
-      const { data: newTag, error } = await supabase
+      const { error } = await supabase
         .from('child_lists')
         .insert({
           parent_id: tagParent.id,
           name: trimmedName,
-          order: maxOrder + 1,
-        })
-        .select()
-        .single();
-
+          order: localChildLists.length + 1
+        });
       if (error) throw error;
-      existingTag = newTag;
-
-      // ⭐ 즉시 UI 반영
-      setLocalChildLists(prev => [...prev, newTag]);
+      
+      setLocalChildLists(prev => [...prev, { id: Math.random().toString(), parent_id: tagParent.id, name: trimmedName }]);
     }
 
-    // ⭐ 현재 멤버에게 자동 체크
     const currentTags = members[activeMemberIndex].tags || [];
     if (!currentTags.includes(trimmedName)) {
       updateMember(activeMemberIndex, {
@@ -359,6 +517,35 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
     alert('태그 추가 중 오류가 발생했습니다: ' + err.message);
   }
 };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setLoading(true);
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `member-photos/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('photos')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('photos')
+        .getPublicUrl(filePath);
+
+      updateMember(index, { photo_url: publicUrl });
+    } catch (error) {
+      console.error('Error uploading photo:', error);
+      alert('사진 업로드 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -376,85 +563,153 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
   }
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[60] flex items-center justify-center p-4 overflow-hidden">
-      <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-6xl max-h-[95vh] flex flex-col animate-in fade-in zoom-in duration-300 overflow-hidden">
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[60] flex items-center justify-center p-2 sm:p-4 overflow-hidden">
+      {showHeadTransferModal && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full space-y-6 animate-in zoom-in duration-200">
+            <div className="text-center space-y-2">
+              <div className="w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Crown className="w-8 h-8 text-amber-500" />
+              </div>
+              <h3 className="text-xl font-black text-slate-800">새로운 가족대표 선택</h3>
+              <p className="text-slate-500 font-medium">가족대표를 삭제하시려면 새로운 대표자를 지정해야 합니다.</p>
+            </div>
+            <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+              {members.filter((_, i) => i !== showHeadTransferModal.index).map((m, i) => {
+                const originalIndex = members.findIndex(mem => mem === m);
+                return (
+                  <button
+                    key={i}
+                    onClick={() => confirmDeleteMember(showHeadTransferModal.index, originalIndex)}
+                    className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-slate-100 hover:border-[#3c8fb5] hover:bg-blue-50 transition-all group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center overflow-hidden">
+                      {m.photo_url ? <img src={m.photo_url} alt="" className="w-full h-full object-cover" /> : <User className="w-5 h-5 text-slate-300" />}
+                    </div>
+                    <div className="flex-1 text-left">
+                      <div className="font-bold text-slate-800 group-hover:text-[#3c8fb5]">{m.korean_name}</div>
+                      <div className="text-xs font-bold text-slate-400 uppercase">{m.relationship}</div>
+                    </div>
+                    <ChevronDown className="w-5 h-5 text-slate-300 -rotate-90" />
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              onClick={() => setShowHeadTransferModal(null)}
+              className="w-full py-4 rounded-2xl font-bold text-slate-400 hover:bg-slate-50 transition-all"
+            >
+              취소
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-white rounded-[1.5rem] sm:rounded-[2.5rem] shadow-2xl w-full max-w-6xl max-h-[98vh] sm:max-h-[95vh] flex flex-col animate-in fade-in zoom-in duration-300 overflow-hidden">
         
         {/* Header */}
-        <div className="px-10 py-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div className="px-4 sm:px-10 py-4 sm:py-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div>
-            <h2 className="text-3xl font-black text-slate-800 flex items-center gap-3">
-              {initialData ? 'Edit Member Profile' : 'Register New Member'}
-              <span className="text-sm font-medium text-slate-400 bg-white px-3 py-1 rounded-full border border-slate-200 shadow-sm">
-                {members.length} Family Members
+            <h2 className="text-xl sm:text-3xl font-black text-slate-800 flex items-center gap-2 sm:gap-3">
+              {initialData ? 'Edit Profile' : 'New Member'}
+              <span className="text-[10px] sm:text-sm font-medium text-slate-400 bg-white px-2 sm:px-3 py-0.5 sm:py-1 rounded-full border border-slate-200 shadow-sm">
+                {members.length} Members
               </span>
             </h2>
-            <p className="text-slate-500 mt-1 font-medium">Manage personal information and family relationships</p>
+            <p className="hidden sm:block text-slate-500 mt-1 font-medium text-sm">Manage personal information and family relationships</p>
           </div>
-          <button onClick={onClose} className="p-3 hover:bg-white hover:shadow-md rounded-2xl transition-all text-slate-400 hover:text-slate-600">
-            <X className="w-7 h-7" />
+          <button onClick={onClose} className="p-2 sm:p-3 hover:bg-white hover:shadow-md rounded-xl sm:rounded-2xl transition-all text-slate-400 hover:text-slate-600">
+            <X className="w-5 h-5 sm:w-7 sm:h-7" />
           </button>
         </div>
 
-        <div className="flex-1 flex overflow-hidden">
-          {/* Sidebar */}
-          <div className="w-80 border-r border-slate-100 bg-slate-50/30 overflow-y-auto p-6 space-y-4 custom-scrollbar">
-            <div className="space-y-2">
+        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+          {/* Sidebar - Horizontal on mobile, Vertical on desktop */}
+          <div className="w-full lg:w-80 border-b lg:border-b-0 lg:border-r border-slate-100 bg-slate-50/30 overflow-x-auto lg:overflow-y-auto p-4 sm:p-6 flex lg:flex-col gap-4 custom-scrollbar">
+            <div className="flex lg:flex-col gap-2 min-w-max lg:min-w-0">
               {members.map((m, idx) => (
                 <div key={idx} onClick={() => setActiveMemberIndex(idx)} 
-                     className={`group relative flex items-center gap-4 p-4 rounded-2xl cursor-pointer transition-all border-2 ${activeMemberIndex === idx ? 'bg-white border-[#3c8fb5] shadow-lg shadow-blue-100 -translate-y-0.5' : 'bg-transparent border-transparent hover:bg-white hover:border-slate-200'}`}>
-                  <div className="relative">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center overflow-hidden ${activeMemberIndex === idx ? 'bg-blue-50' : 'bg-slate-100'}`}>
-                      {m.photo_url ? <img src={m.photo_url} alt="" className="w-full h-full object-cover" /> : <User className={`w-6 h-6 ${activeMemberIndex === idx ? 'text-[#3c8fb5]' : 'text-slate-300'}`} />}
+                     className={`group relative flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl sm:rounded-2xl cursor-pointer transition-all border-2 ${activeMemberIndex === idx ? 'bg-white border-[#3c8fb5] shadow-lg shadow-blue-100 lg:-translate-y-0.5' : 'bg-transparent border-transparent hover:bg-white hover:border-slate-200'}`}>
+                  <div className="relative flex-shrink-0">
+                    <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl flex items-center justify-center overflow-hidden ${activeMemberIndex === idx ? 'bg-blue-50' : 'bg-slate-100'}`}>
+                      {m.photo_url ? <img src={m.photo_url} alt="" className="w-full h-full object-cover" /> : <User className={`w-5 h-5 sm:w-6 sm:h-6 ${activeMemberIndex === idx ? 'text-[#3c8fb5]' : 'text-slate-300'}`} />}
                     </div>
-                    {m.is_head && <div className="absolute -top-2 -left-2 w-6 h-6 bg-amber-400 rounded-lg flex items-center justify-center shadow-sm border-2 border-white"><Crown className="w-3 h-3 text-white" /></div>}
+                    {m.is_head && <div className="absolute -top-1.5 -left-1.5 sm:-top-2 sm:-left-2 w-5 h-5 sm:w-6 sm:h-6 bg-amber-400 rounded-lg flex items-center justify-center shadow-sm border-2 border-white"><Crown className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" /></div>}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-bold text-slate-800 truncate">{m.korean_name || 'New Member'}</div>
-                    <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{m.relationship || (m.is_head ? 'Head' : 'Relation?')}</div>
+                  <div className="flex-1 min-w-0 pr-6 lg:pr-0">
+                    <div className="font-bold text-slate-800 text-sm sm:text-base truncate">{m.korean_name || 'New Member'}</div>
+                    <div className="text-[10px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wider truncate">{m.relationship || (m.is_head ? 'Head' : 'Relation?')}</div>
                   </div>
-                  {members.length > 1 && (
-                    <button onClick={(e) => { e.stopPropagation(); handleDeleteMember(idx); }}
-                            className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-50 hover:text-red-500 rounded-lg transition-all">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
+                  <button onClick={(e) => { e.stopPropagation(); handleDeleteMember(idx); }}
+                          className="absolute right-2 lg:static lg:opacity-0 lg:group-hover:opacity-100 p-1.5 hover:bg-red-50 hover:text-red-500 rounded-lg transition-all">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               ))}
             </div>
-            <button onClick={handleAddFamilyMember} className="w-full py-4 rounded-2xl border-2 border-dashed border-slate-200 text-slate-400 font-bold hover:border-[#3c8fb5] hover:text-[#3c8fb5] hover:bg-blue-50/50 transition-all flex items-center justify-center gap-2">
-              <Plus className="w-5 h-5" /> Add Family Member
+            <button onClick={handleAddFamilyMember} className="flex-shrink-0 w-40 lg:w-full py-3 sm:py-4 rounded-xl sm:rounded-2xl border-2 border-dashed border-slate-200 text-slate-400 font-bold hover:border-[#3c8fb5] hover:text-[#3c8fb5] hover:bg-blue-50/50 transition-all flex items-center justify-center gap-2 text-sm">
+              <Plus className="w-4 h-4 sm:w-5 sm:h-5" /> <span className="hidden sm:inline">Add Family</span><span className="sm:hidden">Add</span>
             </button>
           </div>
 
           {/* Main Form Area */}
-          <div className="flex-1 overflow-y-auto p-10 custom-scrollbar">
-            <div className="max-w-3xl mx-auto space-y-12">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-10 custom-scrollbar">
+            <div className="max-w-3xl mx-auto space-y-8 sm:space-y-12">
               
               {/* Profile Header Section */}
-              <div className="flex items-center gap-10">
+              <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-10">
                 <div className="relative group">
-                  <div className="w-40 h-40 rounded-[2.5rem] bg-slate-100 border-4 border-white shadow-xl flex items-center justify-center overflow-hidden">
-                    {currentMember.photo_url ? <img src={currentMember.photo_url} alt="" className="w-full h-full object-cover" /> : <User className="w-16 h-16 text-slate-200" />}
+                  <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-[2rem] sm:rounded-[2.5rem] bg-slate-100 border-4 border-white shadow-xl flex items-center justify-center overflow-hidden">
+                    {currentMember.photo_url ? <img src={currentMember.photo_url} alt="" className="w-full h-full object-cover" /> : <User className="w-12 h-12 sm:w-16 sm:h-16 text-slate-200" />}
                   </div>
-                  <button onClick={() => fileInputRef.current?.click()} className="absolute bottom-2 -right-2 w-12 h-12 bg-[#3c8fb5] text-white rounded-2xl shadow-lg flex items-center justify-center hover:scale-110 transition-all border-4 border-white">
-                    <Camera className="w-5 h-5" />
+                  <button onClick={() => fileInputRef.current?.click()} className="absolute bottom-1 -right-1 sm:bottom-2 sm:-right-2 w-10 h-10 sm:w-12 sm:h-12 bg-[#3c8fb5] text-white rounded-xl sm:rounded-2xl shadow-lg flex items-center justify-center hover:scale-110 transition-all border-4 border-white">
+                    <Camera className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
                   <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => handlePhotoUpload(e, activeMemberIndex)} />
+                  
+                  {currentMember.birthday && calculateAge(currentMember.birthday) !== null && (
+                    <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 bg-white px-3 py-1 rounded-full border border-slate-200 shadow-sm whitespace-nowrap">
+                      <span className="text-xs font-black text-[#3c8fb5]">Age: {calculateAge(currentMember.birthday)}</span>
+                    </div>
+                  )}
                 </div>
-                <div className="flex-1 space-y-6">
-                  <div className="grid grid-cols-2 gap-6">
+                <div className="w-full sm:flex-1 space-y-4 sm:space-y-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Relationship</label>
-                      <select value={currentMember.relationship} onChange={(e) => updateMember(activeMemberIndex, { relationship: e.target.value, is_head: e.target.value === 'Head' })} className="w-full px-5 py-3.5 rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800 appearance-none">
-                        <option value="">Select Relationship</option>
-                        {RELATIONSHIPS.map(r => <option key={r} value={r}>{r}</option>)}
-                      </select>
+                      <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Relationship</label>
+                      <div className="relative">
+                        <select 
+                          value={currentMember.relationship} 
+                          onChange={(e) => updateMember(activeMemberIndex, { relationship: e.target.value, is_head: e.target.value === 'Head' })} 
+                          className={`w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border-2 transition-all font-bold text-slate-800 appearance-none text-sm sm:text-base ${!currentMember.relationship ? 'border-red-400 focus:border-red-500' : 'border-transparent focus:bg-white focus:border-[#3c8fb5]'}`}
+                        >
+                          <option value="">Select Relationship</option>
+                          {RELATIONSHIPS.map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                        {!currentMember.relationship && (
+                          <p className="text-red-500 text-[10px] sm:text-xs font-bold mt-1 ml-1 animate-pulse">
+                            ⚠️ 가족 관계를 선택해주세요!
+                          </p>
+                        )}
+                      </div>
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Gender</label>
-                      <div className="flex p-1 bg-slate-100 rounded-2xl">
+                      <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Gender</label>
+                      <div className="flex p-1 bg-slate-100 rounded-xl sm:rounded-2xl">
                         {['Male', 'Female'].map(g => (
-                          <button key={g} onClick={() => updateMember(activeMemberIndex, { gender: g as any })} className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all ${currentMember.gender === g ? 'bg-white text-[#3c8fb5] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>{g}</button>
+                          <button 
+                            key={g} 
+                            onClick={() => updateMember(activeMemberIndex, { gender: g as any })} 
+                            className={`flex-1 py-2 sm:py-2.5 rounded-lg sm:rounded-xl font-bold text-xs sm:text-sm transition-all ${
+                              currentMember.gender === g 
+                                ? g === 'Male' 
+                                  ? 'bg-blue-500 text-white shadow-md' 
+                                  : 'bg-pink-300 text-white shadow-md' 
+                                : 'text-slate-400 hover:text-slate-600'
+                            }`}
+                          >
+                            {g}
+                          </button>
                         ))}
                       </div>
                     </div>
@@ -463,14 +718,14 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
               </div>
 
               {/* Personal Info Section */}
-              <section className="space-y-6">
+              <section className="space-y-4 sm:space-y-6">
                 <div className="flex items-center gap-3 pb-2 border-b border-slate-100">
-                  <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center"><User className="w-4 h-4 text-[#3c8fb5]" /></div>
-                  <h3 className="font-black text-slate-800 uppercase tracking-wider text-sm">Personal Information</h3>
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-blue-50 flex items-center justify-center"><User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#3c8fb5]" /></div>
+                  <h3 className="font-black text-slate-800 uppercase tracking-wider text-xs sm:text-sm">Personal Information</h3>
                 </div>
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Korean Name</label>
+                    <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Korean Name</label>
                     <input 
                       type="text" 
                       value={currentMember.korean_name} 
@@ -479,63 +734,63 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
                         updateMember(activeMemberIndex, { korean_name: newName });
                         checkDuplicateName(newName);
                       }} 
-                      className={`w-full px-5 py-3.5 rounded-2xl bg-slate-50 border-2 transition-all font-bold text-slate-800 ${duplicateWarning ? "border-red-400 focus:border-red-500" : "border-transparent focus:bg-white focus:border-[#3c8fb5]"}`} 
+                      className={`w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border-2 transition-all font-bold text-slate-800 text-sm sm:text-base ${duplicateWarning ? "border-red-400 focus:border-red-500" : "border-transparent focus:bg-white focus:border-[#3c8fb5]"}`} 
                       placeholder="홍길동" 
                     />
                     {duplicateWarning && (
-                      <p className="text-red-500 text-xs font-bold mt-1 ml-1 animate-pulse">
+                      <p className="text-red-500 text-[10px] sm:text-xs font-bold mt-1 ml-1 animate-pulse">
                         {duplicateWarning}
                       </p>
                     )}
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">English Name</label>
-                    <input type="text" value={currentMember.english_name} onChange={(e) => updateMember(activeMemberIndex, { english_name: e.target.value })} className="w-full px-5 py-3.5 rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800" placeholder="Gildong Hong" />
+                    <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">English Name</label>
+                    <input type="text" value={currentMember.english_name} onChange={(e) => updateMember(activeMemberIndex, { english_name: e.target.value })} className="w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800 text-sm sm:text-base" placeholder="Hong, Gildong" />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Birthday</label>
-                    <input type="date" value={currentMember.birthday} onChange={(e) => updateMember(activeMemberIndex, { birthday: e.target.value })} className="w-full px-5 py-3.5 rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800" />
+                    <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Birthday</label>
+                    <input type="date" value={currentMember.birthday} onChange={(e) => handleDateChange('birthday', e.target.value)} className="w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800 text-sm sm:text-base" />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Registration Date</label>
-                    <input type="date" value={currentMember.registration_date} onChange={(e) => updateMember(activeMemberIndex, { registration_date: e.target.value })} className="w-full px-5 py-3.5 rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800" />
+                    <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Registration Date</label>
+                    <input type="date" value={currentMember.registration_date} onChange={(e) => handleDateChange('registration_date', e.target.value)} className="w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800 text-sm sm:text-base" />
                   </div>
                 </div>
               </section>
 
               {/* Contact Section */}
-              <section className="space-y-6">
+              <section className="space-y-4 sm:space-y-6">
                 <div className="flex items-center gap-3 pb-2 border-b border-slate-100">
-                  <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center"><Phone className="w-4 h-4 text-[#3c8fb5]" /></div>
-                  <h3 className="font-black text-slate-800 uppercase tracking-wider text-sm">Contact & Address</h3>
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-blue-50 flex items-center justify-center"><Phone className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#3c8fb5]" /></div>
+                  <h3 className="font-black text-slate-800 uppercase tracking-wider text-xs sm:text-sm">Contact & Address</h3>
                 </div>
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Phone Number</label>
-                    <input type="tel" value={currentMember.phone} onChange={(e) => updateMember(activeMemberIndex, { phone: e.target.value })} className="w-full px-5 py-3.5 rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800" placeholder="000-000-0000" />
+                    <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Phone Number</label>
+                    <input type="tel" value={currentMember.phone} onChange={(e) => updateMember(activeMemberIndex, { phone: formatPhoneNumber(e.target.value) })} className="w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800 text-sm sm:text-base" placeholder="000-000-0000" />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Email Address</label>
-                    <input type="email" value={currentMember.email} onChange={(e) => updateMember(activeMemberIndex, { email: e.target.value })} className="w-full px-5 py-3.5 rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800" placeholder="example@email.com" />
+                    <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Email Address</label>
+                    <input type="email" value={currentMember.email} onChange={(e) => updateMember(activeMemberIndex, { email: e.target.value })} className="w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800 text-sm sm:text-base" placeholder="example@email.com" />
                   </div>
-                  <div className="col-span-2 space-y-1.5">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Home Address</label>
-                    <input type="text" value={currentMember.address} onChange={(e) => updateMember(activeMemberIndex, { address: e.target.value })} className="w-full px-5 py-3.5 rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800" placeholder="Enter full address" />
+                  <div className="sm:col-span-2 space-y-1.5">
+                    <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Home Address</label>
+                    <input type="text" value={currentMember.address} onChange={(e) => updateMember(activeMemberIndex, { address: e.target.value })} className="w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800 text-sm sm:text-base" placeholder="Enter full address" />
                   </div>
                 </div>
               </section>
 
               {/* Church Info Section */}
-              <section className="space-y-6">
+              <section className="space-y-4 sm:space-y-6">
                 <div className="flex items-center gap-3 pb-2 border-b border-slate-100">
-                  <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center"><Briefcase className="w-4 h-4 text-[#3c8fb5]" /></div>
-                  <h3 className="font-black text-slate-800 uppercase tracking-wider text-sm">Church & Administration</h3>
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-blue-50 flex items-center justify-center"><Briefcase className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#3c8fb5]" /></div>
+                  <h3 className="font-black text-slate-800 uppercase tracking-wider text-xs sm:text-sm">Church & Administration</h3>
                 </div>
-                <div className="grid grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
                   {parentLists?.filter(p => !['tags', '태그'].some(s => p.name.toLowerCase().includes(s))).map(parent => (
                     <div key={parent.id} className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">{parent.name}</label>
-                      <select value={(currentMember as any)[parent.type] || ''} onChange={(e) => updateMember(activeMemberIndex, { [parent.type]: e.target.value })} className="w-full px-5 py-3.5 rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800 appearance-none">
+                      <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">{parent.name}</label>
+                      <select value={(currentMember as any)[parent.type] || ''} onChange={(e) => updateMember(activeMemberIndex, { [parent.type]: e.target.value })} className="w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800 appearance-none text-sm sm:text-base">
                         <option value="">Select {parent.name}</option>
                         {childLists?.filter(c => c.parent_id === parent.id).map(child => (
                           <option key={child.id} value={child.name}>{child.name}</option>
@@ -545,30 +800,30 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
                   ))}
                 </div>
 
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="p-6 rounded-3xl bg-slate-50/50 border border-slate-100 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                  <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-slate-50/50 border border-slate-100 space-y-4">
                     <label className="flex items-center gap-3 cursor-pointer group">
-                      <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${currentMember.is_baptized ? 'bg-[#3c8fb5] border-[#3c8fb5]' : 'border-slate-300 group-hover:border-[#3c8fb5]'}`}>
-                        {currentMember.is_baptized && <Check className="w-4 h-4 text-white" />}
+                      <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-lg border-2 flex items-center justify-center transition-all ${currentMember.is_baptized ? 'bg-[#3c8fb5] border-[#3c8fb5]' : 'border-slate-300 group-hover:border-[#3c8fb5]'}`}>
+                        {currentMember.is_baptized && <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />}
                       </div>
                       <input type="checkbox" className="hidden" checked={currentMember.is_baptized} onChange={(e) => updateMember(activeMemberIndex, { is_baptized: e.target.checked })} />
-                      <span className="font-bold text-slate-700">세례 여부 (Baptized)</span>
+                      <span className="font-bold text-slate-700 text-sm sm:text-base">세례 여부 (Baptized)</span>
                     </label>
                     {currentMember.is_baptized && (
                       <div className="space-y-1.5 animate-in slide-in-from-top-2">
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Baptism Date</label>
-                        <input type="date" value={currentMember.baptism_date} onChange={(e) => updateMember(activeMemberIndex, { baptism_date: e.target.value })} className="w-full px-4 py-2.5 rounded-xl bg-white border-slate-200 focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800 text-sm" />
+                        <input type="date" value={currentMember.baptism_date} onChange={(e) => handleDateChange('baptism_date', e.target.value)} className="w-full px-4 py-2.5 rounded-xl bg-white border-slate-200 focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800 text-sm" />
                       </div>
                     )}
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Offering #</label>
-                      <input type="text" value={currentMember.offering_number} onChange={(e) => updateMember(activeMemberIndex, { offering_number: e.target.value })} className="w-full px-5 py-3.5 rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800" placeholder="000" />
+                      <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Offering #</label>
+                      <input type="text" value={currentMember.offering_number} onChange={(e) => updateMember(activeMemberIndex, { offering_number: e.target.value })} className="w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800 text-sm sm:text-base" placeholder="000" />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Slip #</label>
-                      <input type="text" value={currentMember.for_slip} onChange={(e) => updateMember(activeMemberIndex, { for_slip: e.target.value })} className="w-full px-5 py-3.5 rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800" placeholder="000" />
+                      <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Slip #</label>
+                      <input type="text" value={currentMember.for_slip} onChange={(e) => updateMember(activeMemberIndex, { for_slip: e.target.value })} className="w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-[#3c8fb5] focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-800 text-sm sm:text-base" placeholder="000" />
                     </div>
                   </div>
                 </div>
@@ -666,7 +921,7 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
                             </div>
                           ) : (
                             <>
-                              <div className="flex justify-between items-start">
+                              <div className="flex items-center justify-between">
                                 <div className="text-[10px] font-bold text-[#3c8fb5] uppercase tracking-widest">{timestamp || '기존 메모'}</div>
                                 <div className="flex gap-1 opacity-0 group-hover/memo:opacity-100 transition-opacity">
                                   <button onClick={() => { setEditingMemoIndex(i); setEditingMemoText(content); }} className="p-1 hover:bg-blue-100 rounded text-blue-600"><Edit className="w-3 h-3" /></button>
@@ -692,22 +947,35 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
         </div>
 
         {/* Footer */}
-        <div className="px-10 py-8 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="px-4 sm:px-10 py-4 sm:py-8 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="hidden sm:flex items-center gap-6">
             <div className="flex -space-x-3">
               {members.map((m, i) => (
-                <div key={i} className={`w-10 h-10 rounded-full border-2 border-white bg-slate-200 flex items-center justify-center overflow-hidden shadow-sm ${activeMemberIndex === i ? 'ring-2 ring-[#3c8fb5] ring-offset-2' : ''}`}>
-                  {m.photo_url ? <img src={m.photo_url} alt="" className="w-full h-full object-cover" /> : <User className="w-5 h-5 text-slate-400" />}
+                <div key={i} className="w-10 h-10 rounded-xl border-4 border-white bg-slate-100 flex items-center justify-center overflow-hidden shadow-sm">
+                  {m.photo_url ? <img src={m.photo_url} alt="" className="w-full h-full object-cover" /> : <User className="w-5 h-5 text-slate-300" />}
                 </div>
               ))}
             </div>
-            <span className="text-sm font-bold text-slate-500">Ready to save {members.length} profiles</span>
+            <div className="text-sm font-bold text-slate-400">
+              {members.length} members ready to save
+            </div>
           </div>
-          <div className="flex items-center gap-4">
-            <button onClick={onClose} className="px-8 py-4 rounded-2xl font-bold text-slate-500 hover:bg-white hover:shadow-md transition-all">Cancel</button>
-            <button onClick={handleSave} disabled={loading} style={{ backgroundColor: '#3c8fb5' }} className="px-10 py-4 rounded-2xl font-bold text-white shadow-lg shadow-blue-200 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 disabled:opacity-50">
-              {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save className="w-5 h-5" />}
-              {initialData ? 'Update All Profiles' : 'Complete Registration'}
+
+          {/* Delete Button in the middle */}
+          <div className="flex-1 flex justify-center">
+            <button 
+              onClick={handleDeleteCurrentMember}
+              className="px-6 py-3 rounded-xl font-bold text-red-400 hover:text-red-600 hover:bg-red-50 transition-all flex items-center gap-2 text-sm"
+            >
+              <Trash2 className="w-4 h-4" /> Delete This Member
+            </button>
+          </div>
+
+          <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
+            <button onClick={onClose} className="flex-1 sm:flex-none px-6 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-bold text-slate-400 hover:text-slate-600 hover:bg-white transition-all text-sm sm:text-base">Cancel</button>
+            <button onClick={handleSave} disabled={loading} className="flex-[2] sm:flex-none px-6 sm:px-10 py-3 sm:py-4 rounded-xl sm:rounded-2xl bg-[#3c8fb5] text-white font-black shadow-lg shadow-blue-100 hover:scale-105 hover:shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 sm:gap-3 disabled:opacity-50 disabled:scale-100 text-sm sm:text-base">
+              {loading ? <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Save className="w-4 h-4 sm:w-5 sm:h-5" />}
+              Complete
             </button>
           </div>
         </div>
