@@ -7,11 +7,13 @@ interface LoginProps {
 }
 
 const Logo = ({ className }: { className?: string }) => (
-  <div className={`flex items-center gap-2 ${className}`}>
-    <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-200">
-      <span className="text-white font-black text-xl">C</span>
-    </div>
-    <span className="text-2xl font-black text-slate-800 tracking-tight">Connect</span>
+  <div className={`flex items-center justify-center ${className}`}>
+    <img
+        src="https://img.sanishtech.com/u/9c94a10e73cbb826e240de306c60d5f7.png"
+        alt="Logo_Kr"
+        className="w-[280px] sm:w-[360px] h-auto"
+        loading="lazy"
+        />
   </div>
 );
 
@@ -86,12 +88,12 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         <div className="w-full max-w-xl">
             <div className="bg-white/90 backdrop-blur-xl p-8 sm:p-14 rounded-[3rem] shadow-2xl border border-white/50 animate-in fade-in slide-in-from-bottom-8 duration-700">
                 <div className="flex flex-col items-center text-center mb-8 sm:mb-12">
-                    <div className="bg-slate-50 p-5 rounded-3xl shadow-inner mb-8 transform hover:scale-105 transition-transform duration-500">
-                        <Logo />
+                    <div className="p-5 mb-8 transform hover:scale-105 transition-transform duration-500">
+                    <Logo />
                     </div>
-                    <h2 className="text-3xl sm:text-4xl font-black text-slate-800 tracking-tight mb-3">Welcome Back</h2>
-                    <p className="text-slate-500 text-base sm:text-lg font-medium">
-                        밴쿠버지구촌교회 성도 관리 시스템
+                    <h2 className="text-3xl sm:text-2xl font-black text-slate-800 tracking-tight mb-3">VGMC Connect</h2>
+                    <p className="text-slate-500 text-base sm:text-l font-medium">
+                        밴쿠버지구촌교회 교적부
                     </p>
                 </div>
 
