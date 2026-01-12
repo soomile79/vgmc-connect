@@ -9,7 +9,7 @@ interface LoginProps {
 const Logo = ({ className }: { className?: string }) => (
   <div className={`flex items-center justify-center ${className}`}>
     <img
-      src="/Logo_Kr.png"
+      src="/logo_kr.png"
       alt="VGMC Logo"
       className="w-[260px] sm:w-[360px] h-auto"
       loading="lazy"
