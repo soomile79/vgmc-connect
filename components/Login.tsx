@@ -9,7 +9,7 @@ interface LoginProps {
 const Logo = ({ className }: { className?: string }) => (
   <div className={`flex items-center justify-center ${className}`}>
     <img
-        src="https://img.sanishtech.com/u/05c1cc1c69f6a2fcb29aaffb0efe8889.png"
+        src="https://img.sanishtech.com/u/9c94a10e73cbb826e240de306c60d5f7.png"
         alt="Logo_Kr"
         className="w-[280px] sm:w-[360px] h-auto"
         loading="lazy"
@@ -74,7 +74,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="w-full h-screen relative bg-slate-900 font-sans overflow-hidden">
+    <div className="w-full min-h-dvh relative bg-slate-900 font-sans">
       <div className="absolute inset-0 z-0">
          <img 
             src="https://images.unsplash.com/photo-1497294815431-9365093b7331?q=80&w=2670&auto=format&fit=crop" 
@@ -84,7 +84,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
          <div className="absolute inset-0 bg-gradient-to-br from-slate-900/80 via-slate-900/60 to-slate-800/80 mix-blend-multiply" />
       </div>
 
-      <div className="absolute inset-0 z-10 overflow-y-auto flex items-center justify-center p-4">
+      <div className="relative z-10 min-h-dvh flex flex-col justify-center p-4">
         <div className="w-full max-w-xl">
             <div className="bg-white/90 backdrop-blur-xl p-8 sm:p-14 rounded-[3rem] shadow-2xl border border-white/50 animate-in fade-in slide-in-from-bottom-8 duration-700">
                 <div className="flex flex-col items-center text-center mb-8 sm:mb-12">
