@@ -36,9 +36,9 @@ import {
 } from 'lucide-react';
 
 const placeholders = [
-  'Search by Korean Name...',
-  'Search by English Name...',
-  'Search by Phone Number...',
+  ' Search by Korean Name...',
+  ' Search by English Name...',
+  ' Search by Phone Number...',
 ];
 
 
@@ -1998,16 +1998,31 @@ export default App;
 
 function useTypingPlaceholder(text: string, speed = 80) {
   const [display, setDisplay] = useState('');
+  
+  // Use a ref to always have the latest text without triggering re-renders
+  const textRef = React.useRef(text);
+  useEffect(() => {
+    textRef.current = text;
+  }, [text]);
 
   useEffect(() => {
     setDisplay('');
-    let index = 0;
+    if (!text) return;
 
+    let i = 0;
     const interval = setInterval(() => {
-      setDisplay((prev) => prev + text[index]);
-      index++;
-
-      if (index >= text.length) clearInterval(interval);
+      // Always check against the current text length
+      if (i < textRef.current.length) {
+        const char = textRef.current[i];
+        if (typeof char === 'string') {
+          setDisplay((prev) => prev + char);
+          i++;
+        } else {
+          clearInterval(interval);
+        }
+      } else {
+        clearInterval(interval);
+      }
     }, speed);
 
     return () => clearInterval(interval);
