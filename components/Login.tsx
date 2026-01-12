@@ -167,7 +167,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 </form>
             </div>
             <div className="text-center mt-8 opacity-60">
-                <p className="text-sm text-white/80 font-medium tracking-wide">© 2024 VGMC Connect. All rights reserved.</p>
+                <p className="text-sm text-white/80 font-medium tracking-wide">© 2026 VGMC Connect. All rights reserved.</p>
             </div>
         </div>
       </div>
