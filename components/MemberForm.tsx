@@ -1,3 +1,4 @@
+//MemberForm.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Save, User, Phone, Mail, MapPin, Calendar, Briefcase, Info, Plus, Trash2, ChevronDown, ChevronUp, Tag, Camera, Check, Crown, Edit } from 'lucide-react';
 import { supabase } from '../lib/supabase';
