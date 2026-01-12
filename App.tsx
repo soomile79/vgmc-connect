@@ -247,12 +247,12 @@ function Sidebar({ activeMembersCount, familiesCount, birthdaysCount, activeOnly
       >
         <div className="p-6 border-b border-slate-50">
         <div className="flex items-center">
-          <img
-            src="https://img.sanishtech.com/u/1374ca1a4cc438435777e853910bd1b5.png"
-            alt="VGMC Connect"
-            className="h-10 w-auto"
-            loading="lazy"
-          />
+         <img
+              src="/apple-touch-icon.png"
+              alt="VGMC Connect"
+              className="h-10 w-auto"
+              loading="lazy"
+           />
            <h1 className="text-lg font-bold text-slate-400 ml-2">VGMC CONNECT</h1>
         </div>
       </div>
