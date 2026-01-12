@@ -1,0 +1,13 @@
+# dependencies
+node_modules/
+node_modules/**
+
+# build / cache
+.vite/
+.vite/**
+
+# env
+.env
+
+# OS
+.DS_Store
