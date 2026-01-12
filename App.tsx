@@ -3,6 +3,7 @@ import { supabase } from './lib/supabase';
 import SettingsPage from './components/SettingsPage';
 import MemberForm from './components/MemberForm';
 import Login from './components/Login';
+// import { useTypingPlaceholder } from './hooks/useTypingPlaceholder';
 import {
   LayoutGrid,
   Users,
@@ -33,6 +34,12 @@ import {
   Clock,
   Wallet
 } from 'lucide-react';
+
+const placeholders = [
+  'Search by Korean Name...',
+  'Search by English Name...',
+  'Search by Phone Number...',
+];
 
 
 const getTagLabel = (tag: string, childLists: ChildList[]) => {
@@ -247,13 +254,13 @@ function Sidebar({ activeMembersCount, familiesCount, birthdaysCount, activeOnly
       >
         <div className="p-6 border-b border-slate-50">
         <div className="flex items-center">
-         <img
+         {/* <img
               src="/apple-touch-icon.png"
               alt="VGMC Connect"
               className="h-10 w-auto"
               loading="lazy"
-           />
-           <h1 className="text-lg font-bold text-slate-400 ml-2">VGMC CONNECT</h1>
+           /> */}
+           <h1 className="text-xl font-bold text-slate-600  ml-1 shadow-md hover:shadow-lg transition-shadow duration-500">VGMC CONNECT</h1>
         </div>
       </div>
         {userRole === 'admin' && (
@@ -301,7 +308,7 @@ function Sidebar({ activeMembersCount, familiesCount, birthdaysCount, activeOnly
                 <div key={parent.id} className="space-y-1">
                   <button onClick={() => toggleParent(parent.id)} className="w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-slate-50 transition-colors group">
                     <div className="flex items-center gap-3">
-                      {parent.type === 'cell' ? <Home className="w-4 h-4 text-slate-400" /> : 
+                      {parent.type === 'mokjang' ? <Home className="w-4 h-4 text-slate-400" /> : 
                        parent.type === 'role' ? <Briefcase className="w-4 h-4 text-slate-400" /> :
                        parent.type === 'status' ? <Award className="w-4 h-4 text-slate-400" /> :
                        <Tag className="w-4 h-4 text-slate-400" />}
@@ -320,7 +327,7 @@ function Sidebar({ activeMembersCount, familiesCount, birthdaysCount, activeOnly
                             <span className={`text-sm ${isSelected ? 'font-bold' : 'font-medium'}`}>{child.name}</span>
                             <span className={`text-xs font-semibold ${isSelected ? 'text-blue-500' : 'text-slate-400'}`}>
                               {/* 목장만 '가정/명' 표시, 나머지는 숫자만 표시 */}
-                              {parent.type === 'cell' ? `${stats.families}가정 · ${stats.people}명` : stats.people}
+                              {parent.type === 'mokjang' ? `${stats.families}가정 · ${stats.people}명` : stats.people}
                             </span>
                           </button>
                         );
@@ -1280,6 +1287,17 @@ function AdminMemoModal({
 /* ================= MAIN APP ================= */
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [index, setIndex] = useState(0);
+  const placeholder = useTypingPlaceholder(placeholders[index]);
+
+    useEffect(() => {
+      const timer = setTimeout(() => {
+        setIndex((prev) => (prev + 1) % placeholders.length);
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }, [index]);
+
   const [members, setMembers] = useState<Member[]>([]);
   const [families, setFamilies] = useState<Family[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
@@ -1634,124 +1652,140 @@ function App() {
     return <Login onLogin={(role) => { setUserRole(role); load(); }} />;
   }
 
-  if (activeMenu === 'settings') {
-    return (
-      <div className="h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-100 flex" style={{ height: 'calc(var(--vh, 1vh) * 100)' }}>
-        <Sidebar activeMembersCount={activeMembersCount} familiesCount={familiesCount} birthdaysCount={birthdaysCount} activeOnly={activeOnly} sidebarOpen={sidebarOpen} onCloseSidebar={() => setSidebarOpen(false)} onClickActiveMembers={goToActiveMembers} onSelectMenu={goToMenu} parentLists={parentLists} childLists={childLists} onSelectFilter={goToFilter} activeMenu={activeMenu} selectedFilter={selectedFilter} members={members} onNewMember={handleNewMember} onSignOut={handleSignOut} userRole={userRole} />
-        <div className="flex-1 overflow-y-auto"><SettingsPage parentLists={parentLists} childLists={childLists} onUpdate={fetchSystemLists} /></div>
-      </div>
-    );
-  }
+  // Settings page now uses the same layout structure as other pages to include the header
+  // This is handled by the main return statement below by checking activeMenu.
 
   return (
     <div className="h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-100 flex" style={{ height: 'calc(var(--vh, 1vh) * 100)' }}>
       <Sidebar activeMembersCount={activeMembersCount} familiesCount={familiesCount} birthdaysCount={birthdaysCount} activeOnly={activeOnly} sidebarOpen={sidebarOpen} onCloseSidebar={() => setSidebarOpen(false)} onClickActiveMembers={goToActiveMembers} onSelectMenu={goToMenu} parentLists={parentLists} childLists={childLists} onSelectFilter={goToFilter} activeMenu={activeMenu} selectedFilter={selectedFilter} members={members} onNewMember={handleNewMember} onSignOut={handleSignOut} userRole={userRole} />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white/95 backdrop-blur-lg border-b border-slate-200 shadow-sm">
+        <header className="bg-white/95 backdrop-blur-lg border-b border-slate-200 shadow-sm sticky top-0 z-30">
           <div className="px-4 lg:px-6 py-3">
-            <div className="flex items-center gap-2 lg:gap-3">
-              
-              {/* Mobile sidebar button */}
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="lg:hidden p-2 rounded-lg hover:bg-slate-100 transition flex-shrink-0"
-              >
-                <svg
-                  className="w-5 h-5 text-slate-700"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+            <div className="flex flex-col gap-3">
+              {/* Top Row: Home, Search, Hamburger */}
+              <div className="flex items-center gap-2 lg:gap-3">
+                {/* Home Button (Favicon) */}
+                <button
+                  onClick={goToActiveMembers}
+                  className="p-1.5 rounded-lg hover:bg-slate-100 transition flex-shrink-0"
+                  title="Home"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              </button>
+                  <img src="/favicon.ico" alt="Home" className="w-6 h-6" onError={(e) => { (e.target as HTMLImageElement).src = "/apple-touch-icon.png"; }} />
+                </button>
 
-              {/* Search */}
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="이름이나 전화번호로 검색하세요."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-9 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-transparent text-sm text-slate-700 placeholder:text-slate-400"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                {/* Search */}
+                <div className="relative w-full sm:w-[30%]">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+
+                  <input
+                    type="text"
+                    placeholder={placeholder}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-9 py-2 rounded-lg border border-slate-200
+                              focus:outline-none focus:ring-2 focus:ring-emerald-100
+                              text-sm text-slate-700 placeholder:text-slate-400"
+                  />
+
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2
+                                text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
+
+
+                {/* Mobile sidebar button (Hamburger) */}
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  className="p-2 rounded-lg hover:bg-slate-100 transition flex-shrink-0"
+                >
+                  <svg
+                    className="w-6 h-6 text-slate-700"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
                   >
-                    <X size={16} />
-                  </button>
-                )}
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <main className="flex-1 overflow-y-auto px-4 lg:px-6 py-5">
+          {/* Page Title and Controls Section */}
+          <div className="mb-6 flex flex-col gap-2">
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-2xl sm:text-3xl font-black text-slate-800">
+                  {activeMenu === 'active' && (activeOnly ? 'Active Members' : 'All Members')}
+                  {activeMenu === 'birthdays' && `Birthdays in ${new Date().toLocaleString('en-US', { month: 'long' })}`}
+                  {activeMenu === 'recent' && '최신 등록교인'}
+                  {activeMenu === 'filter' && selectedFilter && selectedFilter.name}
+                  {activeMenu === 'settings' && 'Settings'}
+                </h2>
+                <p className="text-slate-500 text-sm sm:text-base mt-0.5">
+                  {activeMenu === 'active' && <>{activeOnly ? `${familiesCount} 가정, ${activeMembersCount} 명 (Active)` : `${familiesCount} 가정, ${members.length} 명 (Total)`}</>}
+                  {activeMenu === 'birthdays' && `${displayedMembers.length} people celebrating this month`}
+                  {activeMenu === 'recent' && `${displayedMembers.length} members registered between ${recentDateRange.from} and ${recentDateRange.to}`}
+                  {activeMenu === 'filter' && selectedFilter && `${displayedMembers.length} members`}
+                </p>
               </div>
 
+              {/* Controls: Right Aligned */}
               <div className="flex items-center gap-2 flex-shrink-0">
                 {/* Active Only */}
                 <button
                   onClick={() => setActiveOnly(!activeOnly)}
-                  className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border transition-all ${
+                  className={`flex items-center justify-center p-2 rounded-lg border transition-all ${
                     activeOnly
                       ? 'border-emerald-400 text-emerald-600 bg-emerald-50'
                       : 'border-slate-200 text-slate-400 bg-white'
                   }`}
+                  title="Active Only"
                 >
-                  <Check className="w-4 h-4" />
-                  <span className="hidden lg:inline text-xs font-semibold">Active Only</span>
+                  <Check className="w-5 h-5" />
+                  <span className="hidden sm:inline ml-1.5 text-xs font-semibold">Active Only</span>
                 </button>
 
-                {/* ⭐ Mobile: Card / Family toggle */}
-                <div className="flex md:hidden items-center gap-0.5 bg-slate-100 rounded-lg p-0.5">
+                {/* Card / Family toggle */}
+                <div className="flex items-center gap-0.5 bg-slate-100 rounded-lg p-0.5">
                   <button
                     onClick={() => setFamilyView(false)}
-                    className={`p-1.5 rounded-md transition-all ${
+                    className={`p-2 rounded-md transition-all ${
                       !familyView ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'
                     }`}
+                    title="Card View"
                   >
-                    <LayoutGrid size={16} />
+                    <LayoutGrid size={18} />
                   </button>
                   <button
                     onClick={() => setFamilyView(true)}
-                    className={`p-1.5 rounded-md transition-all ${
+                    className={`p-2 rounded-md transition-all ${
                       familyView ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'
                     }`}
+                    title="Family View"
                   >
-                    <Users size={16} />
+                    <Users size={18} />
                   </button>
                 </div>
 
-                {/* Desktop controls (기존 그대로) */}
+                {/* Desktop Only: Sort Controls */}
                 <div className="hidden md:flex items-center gap-2">
-                  <div className="flex items-center gap-0.5 bg-slate-100 rounded-lg p-0.5">
-                    <button
-                      onClick={() => setFamilyView(false)}
-                      className={`p-1.5 rounded-md transition-all ${
-                        !familyView ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'
-                      }`}
-                      title="Card View"
-                    >
-                      <LayoutGrid size={16} />
-                    </button>
-                    <button
-                      onClick={() => setFamilyView(true)}
-                      className={`p-1.5 rounded-md transition-all ${
-                        familyView ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'
-                      }`}
-                      title="Family View"
-                    >
-                      <Users size={16} />
-                    </button>
-                  </div>
-
-                  <div className="w-px h-5 bg-slate-300" />
-
+                  <div className="w-px h-5 bg-slate-300 mx-1" />
                   <div className="relative">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         setShowSortDropdown(!showSortDropdown);
                       }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all"
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all"
                     >
                       <span className="text-slate-500">Sort:</span>
                       {sortBy === 'name' ? '이름' : '나이'}
@@ -1792,10 +1826,10 @@ function App() {
 
                   <button
                     onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                    className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition-all"
+                    className="p-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-all"
                   >
                     <svg
-                      className={`w-4 h-4 transition-transform ${sortOrder === 'desc' ? 'rotate-180' : ''}`}
+                      className={`w-5 h-5 transition-transform ${sortOrder === 'desc' ? 'rotate-180' : ''}`}
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -1807,23 +1841,12 @@ function App() {
               </div>
             </div>
           </div>
-        </header>
 
-        <main className="flex-1 overflow-y-auto px-4 lg:px-6 py-5">
-          <div className="mb-6">
-            <h2 className="text-3xl font-black text-slate-800">
-              {activeMenu === 'active' && (activeOnly ? 'Active Members' : 'All Members')}
-              {activeMenu === 'birthdays' && `Birthdays in ${new Date().toLocaleString('en-US', { month: 'long' })}`}
-              {activeMenu === 'recent' && '최신 등록교인'}
-              {activeMenu === 'filter' && selectedFilter && selectedFilter.name}
-            </h2>
-            <p className="text-slate-500 mt-1">
-              {activeMenu === 'active' && <>{activeOnly ? `${familiesCount} 가정, ${activeMembersCount} 명 (Active)` : `${familiesCount} 가정, ${members.length} 명 (Total)`}</>}
-              {activeMenu === 'birthdays' && `${displayedMembers.length} people celebrating this month`}
-              {activeMenu === 'recent' && `${displayedMembers.length} members registered between ${recentDateRange.from} and ${recentDateRange.to}`}
-              {activeMenu === 'filter' && selectedFilter && `${displayedMembers.length} members`}
-            </p>
-          </div>
+          {activeMenu === 'settings' && (
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+              <SettingsPage parentLists={parentLists} childLists={childLists} onUpdate={fetchSystemLists} />
+            </div>
+          )}
 
           {activeMenu === 'recent' && (
             <div className="mb-8 bg-white rounded-3xl border border-slate-100 p-6 shadow-sm flex flex-wrap items-center justify-between gap-6">
@@ -1900,33 +1923,36 @@ function App() {
           </div>
         )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {activeMenu === 'birthdays' ? (
-              displayedMembers.map((member) => <BirthdayCard key={member.id} member={member} roles={roles} onClick={() => { if (member) setSelectedMember(member); }} />)
-            ) : activeMenu === 'recent' ? (
-              displayedMembers.map((member) => <RecentMemberCard key={member.id} member={member} roles={roles} onClick={() => { if (member) setSelectedMember(member); }} />)
-            ) : !familyView ? (
-              displayedMembers.map((member) => <MemberCard key={member.id} member={member} age={calcAge(member.birthday)} roles={roles} childLists={childLists} onClick={() => { if (member) setSelectedMember(member); }} />)
-            ) : (
-              displayedFamilies.map((familyId) => (
-              <FamilyCard
-                key={familyId}
-                familyLabel={getFamilyLabel(familyId)}
-                members={displayedMembers.filter(m => m.family_id === familyId)}
-                roles={roles}
-                familyAddress={displayedMembers
-                  .filter(m => m.family_id === familyId)
-                  .find(m => m.address)?.address}
-                onMemberClick={(m) => {
-                  if (m) setSelectedMember(m);
-                }}
-                childLists={childLists}   // ⭐ 이 줄 추가
-              />
-            ))
-
-            )}
-          </div>
-          {displayedMembers.length === 0 && <div className="text-center py-12"><div className="text-slate-400 text-lg">No members found</div></div>}
+          {activeMenu !== 'settings' && (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {activeMenu === 'birthdays' ? (
+                  displayedMembers.map((member) => <BirthdayCard key={member.id} member={member} roles={roles} onClick={() => { if (member) setSelectedMember(member); }} />)
+                ) : activeMenu === 'recent' ? (
+                  displayedMembers.map((member) => <RecentMemberCard key={member.id} member={member} roles={roles} onClick={() => { if (member) setSelectedMember(member); }} />)
+                ) : !familyView ? (
+                  displayedMembers.map((member) => <MemberCard key={member.id} member={member} age={calcAge(member.birthday)} roles={roles} childLists={childLists} onClick={() => { if (member) setSelectedMember(member); }} />)
+                ) : (
+                  displayedFamilies.map((familyId) => (
+                    <FamilyCard
+                      key={familyId}
+                      familyLabel={getFamilyLabel(familyId)}
+                      members={displayedMembers.filter(m => m.family_id === familyId)}
+                      roles={roles}
+                      familyAddress={displayedMembers
+                        .filter(m => m.family_id === familyId)
+                        .find(m => m.address)?.address}
+                      onMemberClick={(m) => {
+                        if (m) setSelectedMember(m);
+                      }}
+                      childLists={childLists}
+                    />
+                  ))
+                )}
+              </div>
+              {displayedMembers.length === 0 && <div className="text-center py-12"><div className="text-slate-400 text-lg">No members found</div></div>}
+            </>
+          )}
         </main>
       </div>
       {selectedMember && (
@@ -1969,3 +1995,23 @@ function App() {
 }
 
 export default App;
+
+function useTypingPlaceholder(text: string, speed = 80) {
+  const [display, setDisplay] = useState('');
+
+  useEffect(() => {
+    setDisplay('');
+    let index = 0;
+
+    const interval = setInterval(() => {
+      setDisplay((prev) => prev + text[index]);
+      index++;
+
+      if (index >= text.length) clearInterval(interval);
+    }, speed);
+
+    return () => clearInterval(interval);
+  }, [text, speed]);
+
+  return display;
+}
