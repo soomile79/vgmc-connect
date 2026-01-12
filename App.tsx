@@ -1373,7 +1373,24 @@ function App() {
       });
     }
   }
-  function goToFilter(parentType: string, child: ChildList) { setActiveMenu('filter'); setSelectedFilter(child); setActiveOnly(false); setSidebarOpen(false); }
+  function goToFilter(parentType: string, child: ChildList) { 
+    setActiveMenu('filter'); 
+    setSelectedFilter(child); 
+    
+    // "Active Only" should be false only when selecting the "Inactive" status filter.
+    // Otherwise, it should remain true (default).
+    const parent = parentLists.find(p => p.id === child.parent_id);
+    const isStatusParent = parent?.type?.toLowerCase() === 'status' || parent?.name?.includes('상태');
+    const isInactiveChild = child.name.trim().toLowerCase() === 'inactive';
+    
+    if (isStatusParent && isInactiveChild) {
+      setActiveOnly(false);
+    } else {
+      setActiveOnly(true);
+    }
+    
+    setSidebarOpen(false); 
+  }
 
   const handleEditMember = (member: any) => {
     setEditingMember(member);
@@ -1499,7 +1516,16 @@ function App() {
         return false;
       });
     }
-    if (activeOnly) filtered = filtered.filter((m) => m.status?.toLowerCase() === 'active');
+    // Apply "Active Only" filter unless we are explicitly looking at the "Inactive" status filter
+    const isInactiveFilter = activeMenu === 'filter' && 
+                             selectedFilter && 
+                             (parentLists.find(p => p.id === selectedFilter.parent_id)?.type?.toLowerCase() === 'status' || 
+                              parentLists.find(p => p.id === selectedFilter.parent_id)?.name?.includes('상태')) &&
+                             selectedFilter.name.trim().toLowerCase() === 'inactive';
+
+    if (activeOnly && !isInactiveFilter) {
+      filtered = filtered.filter((m) => m.status?.toLowerCase() === 'active');
+    }
     const query = searchQuery.trim().toLowerCase();
     if (query) {
       // 1. Find members who directly match the search query
