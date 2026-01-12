@@ -12,7 +12,7 @@
     <!-- Favicon: App Logo (SVG Data URI) -->
     <link rel="shortcut icon" type="image/png" href="https://img.sanishtech.com/u/8daa580aaee0f3b8b4cc33e65ff7eead.png" />
     <link rel="icon" type="image/png" href="https://img.sanishtech.com/u/8daa580aaee0f3b8b4cc33e65ff7eead.png" />
-    <link rel="apple-touch-icon" type="image/png" href="https://img.sanishtech.com/u/8daa580aaee0f3b8b4cc33e65ff7eead.png" />
+    <link rel="apple-touch-icon" type="image/png" href="https://img.sanishtech.com/u/7897b895b606d36a36ec9d8f4c2ac9a6.png" />
     <meta name="apple-mobile-web-app-title" content="VGMC Connect" />
     
 
