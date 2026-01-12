@@ -162,7 +162,7 @@ const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-amber-400',
 };
 
-/* ================= SIDEBAR ================= */
+/* ================= SIDEBAR Left Bar================= */
 
 function Sidebar({ activeMembersCount, familiesCount, birthdaysCount, activeOnly, sidebarOpen, onCloseSidebar, onClickActiveMembers, onSelectMenu, parentLists, childLists, onSelectFilter, activeMenu, selectedFilter, members, onNewMember, onSignOut, userRole }: { activeMembersCount: number; familiesCount: number; birthdaysCount: number; activeOnly: boolean; sidebarOpen: boolean; onCloseSidebar: () => void; onClickActiveMembers: () => void; onSelectMenu: (menu: MenuKey) => void; parentLists: ParentList[]; childLists: ChildList[]; onSelectFilter: (parentType: string, child: ChildList) => void; activeMenu: MenuKey; selectedFilter: ChildList | null; members: Member[]; onNewMember: () => void; onSignOut: () => void; userRole: 'admin' | 'user' | null; }) {
   const [now, setNow] = useState(new Date());
@@ -230,7 +230,19 @@ function Sidebar({ activeMembersCount, familiesCount, birthdaysCount, activeOnly
   return (
     <>
       {sidebarOpen && <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-40 lg:hidden" onClick={onCloseSidebar} />}
-      <aside className={`fixed inset-y-0 left-0 w-72 bg-white border-r border-slate-200 z-50 transform transition-transform duration-300 lg:relative lg:translate-x-0 flex flex-col ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside
+        className={`
+          fixed left-0 top-0
+          h-[100dvh] w-72
+          bg-white border-r border-slate-200
+          z-50
+          flex flex-col
+          overflow-hidden   // ⭐ 중요
+          transform transition-transform
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+          lg:relative lg:translate-x-0
+        `}
+      >
         <div className="p-6 border-b border-slate-50">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center">
@@ -246,7 +258,8 @@ function Sidebar({ activeMembersCount, familiesCount, birthdaysCount, activeOnly
             </button>
           </div>
         )}
-        <nav className="flex-1 px-4 py-2 overflow-y-auto custom-scrollbar">
+        <div className="flex-1 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }} >
+         <nav className="px-4 py-2">
           <div className="mb-3">
             <button onClick={onClickActiveMembers} className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl border transition-all group ${activeOnly ? 'bg-sky-50 border-sky-200 shadow-sm' : 'bg-white border-slate-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-blue-300'}`}>
               <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${activeOnly ? 'bg-sky-100' : 'bg-blue-50 group-hover:bg-blue-100'}`}>
@@ -314,15 +327,41 @@ function Sidebar({ activeMembersCount, familiesCount, birthdaysCount, activeOnly
             })}
           </div>
         </nav>
-        <div className="text-s font-semibold text-slate-600 px-4 py-2 mb-3 bg-white border border-slate-200 rounded-lg text-center">
-          <div className="text-xs text-slate-500 px-4 mb-2">Today : {now.getFullYear()}-{String(now.getMonth() + 1).padStart(2, '0')}-{String(now.getDate()).padStart(2, '0')} {String(now.getHours()).padStart(2, '0')}:{String(now.getMinutes()).padStart(2, '0')}</div>
-          {userRole === 'admin' && (
-            <button onClick={() => onSelectMenu('settings')} className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border transition-all mb-2 ${activeMenu === 'settings' ? 'bg-slate-100 border-slate-300' : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-sm'}`}>
-              <Settings className={`w-4 h-4 ${activeMenu === 'settings' ? 'text-slate-700' : 'text-slate-600'}`} /><span className={`text-sm font-semibold ${activeMenu === 'settings' ? 'text-slate-800' : 'text-slate-700'}`}>Settings</span>
-            </button>
-          )}
-          <button onClick={onSignOut} className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors"><LogOut className="w-4 h-4 text-slate-600" /><span className="text-sm font-semibold text-slate-700">Sign Out</span></button>
-        </div>
+    </div>
+        {/* ===== BOTTOM FIXED AREA ===== */}
+<div className="shrink-0 text-s font-semibold text-slate-600 px-4 py-2 mb-3 bg-white border border-slate-200 rounded-lg text-center">
+  <div className="text-xs text-slate-500 px-4 mb-2">
+    Today : {now.getFullYear()}-
+    {String(now.getMonth() + 1).padStart(2, '0')}-
+    {String(now.getDate()).padStart(2, '0')}
+    {' '}
+    {String(now.getHours()).padStart(2, '0')}:
+    {String(now.getMinutes()).padStart(2, '0')}
+  </div>
+
+  {userRole === 'admin' && (
+    <button
+      onClick={() => onSelectMenu('settings')}
+      className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border transition-all mb-2 ${
+        activeMenu === 'settings'
+          ? 'bg-slate-100 border-slate-300'
+          : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-sm'
+      }`}
+    >
+      <Settings className="w-4 h-4" />
+      <span className="text-sm font-semibold">Settings</span>
+    </button>
+  )}
+
+  <button
+    onClick={onSignOut}
+    className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors"
+  >
+    <LogOut className="w-4 h-4" />
+    <span className="text-sm font-semibold">Sign Out</span>
+  </button>
+</div>
+
       </aside>
     </>
   );
@@ -538,70 +577,184 @@ function RecentMemberCard({ member, roles, onClick }: { member: Member; roles: R
   );
 }
 
-/* ================= BIRTHDAY CARD ================= */
-function BirthdayCard({ member, roles, onClick }: { member: Member; roles: Role[]; onClick: () => void; }) {
-  const age = calcAge(member.birthday);
-  const roleMeta = roles.find((r) => r.name === member.role);
-  const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-  let month = '';
-  let day = '';
-  if (member.birthday) {
-    const parts = member.birthday.split('-');
-    if (parts.length >= 3) {
-      const mIdx = parseInt(parts[1], 10) - 1;
-      month = monthNames[mIdx] || '';
-      day = parseInt(parts[2], 10).toString();
-    }
-  }
-  
-  return (
-    <div onClick={onClick} className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-500 cursor-pointer group relative overflow-hidden">
-      {/* Decorative background element */}
-      <div className="absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br from-pink-50 to-transparent rounded-full opacity-50 group-hover:scale-150 transition-transform duration-700" />
-      
-      <div className="relative flex items-center gap-5">
-        {/* Date Badge */}
-        <div className="w-16 h-20 rounded-2xl flex flex-col items-center justify-center bg-gradient-to-b from-slate-50 to-white border border-slate-100 shadow-sm flex-shrink-0 group-hover:border-pink-200 transition-colors">
-          <div className="text-[10px] font-black text-pink-500 leading-none mb-1 uppercase tracking-widest">{month}</div>
-          <div className="text-2xl font-black text-slate-800 leading-none">{day}</div>
-        </div>
+function BirthdaysPage({
+  members,
+  roles,
+  onSelectMember
+}: {
+  members: Member[];
+  roles: Role[];
+  onSelectMember: (m: Member) => void;
+}) {
+  const monthNames = [
+    'January','February','March','April','May','June',
+    'July','August','September','October','November','December'
+  ];
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <div className="text-xl font-black text-slate-800 truncate tracking-tight group-hover:text-pink-600 transition-colors">{member.korean_name}</div>
-              <div className="flex items-center gap-2 mt-1">
-                <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${roleMeta?.bg_color || 'bg-slate-100'} ${roleMeta?.text_color || 'text-slate-500'} bg-opacity-30`}>
-                  {member.role || 'Member'}
-                </span>
-              </div>
-            </div>
-            <div className="text-right flex-shrink-0">
-              <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">TURNING</div>
-              <div className="text-2xl font-black text-slate-800 leading-none group-hover:scale-110 transition-transform">{age !== null ? age + 1 : '-'}</div>
-            </div>
+  const currentMonth = new Date().getMonth();
+  const [activeMonth, setActiveMonth] = useState(currentMonth);
+
+  const monthMembers = useMemo(() => {
+    return members.filter(m => {
+      if (!m.birthday) return false;
+      return new Date(m.birthday).getMonth() === activeMonth;
+    });
+  }, [members, activeMonth]);
+
+  return (
+    <div className="w-full">
+
+      {/* ================= STICKY MONTH HEADER ================= */}
+      <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <div className="py-3 flex gap-2 overflow-x-auto no-scrollbar">
+            {monthNames.map((m, idx) => (
+              <button
+                key={m}
+                onClick={() => setActiveMonth(idx)}
+                className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition
+                  ${activeMonth === idx
+                    ? 'bg-blue-600 text-white shadow scale-105'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}
+                `}
+              >
+                {m.slice(0, 3)}
+              </button>
+            ))}
           </div>
         </div>
       </div>
 
-      <div className="mt-6 flex items-center justify-between pt-5 border-t border-slate-50">
-        <div className="flex items-center gap-2.5 text-slate-400 group-hover:text-slate-600 transition-colors">
-          <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
-            <Smartphone className="w-4 h-4 text-blue-500" />
-          </div>
-          <span className="text-xs font-bold tracking-tight">{member.phone || '-'}</span>
+      {/* ================= CONTENT ================= */}
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8 space-y-6">
+
+        {/* Title */}
+        <div>
+          <h1 className="text-3xl sm:text-4xl font-black text-slate-900">
+            Birthdays in {monthNames[activeMonth]}
+          </h1>
+          <p className="text-base text-slate-500 mt-1">
+            {monthMembers.length} people celebrating this month
+          </p>
         </div>
-        <div className="flex flex-wrap gap-1.5 justify-end">
-          {member.tags?.slice(0, 2).map(tag => (
-            <span key={tag} className="px-2 py-1 rounded-lg bg-slate-50 text-[9px] font-black text-slate-400 uppercase tracking-widest border border-slate-100 group-hover:bg-white transition-colors">
-              #{tag}
-            </span>
+
+        {/* ✅ 왼쪽 정렬 1/3 크기 배너 */}
+        <div className="flex justify-start">
+          <div className="
+            inline-flex items-center gap-2
+            max-w-[280px] w-full sm:max-w-[640x]
+            rounded-xl bg-gradient-to-r from-pink-500 to-orange-400
+            px-3 py-2 sm:px-4 sm:py-3 shadow-lg
+            text-xs sm:text-sm
+          ">
+            <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-lg bg-white/20 flex items-center justify-center flex-shrink-0">
+              <Cake className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
+            </div>
+            <div className="min-w-0">
+              <div className="font-bold text-white truncate">Celebration Time!</div>
+              <div className="text-white/85 truncate">Let’s celebrate 🎉</div>
+            </div>
+          </div>
+        </div>
+
+        {/* ================= BIRTHDAY GRID ================= */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {monthMembers.map(member => (
+            <BirthdayCard
+              key={member.id}
+              member={member}
+              roles={roles}
+              onClick={() => onSelectMember(member)}
+            />
           ))}
+
+          {monthMembers.length === 0 && (
+            <div className="col-span-full py-20 text-center text-slate-400 bg-slate-50 rounded-2xl border border-dashed">
+              <div className="text-4xl mb-2">🎂</div>
+              <div className="font-semibold">No birthdays this month</div>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
+/* ================= BIRTHDAY CARD ================= */
+
+function BirthdayCard({
+  member,
+  roles,
+  onClick
+}: {
+  member: Member;
+  roles: Role[];
+  onClick: () => void;
+}) {
+  const age = calcAge(member.birthday);
+  const roleMeta = roles.find(r => r.name === member.role);
+
+  const date = member.birthday ? new Date(member.birthday) : null;
+  const month = date?.toLocaleString('en', { month: 'short' }).toUpperCase();
+  const day = date ? date.getDate() : '';
+
+  return (
+    <div
+        onClick={onClick}
+        className="
+          bg-white
+          rounded-2xl
+          border border-slate-100
+          px-4 py-3
+          shadow-sm
+          hover:shadow-md
+          transition
+          cursor-pointer
+          flex items-center gap-4
+          w-full
+        "
+      >
+
+
+      {/* Date */}
+      <div className="w-12 h-14 rounded-xl bg-slate-50 border border-slate-100 flex flex-col items-center justify-center flex-shrink-0">
+        <div className="text-[10px] font-bold text-pink-500">{month}</div>
+        <div className="text-xl font-black text-slate-800">{day}</div>
+      </div>
+
+      {/* Info */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-lg font-black text-slate-800 truncate">
+            {member.korean_name}
+          </span>
+          <span className="text-base font-extrabold text-slate-600 whitespace-nowrap">
+            Turning {age !== null ? age + 1 : '-'}
+          </span>
+        </div>
+
+        <div className="mt-1">
+          <span
+            className={`
+              inline-block
+              px-2.5 py-1
+              rounded-md
+              text-[11px]
+              font-bold
+              ${roleMeta?.bg_color || 'bg-slate-100'}
+              ${roleMeta?.text_color || 'text-slate-600'}
+              bg-opacity-20
+            `}
+          >
+            {member.role || 'Member'}
+          </span>
+        </div>
+      </div>
+
+      <ChevronRight className="w-4 h-4 text-slate-300 flex-shrink-0" />
+    </div>
+  );
+}
+
 
 /* ================= MEMO SECTION ================= */
 function MemoSection({ member, onRefresh }: { member: Member; onRefresh: () => void; }) {
@@ -1023,27 +1176,100 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
           </div>
 
           {/* Admin Memo Column */}
-          {userRole === 'admin' && (
-            <div className="w-full lg:w-80 xl:w-96 bg-slate-50/50 flex flex-col lg:overflow-hidden border-t lg:border-t-0 lg:border-l lg:border-slate-100 border-t border-slate-200">
-              <div className="p-4 sm:p-5 border-b border-slate-100 bg-white/50 backdrop-blur-sm lg:sticky top-0 z-10">
-                <div className="flex items-center gap-2 sm:gap-3">
-                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-md sm:rounded-lg bg-amber-100 flex items-center justify-center text-amber-600 flex-shrink-0">
-                    <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            {userRole === 'admin' && (
+              <div className="w-full lg:w-80 xl:w-96 bg-white flex flex-col border-t lg:border-t-0 lg:border-l lg:border-slate-100">
+                
+                {/* Header */}
+                <div className="p-4 sm:p-5 border-b border-slate-100 bg-white lg:sticky top-0 z-10">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-md sm:rounded-lg bg-amber-100 flex items-center justify-center text-amber-600 flex-shrink-0">
+                      <svg
+                        className="w-3.5 h-3.5 sm:w-4 sm:h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                        />
+                      </svg>
+                    </div>
+                    <h3 className="text-xs sm:text-sm font-bold text-slate-800">
+                      Admin Memos
+                    </h3>
                   </div>
-                  <h3 className="text-xs sm:text-sm font-bold text-slate-800">Admin Memos</h3>
                 </div>
+
+                {/* Content */}
+                <div className="flex-1 lg:overflow-y-auto custom-scrollbar p-4 sm:p-5 bg-white">
+                  <MemoSection member={member} onRefresh={onRefresh} />
+                </div>
+
               </div>
-              <div className="flex-1 lg:overflow-y-auto custom-scrollbar p-4 sm:p-5">
-                <MemoSection member={member} onRefresh={onRefresh} />
-              </div>
-            </div>
-          )}
+            )}
 
         </div>
       </div>
     </div>
   );
 }
+
+/* ================= ADMIN MEMO MODAL ================= */
+function AdminMemoModal({
+  member,
+  isOpen,
+  onClose,
+  onRefresh
+}: {
+  member: Member;
+  isOpen: boolean;
+  onClose: () => void;
+  onRefresh: () => void;
+}) {
+  if (!isOpen) return null;
+
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[70] flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white w-full max-w-xl h-[90dvh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+          <h3 className="text-sm font-black text-slate-800">
+            Admin Memos · {member.korean_name}
+          </h3>
+          <button
+            onClick={onClose}
+            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-500"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+          <MemoSection member={member} onRefresh={onRefresh} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 
 /* ================= MAIN APP ================= */
@@ -1623,21 +1849,26 @@ function App() {
             </div>
           )}
 
-          {activeMenu === 'birthdays' && (
-            <div className="mb-8 relative overflow-hidden rounded-[2rem] bg-gradient-to-r from-rose-400 via-pink-500 to-orange-400 p-8 text-white shadow-lg shadow-pink-200/50">
-              <div className="absolute top-0 right-0 -mt-10 -mr-10 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
-              <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-48 h-48 bg-black/10 rounded-full blur-2xl" />
-              <div className="relative flex items-center gap-6">
-                <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-inner">
-                  <Cake className="w-8 h-8 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-2xl font-black tracking-tight mb-1">Celebration Time!</h3>
-                  <p className="text-white/90 font-medium">{"Let's celebrate the gift of life together!"}</p>
-                </div>
+         {activeMenu === 'birthdays' && (
+          <div className="
+            ml-0 max-w-[280px] w-full sm:max-w-[640px]    // 왼쪽 시작
+            relative overflow-hidden rounded-2xl p-4 sm:p-6
+            bg-gradient-to-r from-rose-400 via-pink-500 to-orange-400 
+            text-white shadow-lg mb-8
+          ">
+            <div className="absolute top-0 right-0 -mt-6 -mr-6 w-24 h-24 bg-white/10 rounded-full blur-xl sm:w-32 sm:h-32" />
+            <div className="relative flex items-center gap-3 sm:gap-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                <Cake className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-lg sm:text-xl font-black">Celebration Time!</h3>
+                <p className="text-xs sm:text-sm text-white/90 font-medium">Let's celebrate together!</p>
               </div>
             </div>
-          )}
+          </div>
+        )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {activeMenu === 'birthdays' ? (
               displayedMembers.map((member) => <BirthdayCard key={member.id} member={member} roles={roles} onClick={() => { if (member) setSelectedMember(member); }} />)
