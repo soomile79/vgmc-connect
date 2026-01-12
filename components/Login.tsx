@@ -9,7 +9,7 @@ interface LoginProps {
 const Logo = ({ className }: { className?: string }) => (
   <div className={`flex items-center justify-center ${className}`}>
     <img
-        src="https://img.sanishtech.com/u/9c94a10e73cbb826e240de306c60d5f7.png"
+        src="https://img.sanishtech.com/u/05c1cc1c69f6a2fcb29aaffb0efe8889.png"
         alt="Logo_Kr"
         className="w-[280px] sm:w-[360px] h-auto"
         loading="lazy"
