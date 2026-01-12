@@ -26,10 +26,12 @@ import {
   UserCog,
   Settings,
   LogOut,
+  ArrowsUpDown,
   ChevronRight,
   ChevronUp,
   Crown,
   Clock,
+  Wallet
 } from 'lucide-react';
 
 
@@ -244,13 +246,16 @@ function Sidebar({ activeMembersCount, familiesCount, birthdaysCount, activeOnly
         `}
       >
         <div className="p-6 border-b border-slate-50">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center">
-              <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 7v10c0 5.5 3.8 10.7 10 12 6.2-1.3 10-6.5 10-12V7l-10-5zm0 2.2l8 4v8.3c0 4.4-3.1 8.6-8 9.7-4.9-1.1-8-5.3-8-9.7V8.2l8-4z" /></svg>
-            </div>
-            <h1 className="text-sm font-bold text-slate-800">VGMC CONNECT</h1>
-          </div>
+        <div className="flex items-center">
+          <img
+            src="https://img.sanishtech.com/u/1374ca1a4cc438435777e853910bd1b5.png"
+            alt="VGMC Connect"
+            className="h-10 w-auto"
+            loading="lazy"
+          />
+           <h1 className="text-lg font-bold text-slate-400 ml-2">VGMC CONNECT</h1>
         </div>
+      </div>
         {userRole === 'admin' && (
           <div className="p-4">
             <button onClick={onNewMember} style={{ backgroundColor: '#3c8fb5' }} className="w-full text-white rounded-xl py-3 px-4 flex items-center justify-center gap-2 font-semibold transition-colors hover:opacity-90">
@@ -267,7 +272,7 @@ function Sidebar({ activeMembersCount, familiesCount, birthdaysCount, activeOnly
               </div>
               <div className="flex-1 text-left">
                 <div className={`text-base font-bold transition-colors ${activeOnly ? 'text-sky-700' : 'text-slate-800 group-hover:text-blue-700'}`}>Active Members</div>
-                <div className="text-sm text-slate-500 mt-0.5">{familiesCount} Families&nbsp;&nbsp;|&nbsp;&nbsp;{activeMembersCount} People</div>
+                <div className="text-sm text-slate-500 mt-0.5">{familiesCount} 가정&nbsp;&nbsp;|&nbsp;&nbsp;{activeMembersCount} 명</div>
               </div>
             </button>
           </div>
@@ -870,7 +875,7 @@ function MemoSection({ member, onRefresh }: { member: Member; onRefresh: () => v
           const timestamp = match ? match[1] : '';
           const content = match ? match[2] : safeEntry;
           return (
-            <div key={i} className="group/memo p-6 rounded-[2rem] bg-slate-50 border border-slate-100 space-y-3 relative">
+            <div key={i} className="group/memo p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-1 relative">
               {editingMemoIndex === i ? (
                 <div className="space-y-3">
                   <textarea value={editingMemoText} onChange={(e) => setEditingMemoText(e.target.value)} className="w-full p-4 rounded-2xl border-slate-200 text-sm focus:border-[#3c8fb5] focus:ring-2 focus:ring-blue-50" rows={3} />
@@ -881,11 +886,11 @@ function MemoSection({ member, onRefresh }: { member: Member; onRefresh: () => v
                 </div>
               ) : (
                 <>
-                  <div className="flex justify-between items-start">
+                  <div className="flex justify-between items-center">
                     <div className="text-[10px] font-black text-[#3c8fb5] uppercase tracking-widest">{timestamp || '기존 메모'}</div>
                     <div className="flex gap-1 opacity-0 group-hover/memo:opacity-100 transition-opacity">
-                      <button onClick={() => { setEditingMemoIndex(i); setEditingMemoText(content); }} className="p-2 hover:bg-blue-100 rounded-xl text-blue-600 transition-colors"><Edit className="w-4 h-4" /></button>
-                      <button onClick={() => handleDeleteMemo(i)} className="p-2 hover:bg-red-100 rounded-xl text-red-600 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                      <button onClick={() => { setEditingMemoIndex(i); setEditingMemoText(content); }} className="p-1 hover:bg-blue-100 rounded-lg text-blue-600 transition-colors"><Edit className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => handleDeleteMemo(i)} className="p-1 hover:bg-red-100 rounded-lg text-red-600 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </div>
                   <div className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed font-medium">{content}</div>
@@ -961,8 +966,8 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
             bg-white
             w-full
             max-w-6xl
-            h-[100dvh] sm:h-[95vh]
-            rounded-2xl sm:rounded-[3rem]
+            h-[100dvh] sm:h-auto sm:max-h-[90vh]
+            rounded-2xl sm:rounded-[2rem]
             shadow-2xl
             flex flex-col
             overflow-hidden
@@ -970,12 +975,12 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
           " onClick={(e) => e.stopPropagation()}>
         
         {/* Header Section with Role Background Band */}
-        <div className={`relative flex-shrink-0 ${roleBg} bg-opacity-10 pt-16 sm:pt-6 p-4 sm:p-6 lg:p-8 pb-6`}>
+        <div className={`relative flex-shrink-0 ${roleBg} bg-opacity-35 pt-16 sm:pt-6 p-4 sm:p-6 lg:p-8 pb-6`}>
           <div className="flex flex-col sm:flex-row items-start justify-between gap-3 sm:gap-4">
             <div className="flex items-start gap-3 sm:gap-5 md:gap-6">
               {/* Profile Image Card */}
               <div className="relative">
-                <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 lg:w-32 lg:h-32 rounded-xl sm:rounded-[1.5rem] bg-white shadow-xl flex items-center justify-center overflow-hidden ring-1 ring-black/5">
+                <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 lg:w-32 lg:h-32 rounded-xl sm:rounded-[1.5rem] bg-white shadow-xl flex items-center justify-center overflow-hidden ring-1 ring-black/5 opacity-70">
                   {member.photo_url ? (
                     <img src={member.photo_url} alt={member.korean_name} className="w-full h-full object-cover" />
                   ) : (
@@ -997,7 +1002,7 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
               </div>
                 <div className="text-sm sm:text-base md:text-xl font-medium text-slate-400 mb-2 sm:mb-3 break-words">{member.english_name}</div>
                 <div className="flex flex-wrap gap-2 mt-2">
-                  <div className={`inline-block px-3 sm:px-4 py-1 rounded-lg sm:rounded-xl text-[15px] sm:text-m font-bold tracking-wide ${roleBg} ${roleText} bg-opacity-20`}>
+                  <div className={`inline-block px-3 sm:px-4 py-1 rounded-lg sm:rounded-xl text-[15px] sm:text-m font-bold tracking-wide ${roleBg} ${roleText} bg-opacity-40`}>
                     {member.role || 'Member'}
                   </div>
                   {member.tags?.map(tag => (
@@ -1035,7 +1040,7 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
           <div className={`flex-1 ${userRole === 'admin' ? 'lg:border-r lg:border-slate-100 lg:overflow-y-auto custom-scrollbar' : 'overflow-y-auto custom-scrollbar'}`}>
             <div className="p-4 sm:p-6 lg:p-8 pt-6 sm:pt-8">
               
-              {/* Contact Info Grid - REORDERED: Phone, Email, Address */}
+              {/* Contact Info Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
                 {/* Phone */}
                 <div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-white border-slate-50 hover:shadow-md transition-shadow">
@@ -1043,77 +1048,77 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
                     <Smartphone className="w-5 h-5 sm:w-6 sm:h-6" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[9px] sm:text-[10px] font-bold text-slate-300 uppercase tracking-[0.15em] mb-1">Mobile Phone</p>
-                    <a href={`tel:${member.phone}`} className="text-sm sm:text-lg font-bold text-slate-700 hover:text-blue-600 transition-colors break-all">{member.phone || '-'}</a>
+                    <p className="text-[10px] sm:text-[10.5px] font-bold text-slate-500 uppercase tracking-[0.15em] mb-1">Mobile Phone</p>
+                    <a href={`tel:${member.phone}`} className="text-sm sm:text-base font-bold text-slate-500 hover:text-blue-300 transition-colors break-all">{member.phone || ''}</a>
                   </div>
                 </div>
 
-                {/* Email - MOVED BEFORE ADDRESS */}
+                {/* Email */}
                 <div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-white border-slate-50 hover:shadow-md transition-shadow">
                   <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 flex-shrink-0">
                     <Mail className="w-5 h-5 sm:w-6 sm:h-6" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[9px] sm:text-[10px] font-bold text-slate-300 uppercase tracking-[0.15em] mb-1">Email Address</p>
-                    <a href={`mailto:${member.email}`} className="text-xs sm:text-sm font-bold text-slate-700 hover:text-blue-600 transition-colors break-all">{member.email || '-'}</a>
+                    <p className="text-[10px] sm:text-[10.5px] font-bold text-slate-500 uppercase tracking-[0.15em] mb-1">Email Address</p>
+                    <a href={`mailto:${member.email}`} className="text-sm sm:text-base font-bold text-slate-500 hover:text-blue-300 transition-colors break-all">{member.email || ''}</a>
                   </div>
                 </div>
 
-                {/* Address - MOVED AFTER EMAIL */}
-                <div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-white border-slate-50 hover:shadow-md transition-shadow md:col-span-2">
+                {/* Address */}
+                <div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-white border-slate-50 hover:shadow-md transition-shadow">
                   <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 flex-shrink-0">
                     <MapPin className="w-5 h-5 sm:w-6 sm:h-6" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[9px] sm:text-[10px] font-bold text-slate-300 uppercase tracking-[0.15em] mb-1">Home Address</p>
-                    <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(member.address || '')}`} target="_blank" rel="noopener noreferrer" className="text-xs sm:text-sm font-bold text-slate-700 hover:text-blue-600 transition-colors break-words">{member.address || '-'}</a>
+                    <p className="text-[10px] sm:text-[10.5px] font-bold text-slate-500 uppercase tracking-[0.15em] mb-1">Home Address</p>
+                    <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(member.address || '')}`} target="_blank" rel="noopener noreferrer" className="text-sm sm:text-m font-bold text-slate-500 hover:text-blue-300 transition-colors break-words">{member.address || ''}</a>
                   </div>
                 </div>
               </div>
               
-              <hr className="border-t border-slate-200 my-4" />
+              <hr className="border-t border-slate-200 " />
               
               {/* Detailed Info Row */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 py-6 sm:py-8 border-t border-slate-50">
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2 mb-2 sm:mb-3">
-                    <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-slate-300 flex-shrink-0" />
-                    <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Birthday</p>
+                  <div className="flex items-center gap-2 mb-2 sm:mb-2">
+                    <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 flex-shrink-0" />
+                    <p className="text-[10px] sm:text-[10.5px] font-bold text-slate-500 uppercase tracking-[0.15em] mb-1">Birthday</p>
                   </div>
-                  <p className="text-sm sm:text-lg font-bold text-slate-700 break-words">{member.birthday || '-'}</p>
+                  <p className="text-sm sm:text-sm font-bold text-slate-600 break-words ml-6">{member.birthday || ''}</p>
                 </div>
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2 mb-2 sm:mb-3">
-                    <svg className="w-3 h-3 sm:w-4 sm:h-4 text-slate-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Registration</p>
+                  <div className="flex items-center gap-2 mb-2 sm:mb-2">
+                    <svg className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <p className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-widest">Registration</p>
                   </div>
-                  <p className="text-sm sm:text-lg font-bold text-slate-700 break-words">{member.registration_date || '-'}</p>
-                  {regInfo && <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 mt-1">{regInfo.years} years, {regInfo.months} months</p>}
+                  <p className="text-sm sm:text-sm font-bold text-slate-600 break-words ml-6">{member.registration_date || '-'}</p>
+                  {regInfo && <p className="text-[10px] sm:text-[12px] text-slate-500 mt-1 ml-6">{regInfo.years} years, {regInfo.months} months</p>}
                 </div>
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2 mb-2 sm:mb-3">
-                    <Award className="w-3 h-3 sm:w-4 sm:h-4 text-slate-300 flex-shrink-0" />
-                    <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest">세례 (Baptism)</p>
+                  <div className="flex items-center gap-2 mb-2 sm:mb-2">
+                    <Award className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 flex-shrink-0" />
+                    <p className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-widest">세례 (Baptism)</p>
                   </div>
-                  <p className="text-sm sm:text-lg font-bold text-slate-700 break-words">{member.baptism_date || '-'}</p>
+                  <p className="text-sm sm:text-sm font-bold text-slate-600 break-words ml-6">{member.baptism_date || ''}</p>
                 </div>
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2 mb-2 sm:mb-3">
-                    <DollarSign className="w-3 h-3 sm:w-4 sm:h-4 text-slate-300 flex-shrink-0" />
-                    <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Financial</p>
+                  <div className="flex items-center gap-2 mb-2 sm:mb-2">
+                    <Wallet className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 flex-shrink-0" />
+                    <p className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-widest">Offering #</p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-xs sm:text-sm font-bold text-slate-700">Offering: <span className="text-slate-900">{member.offering_number || '-'}</span></p>
-                    <p className="text-xs sm:text-sm font-bold text-slate-700">Slip #: <span className="text-slate-900">{member.for_slip || '-'}</span></p>
+                    <p className="text-sm sm:text-sm font-bold text-slate-600 break-words ml-6"> <span className="text-slate-700">{member.offering_number || ''}</span></p>
+                    {/* <p className="text-sm sm:text-sm font-bold text-slate-600">Slip #: <span className="text-slate-700">{member.for_slip || ''}</span></p> */}
                   </div>
                 </div>
               </div>
-
+                <hr className="border-t border-slate-200 " />
               {/* Family Members Section */}
-              <div className="mt-6 sm:mt-8">
+              <div className="mt-6 sm:mt-10">
                 <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
-                  <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-300 flex-shrink-0" />
-                  <h3 className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Family Members</h3>
+                  <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 flex-shrink-0" />
+                  <h3 className="text-[11px] sm:text-[13px] font-bold text-slate-600 uppercase tracking-[0.2em]">Family Members</h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
                   {otherFamilyMembers.map((fm) => {
@@ -1122,7 +1127,7 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
                     
                     // Get role colors from database
                     const fmRoleMeta = roles?.find((r) => r.name === fm.role);
-                    const fmRoleBg = fmRoleMeta?.bg_color ?? 'bg-slate-200';
+                    const fmRoleBg = fmRoleMeta?.bg_color ?? 'bg-slate-300';
                     const fmRoleText = fmRoleMeta?.text_color ?? 'text-slate-600';
                     
                     const getRelationshipLabel = (currentRel: string, targetRel: string) => {
@@ -1155,10 +1160,10 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm sm:text-lg font-bold text-slate-800 group-hover:text-blue-600 transition-colors break-words">{fm.korean_name}</p>
-                          <p className="text-xs text-slate-400 tracking-wide flex items-center gap-2 flex-wrap">
-                            {displayRelationship} <span className="text-slate-300">·</span> <span>{fmAge ? `${fmAge} yrs` : '-'}</span>
+                          <p className="text-xs text-slate-500 tracking-wide flex items-center gap-2 flex-wrap capitalize">
+                            {displayRelationship} <span className="text-slate-500">·</span> <span>{fmAge ? `${fmAge} yrs` : '-'}</span>
                             {fm.tags?.map(tag => (
-                              <span key={tag} className="text-[10px] font-bold text-slate-300">#{tag}</span>
+                              <span key={tag} className="text-[10px] font-bold text-slate-400">#{tag}</span>
                             ))}
                           </p>
                         </div>
@@ -1182,7 +1187,7 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
                 {/* Header */}
                 <div className="p-4 sm:p-5 border-b border-slate-100 bg-white lg:sticky top-0 z-10">
                   <div className="flex items-center gap-2 sm:gap-3">
-                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-md sm:rounded-lg bg-amber-100 flex items-center justify-center text-amber-600 flex-shrink-0">
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-md sm:rounded-lg bg-amber-100 flex items-center justify-center text-amber-600 flex-shrink-0 opacity-60">
                       <svg
                         className="w-3.5 h-3.5 sm:w-4 sm:h-4"
                         fill="none"
@@ -1197,8 +1202,8 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
                         />
                       </svg>
                     </div>
-                    <h3 className="text-xs sm:text-sm font-bold text-slate-800">
-                      Admin Memos
+                    <h3 className="text-sm sm:text-sm font-bold text-slate-500">
+                      Memos
                     </h3>
                   </div>
                 </div>
@@ -1666,7 +1671,7 @@ function App() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search Members by Name or Phone"
+                  placeholder="이름이나 전화번호로 검색하세요."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-9 pr-9 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-transparent text-sm text-slate-700 placeholder:text-slate-400"
@@ -1813,7 +1818,7 @@ function App() {
               {activeMenu === 'filter' && selectedFilter && selectedFilter.name}
             </h2>
             <p className="text-slate-500 mt-1">
-              {activeMenu === 'active' && <>{activeOnly ? `${familiesCount} Families, ${activeMembersCount} Members (Active)` : `${familiesCount} Families, ${members.length} Members (Total)`}</>}
+              {activeMenu === 'active' && <>{activeOnly ? `${familiesCount} 가정, ${activeMembersCount} 명 (Active)` : `${familiesCount} 가정, ${members.length} 명 (Total)`}</>}
               {activeMenu === 'birthdays' && `${displayedMembers.length} people celebrating this month`}
               {activeMenu === 'recent' && `${displayedMembers.length} members registered between ${recentDateRange.from} and ${recentDateRange.to}`}
               {activeMenu === 'filter' && selectedFilter && `${displayedMembers.length} members`}
