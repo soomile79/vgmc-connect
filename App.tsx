@@ -1534,7 +1534,7 @@ function App() {
           <div className="px-4 lg:px-6 py-3">
             <div className="flex items-center gap-2 lg:gap-3">
               <button onClick={() => resetToInitialView('active')} className="p-1 rounded-lg hover:bg-slate-100 transition flex-shrink-0">
-                <img src="/favicon-32.png" alt="Home" className="w-8 h-8 object-contain" />
+                <img src="/apple-touch-icon.png" alt="Home" className="w-8 h-8 object-contain" />
               </button>
               <div className="relative flex-1 max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
