@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, Component, ErrorInfo, ReactNode } from 'react';
+import React, { useState, useEffect, useRef, useMemo, Component, ErrorInfo, ReactNode } from 'react';
 import { supabase } from './lib/supabase';
 import SettingsPage from './components/SettingsPage';
 import MemberForm from './components/MemberForm';
@@ -252,17 +252,20 @@ function Sidebar({ activeMembersCount, familiesCount, birthdaysCount, activeOnly
           lg:relative lg:translate-x-0
         `}
       >
-        <div className="p-6 border-b border-slate-50">
-        <div className="flex items-center">
-         {/* <img
-              src="/apple-touch-icon.png"
-              alt="VGMC Connect"
-              className="h-10 w-auto"
-              loading="lazy"
-           /> */}
-           <h1 className="text-xl font-bold text-slate-600  ml-1 shadow-md hover:shadow-lg transition-shadow duration-500">VGMC CONNECT</h1>
-        </div>
+
+       {/* 🔹 Sidebar Header */}
+        <div className="flex items-center justify-end px-4 py-3">
+        {/* ❌ Close button */}
+        <button
+          onClick={onCloseSidebar}
+          className="p-2 rounded-lg hover:bg-slate-100 transition lg:hidden"
+          aria-label="Close sidebar"
+        >
+          <X className="w-5 h-5 text-slate-300" />
+        </button>
       </div>
+       <h1 className="text-lg font-bold text-slate-500  ml-7 hover:shadow-sm transition-shadow duration-500">VGMC CONNECT</h1>     
+        
         {userRole === 'admin' && (
           <div className="p-4">
             <button onClick={onNewMember} style={{ backgroundColor: '#3c8fb5' }} className="w-full text-white rounded-xl py-3 px-4 flex items-center justify-center gap-2 font-semibold transition-colors hover:opacity-90">
@@ -389,13 +392,7 @@ function CrownBadge() {
 }
 
 /* ================= MEMBER CARD ================= */
-function MemberCard({
-    member,
-    age,
-    roles,
-    onClick,
-    childLists
-  }: {
+function MemberCard({ member, age, roles, onClick, childLists }: {
     member: Member;
     age: number | null;
     roles: Role[];
@@ -429,14 +426,44 @@ function MemberCard({
             {member.english_name && <div className="text-xs text-slate-400 font-medium mt-0.5">{member.english_name}</div>}
           </div>
         </div>
-        {(member.role || (member.tags && member.tags.length > 0)) && (
-          <div className="flex flex-wrap gap-1.5">
-            {member.role && <span className={`px-2 py-0.5 rounded-md text-xs font-bold ${roleBg} ${roleText}`} style={{ opacity: 0.6 }}>{member.role}</span>}
-            {member.tags?.map((tag) => <span key={tag} className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-white border border-slate-200 text-slate-500">#{getTagLabel(tag, childLists)}</span>)}
-          </div>
-        )}
-        {member.address && <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(member.address)}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="flex items-start gap-1.5 text-xs text-slate-500 hover:text-blue-600 transition-colors"><MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0" /><span className="break-words">{member.address}</span></a>}
-        {member.phone && <a href={`tel:${member.phone}`} onClick={(e) => e.stopPropagation()} className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-blue-600 font-medium transition-colors"><Smartphone className="w-3.5 h-3.5" />{member.phone}</a>}
+
+        {/* ⭐ 배지 순서 조정: Role > Mokjang > Tags */}
+        <div className="flex flex-wrap gap-1.5">
+          {/* 1. 직분 (Role) */}
+          {member.role && (
+            <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${roleBg} ${roleText}`} style={{ opacity: 0.8 }}>
+              {member.role}
+            </span>
+          )}
+          {/* 2. 목장 (Mokjang) */}
+          {member.mokjang && (
+            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-100">
+              {member.mokjang}
+            </span>
+          )}
+        {/* 3. 태그 (중복 제거 로직 추가: Array.from(new Set(...))) */}
+        {Array.from(new Set(member.tags || [])).map((tag: any) => (
+          <span key={tag} className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-white border border-slate-200 text-slate-500">
+            #{getTagLabel(tag, childLists)}
+          </span>
+        ))}
+      </div>
+
+        {/* 주소 및 전화번호 (기존 유지) */}
+        <div className="space-y-1">
+          {member.address && (
+            <div className="flex items-start gap-1.5 text-xs text-slate-600">
+              <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+              <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(member.address)}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="hover:text-blue-600 hover:underline break-words">{member.address}</a>
+            </div>
+          )}
+          {member.phone && (
+            <div className="flex items-center gap-1.5 text-xs text-slate-600">
+              <Smartphone className="w-3.5 h-3.5" />
+              <a href={`tel:${member.phone.replace(/[^0-9+]/g, '')}`} onClick={(e) => e.stopPropagation()} className="hover:text-blue-600 hover:underline">{member.phone}</a>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -489,10 +516,13 @@ function FamilyCard({
       <div>
         <div className="bg-slate-50 px-5 py-4 border-b border-slate-100">
           <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2"><Users className="w-4 h-4 text-slate-500" /><h2 className="text-base font-bold text-slate-800">{familyLabel}{"'s Family"}</h2></div>
+            <div className="flex items-center gap-2"><Users className="w-4 h-4 text-slate-500" />
+            <h2 className="text-base sm:text-xl font-bold text-slate-700 break-words leading-snug">{familyLabel}{"'s Family"}</h2></div>
             <span className="text-xs font-bold text-slate-500 bg-white px-2 py-0.5 rounded-md shadow-sm">{members.length}</span>
           </div>
-          {familyAddress && <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(familyAddress)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-600 transition-colors"><MapPin className="w-3.5 h-3.5 shrink-0" /><span>{familyAddress}</span></a>}
+          {familyAddress && <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(familyAddress)}`} target="_blank" rel="noopener noreferrer" 
+          className="flex items-center gap-1.5 text-sm  md:text-s text-slate-500 hover:text-blue-700 transition-colors">
+         <MapPin className="w-3.5 h-3.5 shrink-0" /><span>{familyAddress}</span></a>}
         </div>
         <div className="p-4 space-y-2">
           {sorted.map((member) => {
@@ -512,10 +542,10 @@ function FamilyCard({
                   {isHead && <CrownBadge />}
                 </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline gap-2 flex-wrap"><span className="text-sm font-bold text-slate-800">{member.korean_name}</span>{(age !== null || gender) && <span className="text-[10px] text-slate-400 font-bold">{age !== null && age}{age !== null && gender && ' · '}{gender}</span>}</div>
+                    <div className="flex items-baseline gap-2 flex-wrap"><span className="text-base sm:text-lg font-bold text-slate-600 break-words leading-snug">{member.korean_name}</span>{(age !== null || gender) && <span className="text-[10px] text-slate-400 font-bold">{age !== null && age}{age !== null && gender && ' · '}{gender}</span>}</div>
                     <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                      {member.english_name && <span className="text-[10px] text-slate-400 font-bold">{member.english_name}</span>}
-                      {member.relationship && <span className={`text-[10px] font-black uppercase tracking-widest ${isHead ? 'text-[#4292b8]' : 'text-slate-400'}`}>· {member.relationship}</span>}
+                      {member.english_name && <span className="text-xs sm:text-s text-slate-600 break-words leading-snug">{member.english_name}</span>}
+                      {member.relationship && <span className={`text-[10px] font-black tracking-wide ${isHead ? 'text-[#4292b8]' : 'text-slate-500'}`}>· {member.relationship}</span>}
                       {member.role && <span className={`px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-widest ${bg} ${text}`} style={{ opacity: 0.6 }}>{member.role}</span>}
                       {member.tags?.map(tag => (
                         <span key={tag} className="text-[9px] font-bold text-slate-400">#{getTagLabel(tag, childLists)}</span>
@@ -654,7 +684,7 @@ function BirthdaysPage({
         <div className="flex justify-start">
           <div className="
             inline-flex items-center gap-2
-            max-w-[280px] w-full sm:max-w-[640x]
+            max-w-[500px] w-full sm:max-w-[640x]
             rounded-xl bg-gradient-to-r from-pink-500 to-orange-400
             px-3 py-2 sm:px-4 sm:py-3 shadow-lg
             text-xs sm:text-sm
@@ -1086,38 +1116,45 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
               <hr className="border-t border-slate-200 " />
               
               {/* Detailed Info Row */}
+             
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 py-6 sm:py-8 border-t border-slate-50">
+                {/* Birthday */}
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2 mb-2 sm:mb-2">
+                  <div className="flex items-center gap-2 mb-2">
                     <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 flex-shrink-0" />
-                    <p className="text-[10px] sm:text-[10.5px] font-bold text-slate-500 uppercase tracking-[0.15em] mb-1">Birthday</p>
+                    <p className="text-[10px] sm:text-[10.5px] font-bold text-slate-500 uppercase tracking-[0.15em]">Birthday</p>
                   </div>
-                  <p className="text-sm sm:text-sm font-bold text-slate-600 break-words ml-6">{member.birthday || ''}</p>
+                  <p className="text-sm sm:text-sm font-bold text-slate-600 break-words ml-6">{member.birthday || '-'}</p>
                 </div>
+
+                {/* Registration */}
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2 mb-2 sm:mb-2">
-                    <svg className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 flex-shrink-0" />
                     <p className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-widest">Registration</p>
                   </div>
                   <p className="text-sm sm:text-sm font-bold text-slate-600 break-words ml-6">{member.registration_date || '-'}</p>
-                  {regInfo && <p className="text-[10px] sm:text-[12px] text-slate-500 mt-1 ml-6">{regInfo.years} years, {regInfo.months} months</p>}
+                  {regInfo && <p className="text-[10px] sm:text-[12px] text-slate-500 mt-1 ml-6">{regInfo.years}y {regInfo.months}m</p>}
                 </div>
+
+                {/* Baptism (세례일) */}
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2 mb-2 sm:mb-2">
+                  <div className="flex items-center gap-2 mb-2">
                     <Award className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 flex-shrink-0" />
-                    <p className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-widest">세례 (Baptism)</p>
+                    <p className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-widest">Baptism</p>
                   </div>
-                  <p className="text-sm sm:text-sm font-bold text-slate-600 break-words ml-6">{member.baptism_date || ''}</p>
+                  <p className="text-sm sm:text-sm font-bold text-slate-600 break-words ml-6">
+                    {member.is_baptized ? (member.baptism_date || 'Yes') : 'No'}
+                  </p>
                 </div>
+
+                {/* Offering # (헌금번호) */}
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2 mb-2 sm:mb-2">
+                  <div className="flex items-center gap-2 mb-2">
                     <Wallet className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 flex-shrink-0" />
                     <p className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-widest">Offering #</p>
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-sm sm:text-sm font-bold text-slate-600 break-words ml-6"> <span className="text-slate-700">{member.offering_number || ''}</span></p>
-                    {/* <p className="text-sm sm:text-sm font-bold text-slate-600">Slip #: <span className="text-slate-700">{member.for_slip || ''}</span></p> */}
-                  </div>
+                  <p className="text-sm sm:text-sm font-bold text-slate-600 break-words ml-6">{member.offering_number || '-'}</p>
                 </div>
               </div>
                 <hr className="border-t border-slate-200 " />
@@ -1282,206 +1319,108 @@ function AdminMemoModal({
   );
 }
 
-
-
 /* ================= MAIN APP ================= */
 function App() {
+  const [members, setMembers] = useState<Member[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const mainScrollRef = useRef<HTMLDivElement>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [index, setIndex] = useState(0);
   const placeholder = useTypingPlaceholder(placeholders[index]);
-
-    useEffect(() => {
-      const timer = setTimeout(() => {
-        setIndex((prev) => (prev + 1) % placeholders.length);
-      }, 3000);
-
-      return () => clearTimeout(timer);
-    }, [index]);
-
-  const [members, setMembers] = useState<Member[]>([]);
   const [families, setFamilies] = useState<Family[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
   const [familyView, setFamilyView] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeOnly, setActiveOnly] = useState(true);
+  const [activeOnly, setActiveOnly] = useState<boolean>(true);
   const [isMemberFormOpen, setIsMemberFormOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<any | null>(null);
-  const [sortBy, setSortBy] = useState<'name' | 'age'>('name');
+  const [sortBy, setSortBy] = useState<'name' | 'age' | 'birthday' | 'recent'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [activeMenu, setActiveMenu] = useState<MenuKey>('active');
-
-  const [selectedFilter, setSelectedFilter] = useState<ChildList | null>(null)
-  const [parentLists, setParentLists] = useState<ParentList[]>([])
-  const [childLists, setChildLists] = useState<ChildList[]>([])
+  const [selectedFilter, setSelectedFilter] = useState<ChildList | null>(null);
+  const [parentLists, setParentLists] = useState<ParentList[]>([]);
+  const [childLists, setChildLists] = useState<ChildList[]>([]);
+  const [userRole, setUserRole] = useState<'admin' | 'user' | null>(null);
   
-  const [userRole, setUserRole] = useState<'admin' | 'user' | null>(null)
-  
-  const resetToInitialView = () => {
-    setSelectedMember(null);   // Detail 닫기
-    goToActiveMembers();       // ⭐ Active Members 버튼 누른 것과 동일
-  };
+  const [activeBirthdayMonth, setActiveBirthdayMonth] = useState(new Date().getMonth());
   const [recentDateRange, setRecentDateRange] = useState<{ from: string; to: string }>({
     from: new Date(new Date().setFullYear(new Date().getFullYear() - 3)).toISOString().split('T')[0],
     to: new Date().toISOString().split('T')[0]
   });
 
-  useEffect(() => {
-  const handleCloseDetail = () => {
-    setSelectedMember(null);
-  };
+  // 데이터 로드
+  const load = async (actionType?: 'save' | 'delete', memberId?: string) => {
+    try {
+      if (members.length === 0) setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setUserRole(null); setLoading(false); return; }
 
-  return () => window.removeEventListener('closeMemberDetail', handleCloseDetail);
-}, []);
-  
-  useEffect(() => {
-  const handleTagDeleted = (e: Event) => {
-    const customEvent = e as CustomEvent<{ name: string }>;
-    const deletedTagName = customEvent.detail.name;
+      const [membersRes, familiesRes, rolesRes, profileRes] = await Promise.all([
+        supabase.from('members').select('*'),
+        supabase.from('families').select('*'),
+        supabase.from('roles').select('*'),
+        supabase.from('profiles').select('role').eq('id', user.id).single()
+      ]);
+      
+      const newMembers = (membersRes.data || []).map(m => normalizeMember(m));
+      setMembers(newMembers);
+      setFamilies(familiesRes.data || []);
+      setRoles(rolesRes.data || []);
+      setUserRole((profileRes.data?.role as 'admin' | 'user') || 'user');
 
-    // ⭐ members 전체에서 해당 태그 제거 → 즉시 UI 반영
-    setMembers(prevMembers =>
-      prevMembers.map(member => ({
-        ...member,
-        tags: member.tags?.filter(t => t !== deletedTagName) ?? []
-      }))
-    );
-  };
-
-  window.addEventListener('tagDeleted', handleTagDeleted);
-  return () => window.removeEventListener('tagDeleted', handleTagDeleted);
-}, []);
-
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT') {
-        setUserRole(null);
-        setMembers([]);
-        setFamilies([]);
-        setRoles([]);
-      } else if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
-        if (session?.user) {
-          fetchSystemLists();
-          load();
-          // Ensure default view on login
-          goToActiveMembers();
-        } else {
-          setUserRole(null);
-          setLoading(false);
-        }
+      if (selectedMember) {
+        const updated = newMembers.find(m => m.id === (memberId || selectedMember.id));
+        if (updated) setSelectedMember(updated);
+        else if (actionType === 'delete') setSelectedMember(null);
       }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  function goToActiveMembers() { 
-    setActiveMenu('active'); 
-    setActiveOnly(true); 
-    setSelectedFilter(null); 
-    setSidebarOpen(false); 
-    setSearchQuery('');
-    setFamilyView(false);
-  }
-  function goToMenu(menu: MenuKey) { 
-    setActiveMenu(menu); 
-    setSelectedFilter(null); 
-    setSidebarOpen(false); 
-    if (menu === 'recent') {
-      setRecentDateRange({
-        from: new Date(new Date().setFullYear(new Date().getFullYear() - 3)).toISOString().split('T')[0],
-        to: new Date().toISOString().split('T')[0]
-      });
-    }
-  }
-  function goToFilter(parentType: string, child: ChildList) { 
-    setActiveMenu('filter'); 
-    setSelectedFilter(child); 
-    
-    // "Active Only" should be false only when selecting the "Inactive" status filter.
-    // Otherwise, it should remain true (default).
-    const parent = parentLists.find(p => p.id === child.parent_id);
-    const isStatusParent = parent?.type?.toLowerCase() === 'status' || parent?.name?.includes('상태');
-    const isInactiveChild = child.name.trim().toLowerCase() === 'inactive';
-    
-    if (isStatusParent && isInactiveChild) {
-      setActiveOnly(false);
-    } else {
-      setActiveOnly(true);
-    }
-    
-    setSidebarOpen(false); 
-  }
+    } catch (e) { console.error('Load error:', e); } finally { setLoading(false); }
+  };
 
   const handleEditMember = (member: any) => {
-    setEditingMember(member);
+    const latestMemberData = members.find(m => m.id === member.id) || member;
+    setEditingMember(latestMemberData);
     setIsMemberFormOpen(true);
   };
 
-  const handleNewMember = () => {
-    setEditingMember(null);
-    setIsMemberFormOpen(true);
-  };
+  const handleNewMember = () => { setEditingMember(null); setIsMemberFormOpen(true); };
 
   const handleSignOut = async () => {
-    try {
-      await supabase.auth.signOut();
-      setUserRole(null);
-    } catch (e) {
-      console.error("Sign out error:", e);
-    }
+    try { await supabase.auth.signOut(); setUserRole(null); setMembers([]); } catch (e) { console.error("Sign out error:", e); }
   };
 
-  useEffect(() => { fetchSystemLists(); }, [])
-  async function fetchSystemLists() {
+  const fetchSystemLists = async () => {
     const { data: parents } = await supabase.from('parent_lists').select('*').order('order')
     const { data: children } = await supabase.from('child_lists').select('*').order('order')
     setParentLists(parents || [])
     setChildLists(children || [])
   }
 
+  useEffect(() => {
+    let isInitialLoad = true;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') { setUserRole(null); setMembers([]); }
+      else if (session?.user && isInitialLoad) { fetchSystemLists(); load(); isInitialLoad = false; }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
+  const resetToInitialView = (menu: MenuKey = 'active') => {
+    setActiveMenu(menu); setSelectedFilter(null); setSearchQuery('');
+    setActiveOnly(true); setFamilyView(false); setSelectedMember(null); setSidebarOpen(false);
+    load();
+    requestAnimationFrame(() => { if (mainScrollRef.current) mainScrollRef.current.scrollTo({ top: 0, behavior: 'auto' }); });
+  };
 
-  const load = async (actionType?: 'save' | 'delete', memberId?: string) => {
-    try {
-      setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setUserRole(null);
-        setLoading(false);
-        return;
-      }
-
-      const [membersRes, familiesRes, rolesRes, profileRes] = await Promise.all([
-        supabase.from('members').select('*'),
-        supabase.from('families').select('*'),
-        supabase.from('roles').select('*'),
-        supabase.from('profiles').select('role').eq('id', user.id).single(),
-        fetchSystemLists()
-      ]);
-      
-      const newMembers = membersRes.data || [];
-      setMembers(newMembers);
-      setFamilies(familiesRes.data || []);
-      setRoles(rolesRes.data || []);
-      setUserRole((profileRes.data?.role as 'admin' | 'user') || 'user');
-      
-      if (actionType === 'delete') {
-        setSelectedMember(null);
-      } else if (actionType === 'save' && memberId) {
-        const savedMember = newMembers.find(m => m.id === memberId);
-        if (savedMember) setSelectedMember(savedMember);
-      } else if (selectedMember) {
-        const updatedSelectedMember = newMembers.find(m => m.id === selectedMember.id);
-        if (updatedSelectedMember) setSelectedMember(updatedSelectedMember);
-      }
-    } catch (e) { 
-      console.error('Supabase load error:', e); 
-    } finally { 
-      setLoading(false); 
-    }
+  const goToFilter = (parentType: string, child: ChildList) => {
+    setActiveMenu('filter');
+    setSelectedFilter(child);
+    const parent = parentLists.find(p => p.id === child.parent_id);
+    if (parent?.name?.includes('상태') && child.name.toLowerCase() === 'inactive') setActiveOnly(false);
+    else setActiveOnly(true);
+    setSidebarOpen(false);
   };
 
   const getFamilyLabel = (familyId: string) => {
@@ -1491,516 +1430,243 @@ function App() {
     return head ? head.korean_name : 'Family';
   };
 
-  const familyGroups = useMemo(() => {
-    const map: Record<string, Member[]> = {};
-    members.forEach((m) => { if (!m.family_id) return; if (!map[m.family_id]) map[m.family_id] = []; map[m.family_id].push(m); });
-    return map;
-  }, [members]);
-
-  const getFamilyMembers = (familyId: string) => familyGroups[familyId] || [];
-
-  const { displayedMembers, displayedFamilies, activeMembersCount, familiesCount, birthdaysCount } = useMemo(() => {
+  const { displayedMembers, displayedFamilies, totalFamiliesCount, totalPeopleCount, activeMembersCount, familiesCount, birthdaysCount } = useMemo(() => {
     let filtered = members;
+
     if (activeMenu === 'birthdays') {
-      const thisMonth = new Date().getMonth();
-      filtered = filtered.filter((m) => {
-        if (!m.birthday) return false;
-        const parts = m.birthday.split('-');
-        return parts.length >= 2 && (parseInt(parts[1], 10) - 1) === thisMonth;
-      });
+      filtered = filtered.filter((m) => m.birthday && (new Date(m.birthday).getMonth()) === activeBirthdayMonth);
     } else if (activeMenu === 'recent') {
-      filtered = filtered.filter((m) => {
-        if (!m.registration_date) return false;
-        return m.registration_date >= recentDateRange.from && m.registration_date <= recentDateRange.to;
-      });
-      // Sort by registration date descending
-      filtered.sort((a, b) => (b.registration_date || '').localeCompare(a.registration_date || ''));
+      filtered = filtered.filter((m) => m.registration_date && m.registration_date >= recentDateRange.from && m.registration_date <= recentDateRange.to);
     } else if (activeMenu === 'filter' && selectedFilter) {
       const parent = parentLists.find(p => p.id === selectedFilter.parent_id);
       const pType = (parent?.type || '').trim().toLowerCase();
-      const pName = (parent?.name || '').trim().toLowerCase();
       const cName = selectedFilter.name.trim().toLowerCase().replace(/\s+/g, '');
-      
-      filtered = filtered.filter((m) => {
-        const memberValue = (m as any)[pType];
-        
-        if (Array.isArray(memberValue)) {
-          if (memberValue.some(v => (v || '').toString().trim().toLowerCase().replace(/\s+/g, '') === cName)) return true;
-        } else if (memberValue !== undefined && memberValue !== null) {
-          if (memberValue.toString().trim().toLowerCase().replace(/\s+/g, '') === cName) return true;
-        }
-        
-        // 폴백 로직
-        if (pType === 'cell' || pName.includes('목장')) return (m.mokjang || '').trim().toLowerCase().replace(/\s+/g, '') === cName;
-        if (pType === 'role' || pName.includes('직분')) return (m.role || '').trim().toLowerCase().replace(/\s+/g, '') === cName;
-        if (pType === 'status' || pName.includes('상태')) return (m.status || '').trim().toLowerCase().replace(/\s+/g, '') === cName;
-        if (pType === 'tag' || pType === 'tags' || pName.includes('태그')) return (m.tags || []).some(t => (t || '').trim().toLowerCase().replace(/\s+/g, '') === cName);
-        
-        return false;
+      filtered = filtered.filter(m => {
+        const val = (m as any)[pType];
+        if (Array.isArray(val)) return val.some(v => (v || '').toString().trim().toLowerCase().replace(/\s+/g, '') === cName);
+        return val?.toString().trim().toLowerCase().replace(/\s+/g, '') === cName;
       });
     }
-    // Apply "Active Only" filter unless we are explicitly looking at the "Inactive" status filter
-    const isInactiveFilter = activeMenu === 'filter' && 
-                             selectedFilter && 
-                             (parentLists.find(p => p.id === selectedFilter.parent_id)?.type?.toLowerCase() === 'status' || 
-                              parentLists.find(p => p.id === selectedFilter.parent_id)?.name?.includes('상태')) &&
-                             selectedFilter.name.trim().toLowerCase() === 'inactive';
 
-    if (activeOnly && !isInactiveFilter) {
+    if (activeOnly && activeMenu !== 'filter') {
       filtered = filtered.filter((m) => m.status?.toLowerCase() === 'active');
     }
+
     const query = searchQuery.trim().toLowerCase();
     if (query) {
-      // 1. Find members who directly match the search query
       const matchedMembers = filtered.filter((m) => {
-        const nameKo = (m.korean_name || '').toLowerCase(); const nameEn = (m.english_name || '').toLowerCase();
-        const phoneDigits = (m.phone || '').replace(/[^0-9]/g, ''); const queryDigits = query.replace(/[^0-9]/g, '');
+        const nameKo = (m.korean_name || '').toLowerCase();
+        const nameEn = (m.english_name || '').toLowerCase();
+        const phoneDigits = (m.phone || '').replace(/[^0-9]/g, '');
+        const queryDigits = query.replace(/[^0-9]/g, '');
         return nameKo.includes(query) || nameEn.includes(query) || (queryDigits && phoneDigits.includes(queryDigits));
       });
-
-      // 2. Show the matched person AND their family members for both Card View and Family View
       const matchedFamilyIds = Array.from(new Set(matchedMembers.map(m => m.family_id).filter(Boolean)));
-      
-      // Get all members of families that have at least one match
-      filtered = members.filter(m => m.family_id && matchedFamilyIds.includes(m.family_id));
-      
-      // If some matched members don't have a family_id, include them too
-      const noFamilyMatches = matchedMembers.filter(m => !m.family_id);
-      filtered = [...filtered, ...noFamilyMatches];
+      filtered = filtered.filter(m => (m.family_id && matchedFamilyIds.includes(m.family_id)) || matchedMembers.some(mm => mm.id === m.id));
     }
+
     const sorted = [...filtered].sort((a, b) => {
-      // Priority 1: Birthday View sorting (by day of month, then name)
       if (activeMenu === 'birthdays') {
-        const getDay = (dateStr?: string | null) => {
-          if (!dateStr) return 0;
-          const parts = dateStr.split('-');
-          return parts.length >= 3 ? parseInt(parts[2], 10) : 0;
-        };
-        const dayA = getDay(a.birthday);
-        const dayB = getDay(b.birthday);
-        if (dayA !== dayB) return dayA - dayB;
-        return (a.korean_name || '').localeCompare(b.korean_name || '', 'ko');
+        const dA = a.birthday ? parseInt(a.birthday.split('-')[2], 10) : 0;
+        const dB = b.birthday ? parseInt(b.birthday.split('-')[2], 10) : 0;
+        return dA - dB || a.korean_name.localeCompare(b.korean_name, 'ko');
       }
 
-      // Priority 2: Recent Members sorting (by registration date desc, then name asc)
-      if (activeMenu === 'recent') {
-        const dateA = a.registration_date || '';
-        const dateB = b.registration_date || '';
-        if (dateA !== dateB) return dateB.localeCompare(dateA);
-        return (a.korean_name || '').localeCompare(b.korean_name || '', 'ko');
-      }
-
-      // Priority 3: Search sorting (Matched Person -> Head -> Spouse -> Age)
       if (query) {
         const isMatch = (m: Member) => {
-          const nameKo = (m.korean_name || '').toLowerCase(); const nameEn = (m.english_name || '').toLowerCase();
-          const phoneDigits = (m.phone || '').replace(/[^0-9]/g, ''); const queryDigits = query.replace(/[^0-9]/g, '');
-          return nameKo.includes(query) || nameEn.includes(query) || (queryDigits && phoneDigits.includes(queryDigits));
+          const nK = m.korean_name.toLowerCase();
+          const nE = (m.english_name || '').toLowerCase();
+          const pD = (m.phone || '').replace(/[^0-9]/g, '');
+          const qD = query.replace(/[^0-9]/g, '');
+          return nK.includes(query) || nE.includes(query) || (qD && pD.includes(qD));
         };
-
-        const matchA = isMatch(a);
-        const matchB = isMatch(b);
-
-        // 1. Matched person comes first
-        if (matchA && !matchB) return -1;
-        if (!matchA && matchB) return 1;
-
-        // 2. If both are matches or both are family members of a match, sort by relationship
-        const getRank = (m: Member) => {
-          const rel = m.relationship?.toLowerCase();
-          if (rel === 'head' || rel === 'self') return 0;
-          if (rel === 'spouse') return 1;
-          return 2;
-        };
-        const rankA = getRank(a);
-        const rankB = getRank(b);
-        if (rankA !== rankB) return rankA - rankB;
-        
-        // 3. Within same rank, sort by age (oldest first)
-        const ageA = calcAge(a.birthday);
-        const ageB = calcAge(b.birthday);
-        if (ageA !== null && ageB !== null) return ageB - ageA;
-        if (ageA !== null) return -1;
-        if (ageB !== null) return 1;
-        return 0;
+        const aM = isMatch(a) ? 0 : 1; const bM = isMatch(b) ? 0 : 1;
+        if (aM !== bM) return aM - bM; 
+        const aH = ['head', 'self'].includes(a.relationship?.toLowerCase() || '') ? 0 : 1;
+        const bH = ['head', 'self'].includes(b.relationship?.toLowerCase() || '') ? 0 : 1;
+        if (aH !== bH) return aH - bH;
+        return (calcAge(b.birthday) || 0) - (calcAge(a.birthday) || 0);
       }
-      
-      // Default sorting
-      if (sortBy === 'name') return sortOrder === 'asc' ? a.korean_name.localeCompare(b.korean_name, 'ko') : b.korean_name.localeCompare(a.korean_name, 'ko');
-      const ageA = calcAge(a.birthday); const ageB = calcAge(b.birthday);
-      if (ageA !== null && ageB !== null) return sortOrder === 'asc' ? ageB - ageA : ageA - ageB;
-      return ageA !== null ? -1 : 1;
+
+      if (activeMenu === 'recent') {
+        return (b.registration_date || '').localeCompare(a.registration_date || '') || a.korean_name.localeCompare(b.korean_name, 'ko');
+      }
+
+      let res = 0;
+      if (sortBy === 'name') res = a.korean_name.localeCompare(b.korean_name, 'ko');
+      else if (sortBy === 'age') res = (calcAge(a.birthday) || 0) - (calcAge(b.birthday) || 0);
+      return sortOrder === 'asc' ? res : -res;
     });
+
     const searchedFamilyIds = Array.from(new Set(filtered.map((m) => m.family_id).filter(Boolean)));
-    const sortedFamilyIds = searchedFamilyIds.sort((idA, idB) => getFamilyLabel(idA).localeCompare(getFamilyLabel(idB), 'ko'));
-    const activeMembers = members.filter(m => m.status?.toLowerCase() === 'active');
-    const activeFamilyIds = new Set(activeMembers.map(m => m.family_id));
-    const birthdaysThisMonth = members.filter(m => {
-      if (!m.birthday) return false;
-      const parts = m.birthday.split('-');
-      const bMonth = parts.length >= 2 ? parseInt(parts[1], 10) - 1 : -1;
-      const thisMonth = new Date().getMonth();
-      if (bMonth !== thisMonth) return false;
-      return activeOnly ? m.status?.toLowerCase() === 'active' : true;
-    }).length;
-    return { displayedMembers: sorted, displayedFamilies: sortedFamilyIds, activeMembersCount: activeMembers.length, familiesCount: activeFamilyIds.size, birthdaysCount: birthdaysThisMonth };
-  }, [members, searchQuery, activeOnly, sortBy, sortOrder, familyView, activeMenu, selectedFilter, parentLists, recentDateRange]);
+    const sortedFamilyIds = (searchedFamilyIds as string[]).sort((idA, idB) => getFamilyLabel(idA).localeCompare(getFamilyLabel(idB), 'ko'));
 
-  if (loading) return <div className="h-screen flex items-center justify-center text-slate-400"><div className="text-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-500 mx-auto mb-3"></div><div className="text-sm font-medium">Loading...</div></div></div>;
+    return { 
+      displayedMembers: sorted, 
+      displayedFamilies: sortedFamilyIds,
+      totalFamiliesCount: sortedFamilyIds.length,
+      totalPeopleCount: filtered.length,
+      activeMembersCount: members.filter(m => m.status?.toLowerCase() === 'active').length, 
+      familiesCount: new Set(members.filter(m => m.status?.toLowerCase() === 'active').map(m => m.family_id)).size, 
+      birthdaysCount: members.filter(m => m.birthday && (new Date(m.birthday).getMonth()) === new Date().getMonth()).length 
+    };
+  }, [members, searchQuery, activeOnly, sortBy, sortOrder, activeMenu, selectedFilter, parentLists, recentDateRange, activeBirthdayMonth]);
 
-  if (!userRole) {
-    return <Login onLogin={(role) => { setUserRole(role); load(); }} />;
-  }
+  if (loading) return <div className="h-screen flex items-center justify-center text-slate-400">Loading...</div>;
+  if (!userRole) return <Login onLogin={(role) => { setUserRole(role); load(); }} />;
 
-  // Settings page now uses the same layout structure as other pages to include the header
-  // This is handled by the main return statement below by checking activeMenu.
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   return (
     <div className="h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-100 flex" style={{ height: 'calc(var(--vh, 1vh) * 100)' }}>
-      <Sidebar activeMembersCount={activeMembersCount} familiesCount={familiesCount} birthdaysCount={birthdaysCount} activeOnly={activeOnly} sidebarOpen={sidebarOpen} onCloseSidebar={() => setSidebarOpen(false)} onClickActiveMembers={goToActiveMembers} onSelectMenu={goToMenu} parentLists={parentLists} childLists={childLists} onSelectFilter={goToFilter} activeMenu={activeMenu} selectedFilter={selectedFilter} members={members} onNewMember={handleNewMember} onSignOut={handleSignOut} userRole={userRole} />
+      <Sidebar
+        activeMembersCount={activeMembersCount} familiesCount={familiesCount} birthdaysCount={birthdaysCount}
+        activeOnly={activeOnly} sidebarOpen={sidebarOpen} onCloseSidebar={() => setSidebarOpen(false)}
+        onClickActiveMembers={() => resetToInitialView('active')}
+        onSelectMenu={(menu) => resetToInitialView(menu)}
+        onSelectFilter={goToFilter}
+        activeMenu={activeMenu} selectedFilter={selectedFilter} parentLists={parentLists} childLists={childLists}
+        members={members} onNewMember={handleNewMember} onSignOut={handleSignOut} userRole={userRole}
+      />
+
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="bg-white/95 backdrop-blur-lg border-b border-slate-200 shadow-sm sticky top-0 z-30">
           <div className="px-4 lg:px-6 py-3">
-            <div className="flex flex-col gap-3">
-              {/* Top Row: Home, Search, Hamburger */}
-              <div className="flex items-center gap-2 lg:gap-3">
-                {/* Home Button (Favicon) */}
-                <button
-                  onClick={goToActiveMembers}
-                  className="p-1.5 rounded-lg hover:bg-slate-100 transition flex-shrink-0"
-                  title="Home"
-                >
-                  <img src="/favicon.ico" alt="Home" className="w-6 h-6" onError={(e) => { (e.target as HTMLImageElement).src = "/apple-touch-icon.png"; }} />
-                </button>
-
-                {/* Search */}
-                <div className="relative w-full sm:w-[30%]">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-
-                  <input
-                    type="text"
-                    placeholder={placeholder}
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-9 py-2 rounded-lg border border-slate-200
-                              focus:outline-none focus:ring-2 focus:ring-emerald-100
-                              text-sm text-slate-700 placeholder:text-slate-400"
-                  />
-
-                  {searchQuery && (
-                    <button
-                      onClick={() => setSearchQuery('')}
-                      className="absolute right-3 top-1/2 -translate-y-1/2
-                                text-slate-400 hover:text-slate-600 transition-colors"
-                    >
-                      <X size={16} />
-                    </button>
-                  )}
-                </div>
-
-
-                {/* Mobile sidebar button (Hamburger) */}
-                <button
-                  onClick={() => setSidebarOpen(true)}
-                  className="p-2 rounded-lg hover:bg-slate-100 transition flex-shrink-0"
-                >
-                  <svg
-                    className="w-6 h-6 text-slate-700"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                  </svg>
-                </button>
+            <div className="flex items-center gap-2 lg:gap-3">
+              <button onClick={() => resetToInitialView('active')} className="p-1 rounded-lg hover:bg-slate-100 transition flex-shrink-0">
+                <img src="/favicon-32.png" alt="Home" className="w-8 h-8 object-contain" />
+              </button>
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input ref={searchInputRef} type="text" placeholder={placeholder} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') setSearchQuery(''); }} className="w-full pl-9 pr-9 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-100 text-sm text-slate-700" />
+                {searchQuery && <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2"><X size={16} /></button>}
               </div>
+              {!sidebarOpen && (
+                <button onClick={() => setSidebarOpen(true)} className="p-2 rounded-lg hover:bg-slate-100 transition flex-shrink-0 ml-auto lg:hidden">
+                  <svg className="w-6 h-6 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+                </button>
+              )}
             </div>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto px-4 lg:px-6 py-5">
-          {/* Page Title and Controls Section */}
-          <div className="mb-6 flex flex-col gap-2">
-            <div className="flex items-start justify-between">
-              <div>
-                <h2 className="text-2xl sm:text-3xl font-black text-slate-800">
-                  {activeMenu === 'active' && (activeOnly ? 'Active Members' : 'All Members')}
-                  {activeMenu === 'birthdays' && `Birthdays in ${new Date().toLocaleString('en-US', { month: 'long' })}`}
-                  {activeMenu === 'recent' && '최신 등록교인'}
-                  {activeMenu === 'filter' && selectedFilter && selectedFilter.name}
-                  {activeMenu === 'settings' && 'Settings'}
-                </h2>
-                <p className="text-slate-500 text-sm sm:text-base mt-0.5">
-                  {activeMenu === 'active' && <>{activeOnly ? `${familiesCount} 가정, ${activeMembersCount} 명 (Active)` : `${familiesCount} 가정, ${members.length} 명 (Total)`}</>}
-                  {activeMenu === 'birthdays' && `${displayedMembers.length} people celebrating this month`}
-                  {activeMenu === 'recent' && `${displayedMembers.length} members registered between ${recentDateRange.from} and ${recentDateRange.to}`}
-                  {activeMenu === 'filter' && selectedFilter && `${displayedMembers.length} members`}
-                </p>
-              </div>
-
-              {/* Controls: Right Aligned */}
-              <div className="flex items-center gap-2 flex-shrink-0">
-                {/* Active Only */}
-                <button
-                  onClick={() => setActiveOnly(!activeOnly)}
-                  className={`flex items-center justify-center p-2 rounded-lg border transition-all ${
-                    activeOnly
-                      ? 'border-emerald-400 text-emerald-600 bg-emerald-50'
-                      : 'border-slate-200 text-slate-400 bg-white'
-                  }`}
-                  title="Active Only"
-                >
-                  <Check className="w-5 h-5" />
-                  <span className="hidden sm:inline ml-1.5 text-xs font-semibold">Active Only</span>
-                </button>
-
-                {/* Card / Family toggle */}
-                <div className="flex items-center gap-0.5 bg-slate-100 rounded-lg p-0.5">
-                  <button
-                    onClick={() => setFamilyView(false)}
-                    className={`p-2 rounded-md transition-all ${
-                      !familyView ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'
-                    }`}
-                    title="Card View"
-                  >
-                    <LayoutGrid size={18} />
-                  </button>
-                  <button
-                    onClick={() => setFamilyView(true)}
-                    className={`p-2 rounded-md transition-all ${
-                      familyView ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'
-                    }`}
-                    title="Family View"
-                  >
-                    <Users size={18} />
-                  </button>
-                </div>
-
-                {/* Desktop Only: Sort Controls */}
-                <div className="hidden md:flex items-center gap-2">
-                  <div className="w-px h-5 bg-slate-300 mx-1" />
-                  <div className="relative">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowSortDropdown(!showSortDropdown);
-                      }}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all"
-                    >
-                      <span className="text-slate-500">Sort:</span>
-                      {sortBy === 'name' ? '이름' : '나이'}
-                      <ChevronDown className="w-3.5 h-3.5" />
-                    </button>
-
-                    {showSortDropdown && (
-                      <div className="absolute right-0 mt-1 w-28 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-30">
-                        <button
-                          onClick={() => {
-                            setSortBy('name');
-                            setShowSortDropdown(false);
-                          }}
-                          className={`w-full px-3 py-1.5 text-left text-xs font-semibold transition-colors ${
-                            sortBy === 'name'
-                              ? 'bg-slate-100 text-slate-800'
-                              : 'text-slate-600 hover:bg-slate-50'
-                          }`}
-                        >
-                          이름
-                        </button>
-                        <button
-                          onClick={() => {
-                            setSortBy('age');
-                            setShowSortDropdown(false);
-                          }}
-                          className={`w-full px-3 py-1.5 text-left text-xs font-semibold transition-colors ${
-                            sortBy === 'age'
-                              ? 'bg-slate-100 text-slate-800'
-                              : 'text-slate-600 hover:bg-slate-50'
-                          }`}
-                        >
-                          나이
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  <button
-                    onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                    className="p-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-all"
-                  >
-                    <svg
-                      className={`w-5 h-5 transition-transform ${sortOrder === 'desc' ? 'rotate-180' : ''}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11l5-5m0 0l5 5m-5-5v12" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
+        {activeMenu === 'birthdays' && (
+          <div className="bg-white border-b border-slate-100 sticky top-0 z-20 overflow-x-auto no-scrollbar">
+            <div className="flex gap-2 p-3 px-6 min-w-max">
+              {monthNames.map((m, idx) => (
+                <button key={m} onClick={() => setActiveBirthdayMonth(idx)} className={`px-4 py-1.5 rounded-full text-sm font-bold transition-all ${activeBirthdayMonth === idx ? 'bg-rose-500 text-white shadow-md' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>{m}</button>
+              ))}
             </div>
           </div>
+        )}
 
-          {activeMenu === 'settings' && (
-            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-              <SettingsPage parentLists={parentLists} childLists={childLists} onUpdate={fetchSystemLists} />
+        <main ref={mainScrollRef} className="flex-1 overflow-y-auto px-4 lg:px-6 py-5">
+          {activeMenu !== 'settings' && (
+            <div className="mb-6 flex flex-col gap-2">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h2 className="text-2xl sm:text-3xl font-black text-slate-800">
+                    {activeMenu === 'active' ? (activeOnly ? 'Active Members' : 'All Members') : 
+                     activeMenu === 'birthdays' ? `Birthdays in ${new Date(2024, activeBirthdayMonth).toLocaleString('en-US', { month: 'long' })}` :
+                     activeMenu === 'recent' ? '최신 등록교인' : activeMenu === 'filter' ? selectedFilter?.name : 'VGMC'}
+                  </h2>
+                  <p className="text-slate-500 text-sm sm:text-base mt-0.5">{totalFamiliesCount} 가정, {totalPeopleCount} 명</p>
+                </div>
+
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button onClick={() => setActiveOnly(!activeOnly)} className={`flex items-center justify-center p-2 rounded-lg border transition-all ${activeOnly ? 'border-emerald-400 text-emerald-600 bg-emerald-50' : 'border-slate-200 text-slate-400 bg-white'}`}>
+                    <Check className="w-5 h-5" /><span className="hidden sm:inline ml-1.5 text-xs font-semibold">Active Only</span>
+                  </button>
+                  <div className="flex items-center gap-0.5 bg-slate-100 rounded-lg p-0.5">
+                    <button onClick={() => setFamilyView(false)} className={`p-2 rounded-md transition-all ${!familyView ? 'bg-white shadow-sm text-slate-800' : 'text-slate-50'}`}><LayoutGrid size={18} /></button>
+                    <button onClick={() => setFamilyView(true)} className={`p-2 rounded-md transition-all ${familyView ? 'bg-white shadow-sm text-slate-800' : 'text-slate-50'}`}><Users size={18} /></button>
+                  </div>
+                  <div className="hidden sm:flex items-center gap-2 bg-slate-100 rounded-lg p-1">
+                    <div className="relative">
+                      <button onClick={() => setShowSortDropdown(!showSortDropdown)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold bg-white shadow-sm text-slate-700">
+                        Sort: {sortBy === 'name' ? '이름' : '나이'} <ChevronDown size={14} className={`transition-transform ${showSortDropdown ? 'rotate-180' : ''}`} />
+                      </button>
+                      {showSortDropdown && (
+                        <div className="absolute right-0 mt-1 w-28 bg-white border border-slate-200 rounded-lg shadow-xl z-50 py-1">
+                          {['name', 'age'].map((key) => (
+                            <button key={key} onClick={() => { setSortBy(key as any); setShowSortDropdown(false); }} className={`w-full px-4 py-2 text-left text-xs hover:bg-slate-50 font-medium ${sortBy === key ? 'text-blue-600 bg-blue-50' : 'text-slate-600'}`}>{key === 'name' ? '이름' : '나이'}</button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <button onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')} className="p-1.5 hover:bg-white rounded-md text-slate-600 transition-all">
+                      {sortOrder === 'asc' ? <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" /></svg> : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" /></svg>}
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
           {activeMenu === 'recent' && (
             <div className="mb-8 bg-white rounded-3xl border border-slate-100 p-6 shadow-sm flex flex-wrap items-center justify-between gap-6">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center">
-                  <Calendar className="w-6 h-6 text-blue-500" />
-                </div>
-                <div>
-                  <div className="text-sm font-black text-slate-800">등록일 기간 설정</div>
-                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Registration Date Range</div>
-                </div>
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center"><Calendar className="w-6 h-6 text-blue-500" /></div>
+                <div><div className="text-sm font-black text-slate-800">등록일 기간 설정</div><div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">REGISTRATION DATE RANGE</div></div>
               </div>
-              
               <div className="flex flex-wrap items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">From</span>
-                  <input 
-                    type="date" 
-                    value={recentDateRange.from} 
-                    onChange={(e) => setRecentDateRange(prev => ({ ...prev, from: e.target.value }))}
-                    className="px-3 py-2 rounded-xl bg-slate-50 border-transparent focus:bg-white focus:border-blue-300 focus:ring-2 focus:ring-blue-50 transition-all text-sm font-bold text-slate-700"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">To</span>
-                  <input 
-                    type="date" 
-                    value={recentDateRange.to} 
-                    onChange={(e) => setRecentDateRange(prev => ({ ...prev, to: e.target.value }))}
-                    className="px-3 py-2 rounded-xl bg-slate-50 border-transparent focus:bg-white focus:border-blue-300 focus:ring-2 focus:ring-blue-50 transition-all text-sm font-bold text-slate-700"
-                  />
-                </div>
-                <div className="flex items-center gap-2 ml-2">
-                  <button 
-                    onClick={() => setRecentDateRange({
-                      from: new Date(new Date().setFullYear(new Date().getFullYear() - 3)).toISOString().split('T')[0],
-                      to: new Date().toISOString().split('T')[0]
-                    })}
-                    className="px-4 py-2 rounded-xl bg-slate-100 text-slate-600 text-xs font-black uppercase tracking-widest hover:bg-slate-200 transition-colors"
-                  >
-                    최근 3년
-                  </button>
-                  <button 
-                    onClick={() => setRecentDateRange({
-                      from: new Date(new Date().setFullYear(new Date().getFullYear() - 1)).toISOString().split('T')[0],
-                      to: new Date().toISOString().split('T')[0]
-                    })}
-                    className="px-4 py-2 rounded-xl bg-slate-100 text-slate-600 text-xs font-black uppercase tracking-widest hover:bg-slate-200 transition-colors"
-                  >
-                    최근 1년
-                  </button>
+                <div className="flex items-center gap-2"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">FROM</span><input type="date" value={recentDateRange.from} onChange={(e) => setRecentDateRange(prev => ({ ...prev, from: e.target.value }))} className="px-3 py-2 rounded-xl bg-slate-50 border-transparent text-sm font-bold text-slate-700" /></div>
+                <div className="flex items-center gap-2"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TO</span><input type="date" value={recentDateRange.to} onChange={(e) => setRecentDateRange(prev => ({ ...prev, to: e.target.value }))} className="px-3 py-2 rounded-xl bg-slate-50 border-transparent text-sm font-bold text-slate-700" /></div>
+                <div className="flex gap-2 ml-2">
+                  <button onClick={() => setRecentDateRange({ from: new Date(new Date().setFullYear(new Date().getFullYear() - 3)).toISOString().split('T')[0], to: new Date().toISOString().split('T')[0] })} className="px-4 py-2 rounded-xl bg-slate-100 text-slate-600 text-xs font-black hover:bg-slate-200">최근 3년</button>
+                  <button onClick={() => setRecentDateRange({ from: new Date(new Date().setFullYear(new Date().getFullYear() - 1)).toISOString().split('T')[0], to: new Date().toISOString().split('T')[0] })} className="px-4 py-2 rounded-xl bg-slate-100 text-slate-600 text-xs font-black hover:bg-slate-200">최근 1년</button>
                 </div>
               </div>
             </div>
           )}
 
-         {activeMenu === 'birthdays' && (
-          <div className="
-            ml-0 max-w-[280px] w-full sm:max-w-[640px]    // 왼쪽 시작
-            relative overflow-hidden rounded-2xl p-4 sm:p-6
-            bg-gradient-to-r from-rose-400 via-pink-500 to-orange-400 
-            text-white shadow-lg mb-8
-          ">
-            <div className="absolute top-0 right-0 -mt-6 -mr-6 w-24 h-24 bg-white/10 rounded-full blur-xl sm:w-32 sm:h-32" />
-            <div className="relative flex items-center gap-3 sm:gap-4">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/20 flex items-center justify-center">
-                <Cake className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-              </div>
-              <div className="min-w-0">
-                <h3 className="text-lg sm:text-xl font-black">Celebration Time!</h3>
-                <p className="text-xs sm:text-sm text-white/90 font-medium">Let's celebrate together!</p>
-              </div>
+          {activeMenu === 'birthdays' && (
+            <div className="inline-flex items-center gap-3 rounded-2xl bg-gradient-to-r from-rose-400 via-pink-500 to-orange-400 p-4 sm:p-6 text-white shadow-lg mb-8 max-w-[280px] sm:max-w-[400px]">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0"><Cake className="w-6 h-6 text-white" /></div>
+              <div className="min-w-0"><h3 className="text-lg sm:text-xl font-black">Celebration Time!</h3><p className="text-xs sm:text-sm text-white/90 font-medium">Let's celebrate together!</p></div>
             </div>
-          </div>
-        )}
-
-          {activeMenu !== 'settings' && (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {activeMenu === 'birthdays' ? (
-                  displayedMembers.map((member) => <BirthdayCard key={member.id} member={member} roles={roles} onClick={() => { if (member) setSelectedMember(member); }} />)
-                ) : activeMenu === 'recent' ? (
-                  displayedMembers.map((member) => <RecentMemberCard key={member.id} member={member} roles={roles} onClick={() => { if (member) setSelectedMember(member); }} />)
-                ) : !familyView ? (
-                  displayedMembers.map((member) => <MemberCard key={member.id} member={member} age={calcAge(member.birthday)} roles={roles} childLists={childLists} onClick={() => { if (member) setSelectedMember(member); }} />)
-                ) : (
-                  displayedFamilies.map((familyId) => (
-                    <FamilyCard
-                      key={familyId}
-                      familyLabel={getFamilyLabel(familyId)}
-                      members={displayedMembers.filter(m => m.family_id === familyId)}
-                      roles={roles}
-                      familyAddress={displayedMembers
-                        .filter(m => m.family_id === familyId)
-                        .find(m => m.address)?.address}
-                      onMemberClick={(m) => {
-                        if (m) setSelectedMember(m);
-                      }}
-                      childLists={childLists}
-                    />
-                  ))
-                )}
-              </div>
-              {displayedMembers.length === 0 && <div className="text-center py-12"><div className="text-slate-400 text-lg">No members found</div></div>}
-            </>
           )}
+
+          {activeMenu === 'settings' ? (
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden"><SettingsPage parentLists={parentLists} childLists={childLists} onUpdate={fetchSystemLists} /></div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {activeMenu === 'birthdays' ? (
+                displayedMembers.map(m => <BirthdayCard key={m.id} member={m} roles={roles} onClick={() => setSelectedMember(m)} />)
+              ) : activeMenu === 'recent' ? (
+                displayedMembers.map(m => <RecentMemberCard key={m.id} member={m} roles={roles} onClick={() => setSelectedMember(m)} />)
+              ) : !familyView ? (
+                displayedMembers.map(m => <MemberCard key={m.id} member={m} age={calcAge(m.birthday)} roles={roles} childLists={childLists} onClick={() => setSelectedMember(m)} />)
+              ) : (
+                displayedFamilies.map((fid: any) => (
+                  <FamilyCard key={fid} familyLabel={getFamilyLabel(fid)} members={displayedMembers.filter(m => m.family_id === fid)} roles={roles} familyAddress={displayedMembers.find(m => m.family_id === fid && m.address)?.address} onMemberClick={(m) => setSelectedMember(m)} childLists={childLists} />
+                ))
+              )}
+            </div>
+          )}
+          {displayedMembers.length === 0 && <div className="text-center py-20 text-slate-400 font-medium">No results found</div>}
         </main>
       </div>
+
       {selectedMember && (
-        <MemberDetailModal 
-          member={selectedMember} 
-          onClose={() => setSelectedMember(null)} 
-          roles={roles} 
-          familyMembers={getFamilyMembers(selectedMember.family_id || '')} 
-          onSelectMember={(m) => { if (m) setSelectedMember(m); }} 
-          onEdit={handleEditMember} 
-          userRole={userRole} 
-          onRefresh={load} 
-        />
+        <MemberDetailModal member={selectedMember} onClose={() => setSelectedMember(null)} roles={roles} familyMembers={members.filter(m => m.family_id === selectedMember.family_id)} onSelectMember={(m) => setSelectedMember(m)} onEdit={handleEditMember} userRole={userRole as any} onRefresh={() => load()} />
       )}
-      
-      {/* Member Form Modal */}
+
       <MemberForm
-        isOpen={isMemberFormOpen}
-        onClose={() => setIsMemberFormOpen(false)}
-        onSuccess={async (type, id) => {
-          await load(type, id);
-
-          if (type === 'delete') {
-            resetToInitialView(); // ⭐ 핵심
-          } else if (id) {
-            const updated = members.find(m => m.id === id);
-            if (updated) setSelectedMember(updated);
-          }
-
-          setIsMemberFormOpen(false);
-          setEditingMember(null);
-        }}
-
-        initialData={editingMember}
-        parentLists={parentLists}
-        childLists={childLists}
+        isOpen={isMemberFormOpen} onClose={() => { setIsMemberFormOpen(false); setEditingMember(null); }}
+        onSuccess={async (type, id) => { setIsMemberFormOpen(false); setEditingMember(null); await load(type, id); if (type === 'delete') resetToInitialView(); }}
+        initialData={editingMember} parentLists={parentLists} childLists={childLists}
       />
     </div>
   );
 }
-
 export default App;
 
 function useTypingPlaceholder(text: string, speed = 80) {
   const [display, setDisplay] = useState('');
   
   // Use a ref to always have the latest text without triggering re-renders
-  const textRef = React.useRef(text);
+  const textRef = useRef(text);
   useEffect(() => {
     textRef.current = text;
   }, [text]);
