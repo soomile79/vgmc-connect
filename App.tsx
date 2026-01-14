@@ -27,7 +27,7 @@ import {
   UserCog,
   Settings,
   LogOut,
-  ArrowsUpDown,
+  ArrowUpDown, // ⬅️ ArrowsUpDown에서 ArrowUpDown으로 수정 (에러 방지)
   ChevronRight,
   ChevronUp,
   Crown,
@@ -392,13 +392,7 @@ function CrownBadge() {
 }
 
 /* ================= MEMBER CARD ================= */
-function MemberCard({
-    member,
-    age,
-    roles,
-    onClick,
-    childLists
-  }: {
+function MemberCard({ member, age, roles, onClick, childLists }: {
     member: Member;
     age: number | null;
     roles: Role[];
@@ -921,7 +915,7 @@ function MemoSection({ member, onRefresh }: { member: Member; onRefresh: () => v
             <div key={i} className="group/memo p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-1 relative">
               {editingMemoIndex === i ? (
                 <div className="space-y-3">
-                  <textarea value={editingMemoText} onChange={(e) => setEditingMemoText(e.target.value)} className="w-full p-4 rounded-2xl border-slate-200 text-sm focus:border-[#3c8fb5] focus:ring-2 focus:ring-blue-100" rows={3} />
+                  <textarea value={editingMemoText} onChange={(e) => setEditingMemoText(e.target.value)} className="w-full p-4 rounded-2xl border-slate-200 text-sm focus:border-[#3c8fb5] focus:ring-2 focus:ring-blue-50" rows={3} />
                   <div className="flex justify-end gap-2">
                     <button onClick={() => setEditingMemoIndex(null)} className="px-4 py-2 text-xs font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest">취소</button>
                     <button onClick={() => handleUpdateMemo(i)} className="px-4 py-2 text-xs font-black text-white bg-[#3c8fb5] rounded-xl uppercase tracking-widest">저장</button>
@@ -1360,17 +1354,15 @@ function App() {
   // 데이터 로드
   const load = async (actionType?: 'save' | 'delete', memberId?: string) => {
   try {
-    // 데이터 로딩 중 표시 (데이터가 없을 때만)
     if (members.length === 0) setLoading(true);
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       setUserRole(null);
-      setLoading(false);
+      setLoading(false); // ✅ 수정: 사용자가 없으면 즉시 로딩 해제
       return;
     }
 
-    // 1. 모든 데이터(멤버, 가족, 직분, 프로필)를 새로 가져옴
     const [membersRes, familiesRes, rolesRes, profileRes] = await Promise.all([
       supabase.from('members').select('*'),
       supabase.from('families').select('*'),
@@ -1380,34 +1372,29 @@ function App() {
     
     const newMembers = (membersRes.data || []).map(m => normalizeMember(m));
     
-    // 2. 상태 업데이트 (가족, 직분 리스트도 반드시 업데이트해야 함)
     setMembers(newMembers);
     setFamilies(familiesRes.data || []);
     setRoles(rolesRes.data || []);
     setUserRole((profileRes.data?.role as 'admin' | 'user') || 'user');
 
-    // 3. ⭐ 핵심: 수정/추가 후 상세 모달로 이동하는 로직
     if (memberId) {
-      // 새로 추가하거나 수정한 멤버의 ID가 들어온 경우 -> 그 사람의 상세창을 띄움
       const target = newMembers.find(m => m.id === memberId);
       if (target) {
         setSelectedMember(target);
       }
     } else if (selectedMember && actionType !== 'delete') {
-      // memberId는 없지만 기존에 상세창이 열려있었던 경우 -> 데이터만 최신화
       const updated = newMembers.find(m => m.id === selectedMember.id);
       if (updated) {
         setSelectedMember(updated);
       }
     } else if (actionType === 'delete') {
-      // 삭제한 경우 상세창 닫기
       setSelectedMember(null);
     }
 
   } catch (e) {
     console.error('Load error:', e);
   } finally {
-    setLoading(false);
+    setLoading(false); // ✅ 수정: 에러가 나도 로딩 해제
   }
 };
 
@@ -1431,71 +1418,31 @@ function App() {
   }
 
   useEffect(() => {
-    // 1. 초기 세션 확인 함수
-    const initializeAuth = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          fetchSystemLists();
-          await load(); // 로그인 기록이 있으면 데이터 로드
-        } else {
-          setLoading(false); // 로그인 기록이 없으면 즉시 로딩 해제 -> 로그인 화면 표시
-        }
-      } catch (error) {
-        console.error("Auth init error:", error);
+    let isInitialLoad = true;
+
+    // ✅ 추가: 앱 마운트 시 초기 세션 유무를 강제로 체크하여 로딩 문제 해결
+    const initAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
         setLoading(false);
       }
     };
+    initAuth();
 
-    initializeAuth();
-
-    // 2. 인증 상태 변경 감시
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT') {
-        setUserRole(null);
-        setMembers([]);
-        setFamilies([]);
-        setRoles([]);
-        setLoading(false);
-      } else if (event === 'SIGNED_IN') {
-        if (session?.user) {
-          fetchSystemLists();
-          load();
-          goToActiveMembers();
-        }
+      if (event === 'SIGNED_OUT') { 
+        setUserRole(null); 
+        setMembers([]); 
+        setLoading(false); // ✅ 로그아웃 시 로딩 해제
+      }
+      else if (session?.user && isInitialLoad) { 
+        fetchSystemLists(); 
+        load(); 
+        isInitialLoad = false; 
       }
     });
-
-    // 3. 슬래시(/) 키 검색창 포커스 이벤트
-    const handleKeyDownWrapper = (e: KeyboardEvent) => handleSlashKey(e);
-    window.addEventListener('keydown', handleKeyDownWrapper);
-
-    return () => {
-      subscription.unsubscribe();
-      window.removeEventListener('keydown', handleKeyDownWrapper);
-    };
+    return () => subscription.unsubscribe();
   }, []);
-
-  const handleSlashKey = (e: KeyboardEvent) => {
-    if (e.key !== '/') return;
-    const tag = (document.activeElement as HTMLElement)?.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-    if (sidebarOpen) return;
-    e.preventDefault();
-    searchInputRef.current?.focus();
-  };
-
-  useEffect(() => {
-    if (!sidebarOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') setSidebarOpen(false); };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [sidebarOpen]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => { setIndex((prev) => (prev + 1) % placeholders.length); }, 3000);
-    return () => clearTimeout(timer);
-  }, [index]);
 
   const resetToInitialView = (menu: MenuKey = 'active') => {
     setActiveMenu(menu); setSelectedFilter(null); setSearchQuery('');
@@ -1511,7 +1458,6 @@ function App() {
     if (parent?.name?.includes('상태') && child.name.toLowerCase() === 'inactive') setActiveOnly(false);
     else setActiveOnly(true);
     setSidebarOpen(false);
-    requestAnimationFrame(() => { if (mainScrollRef.current) mainScrollRef.current.scrollTo({ top: 0, behavior: 'auto' }); });
   };
 
   const getFamilyLabel = (familyId: string) => {
@@ -1521,6 +1467,7 @@ function App() {
     return head ? head.korean_name : 'Family';
   };
 
+  // 메인 데이터 계산 로직
   const { displayedMembers, displayedFamilies, totalFamiliesCount, totalPeopleCount, activeMembersCount, familiesCount, birthdaysCount } = useMemo(() => {
     let filterMatchedMembers = members;
 
@@ -1555,7 +1502,10 @@ function App() {
     }
 
     const matchedFamilyIdsSet = new Set(filterMatchedMembers.map(m => m.family_id).filter(Boolean));
-    const finalMembersToShow = familyView ? members.filter(m => matchedFamilyIdsSet.has(m.family_id)) : filterMatchedMembers;
+
+    const finalMembersToShow = familyView 
+      ? members.filter(m => matchedFamilyIdsSet.has(m.family_id)) 
+      : filterMatchedMembers;
 
     const sorted = [...finalMembersToShow].sort((a, b) => {
       if (activeMenu === 'birthdays') {
@@ -1590,28 +1540,27 @@ function App() {
       return sortOrder === 'asc' ? res : -res;
     });
 
-    const searchedFamilyIds = Array.from(matchedFamilyIdsSet).sort((idA, idB) => getFamilyLabel(idA).localeCompare(getFamilyLabel(idB), 'ko'));
+    const sortedFamilyIds = Array.from(matchedFamilyIdsSet).sort((idA, idB) => 
+      getFamilyLabel(idA).localeCompare(getFamilyLabel(idB), 'ko')
+    );
+
+    const activePeople = members.filter(m => m.status?.toLowerCase() === 'active');
 
     return { 
       displayedMembers: sorted, 
-      displayedFamilies: searchedFamilyIds,
+      displayedFamilies: sortedFamilyIds,
       totalFamiliesCount: matchedFamilyIdsSet.size,
       totalPeopleCount: filterMatchedMembers.length,
-      activeMembersCount: members.filter(m => m.status?.toLowerCase() === 'active').length, 
-      familiesCount: new Set(members.filter(m => m.status?.toLowerCase() === 'active').map(m => m.family_id)).size, 
+      activeMembersCount: activePeople.length, 
+      familiesCount: new Set(activePeople.map(m => m.family_id)).size, 
       birthdaysCount: members.filter(m => m.birthday && (new Date(m.birthday).getMonth()) === new Date().getMonth()).length 
     };
-  }, [members, searchQuery, activeOnly, sortBy, sortOrder, activeMenu, selectedFilter, parentLists, recentDateRange, activeBirthdayMonth, familyView]);
+    }, [members, searchQuery, activeOnly, sortBy, sortOrder, activeMenu, selectedFilter, parentLists, recentDateRange, activeBirthdayMonth, familyView]);
 
-  if (loading) return <div className="h-screen flex items-center justify-center text-slate-400 font-bold animate-pulse">Loading...</div>;
+  if (loading) return <div className="h-screen flex items-center justify-center text-slate-400">Loading...</div>;
   if (!userRole) return <Login onLogin={(role) => { setUserRole(role); load(); }} />;
 
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-  function goToActiveMembers() { 
-    setActiveMenu('active'); setActiveOnly(true); setSelectedFilter(null); 
-    setSidebarOpen(false); setSearchQuery(''); setFamilyView(false);
-  }
 
   return (
     <div className="h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-100 flex" style={{ height: 'calc(var(--vh, 1vh) * 100)' }}>
@@ -1630,7 +1579,7 @@ function App() {
           <div className="px-4 lg:px-6 py-3">
             <div className="flex items-center gap-2 lg:gap-3">
               <button onClick={() => resetToInitialView('active')} className="p-1 rounded-lg hover:bg-slate-100 transition flex-shrink-0">
-                <img src="/favicon-32.png" alt="Home" className="w-8 h-8 object-contain" />
+                <img src="/apple-touch-icon.png" alt="Home" className="w-8 h-8 object-contain" />
               </button>
               <div className="relative flex-1 max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -1647,10 +1596,12 @@ function App() {
         </header>
 
         {activeMenu === 'birthdays' && (
-          <div className="bg-white border-b border-slate-100 sticky top-0 z-20 overflow-x-auto no-scrollbar py-3 px-6 flex gap-2">
-            {monthNames.map((m, idx) => (
+          <div className="bg-white border-b border-slate-100 sticky top-0 z-20 overflow-x-auto no-scrollbar">
+            <div className="flex gap-2 p-3 px-6 min-w-max">
+              {monthNames.map((m, idx) => (
                 <button key={m} onClick={() => setActiveBirthdayMonth(idx)} className={`px-4 py-1.5 rounded-full text-sm font-bold transition-all ${activeBirthdayMonth === idx ? 'bg-rose-500 text-white shadow-md' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>{m}</button>
-            ))}
+              ))}
+            </div>
           </div>
         )}
 
@@ -1689,7 +1640,7 @@ function App() {
                       )}
                     </div>
                     <button onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')} className="p-1.5 hover:bg-white rounded-md text-slate-600 transition-all">
-                      {sortOrder === 'asc' ? <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" /></svg> : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" /></svg>}
+                      <ArrowUpDown className="w-5 h-5" />
                     </button>
                   </div>
                 </div>
@@ -1715,19 +1666,27 @@ function App() {
           )}
 
           {activeMenu === 'birthdays' && (
-            <div className="inline-flex items-center gap-3 rounded-2xl bg-gradient-to-r from-rose-400 via-pink-500 to-orange-400 p-4 sm:p-6 text-white shadow-lg mb-8 max-w-[500px]">
+            <div className="inline-flex items-center gap-3 rounded-2xl bg-gradient-to-r from-rose-400 via-pink-500 to-orange-400 p-4 sm:p-6 text-white shadow-lg mb-8 max-w-[280px] sm:max-w-[400px]">
               <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0"><Cake className="w-6 h-6 text-white" /></div>
               <div className="min-w-0"><h3 className="text-lg sm:text-xl font-black">Celebration Time!</h3><p className="text-xs sm:text-sm text-white/90 font-medium">Let's celebrate together!</p></div>
             </div>
           )}
 
-          {activeMenu === 'settings' ? <SettingsPage parentLists={parentLists} childLists={childLists} onUpdate={fetchSystemLists} /> : (
+          {activeMenu === 'settings' ? (
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden"><SettingsPage parentLists={parentLists} childLists={childLists} onUpdate={fetchSystemLists} /></div>
+          ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {activeMenu === 'birthdays' ? displayedMembers.map(m => <BirthdayCard key={m.id} member={m} roles={roles} onClick={() => setSelectedMember(m)} />) :
-               activeMenu === 'recent' ? displayedMembers.map(m => <RecentMemberCard key={m.id} member={m} roles={roles} onClick={() => setSelectedMember(m)} />) :
-               !familyView ? displayedMembers.map(m => <MemberCard key={m.id} member={m} age={calcAge(m.birthday)} roles={roles} childLists={childLists} onClick={() => setSelectedMember(m)} />) :
-               displayedFamilies.map((fid: any) => <FamilyCard key={fid} familyLabel={getFamilyLabel(fid)} members={displayedMembers.filter(m => m.family_id === fid)} roles={roles} familyAddress={displayedMembers.find(m => m.family_id === fid && m.address)?.address} onMemberClick={setSelectedMember} childLists={childLists} />)
-              }
+              {activeMenu === 'birthdays' ? (
+                displayedMembers.map(m => <BirthdayCard key={m.id} member={m} roles={roles} onClick={() => setSelectedMember(m)} />)
+              ) : activeMenu === 'recent' ? (
+                displayedMembers.map(m => <RecentMemberCard key={m.id} member={m} roles={roles} onClick={() => setSelectedMember(m)} />)
+              ) : !familyView ? (
+                displayedMembers.map(m => <MemberCard key={m.id} member={m} age={calcAge(m.birthday)} roles={roles} childLists={childLists} onClick={() => setSelectedMember(m)} />)
+              ) : (
+                displayedFamilies.map((fid: any) => (
+                  <FamilyCard key={fid} familyLabel={getFamilyLabel(fid)} members={displayedMembers.filter(m => m.family_id === fid)} roles={roles} familyAddress={displayedMembers.find(m => m.family_id === fid && m.address)?.address} onMemberClick={(m) => setSelectedMember(m)} childLists={childLists} />
+                ))
+              )}
             </div>
           )}
           {displayedMembers.length === 0 && <div className="text-center py-20 text-slate-400 font-medium">No results found</div>}
@@ -1746,7 +1705,6 @@ function App() {
     </div>
   );
 }
-
 export default App;
 
 function useTypingPlaceholder(text: string, speed = 80) {
