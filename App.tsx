@@ -1353,31 +1353,57 @@ function App() {
 
   // 데이터 로드
   const load = async (actionType?: 'save' | 'delete', memberId?: string) => {
-    try {
-      if (members.length === 0) setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setUserRole(null); setLoading(false); return; }
+  try {
+    // 데이터 로딩 중 표시 (데이터가 없을 때만)
+    if (members.length === 0) setLoading(true);
 
-      const [membersRes, familiesRes, rolesRes, profileRes] = await Promise.all([
-        supabase.from('members').select('*'),
-        supabase.from('families').select('*'),
-        supabase.from('roles').select('*'),
-        supabase.from('profiles').select('role').eq('id', user.id).single()
-      ]);
-      
-      const newMembers = (membersRes.data || []).map(m => normalizeMember(m));
-      setMembers(newMembers);
-      setFamilies(familiesRes.data || []);
-      setRoles(rolesRes.data || []);
-      setUserRole((profileRes.data?.role as 'admin' | 'user') || 'user');
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setUserRole(null);
+      setLoading(false);
+      return;
+    }
 
-      if (selectedMember) {
-        const updated = newMembers.find(m => m.id === (memberId || selectedMember.id));
-        if (updated) setSelectedMember(updated);
-        else if (actionType === 'delete') setSelectedMember(null);
+    // 1. 모든 데이터(멤버, 가족, 직분, 프로필)를 새로 가져옴
+    const [membersRes, familiesRes, rolesRes, profileRes] = await Promise.all([
+      supabase.from('members').select('*'),
+      supabase.from('families').select('*'),
+      supabase.from('roles').select('*'),
+      supabase.from('profiles').select('role').eq('id', user.id).single()
+    ]);
+    
+    const newMembers = (membersRes.data || []).map(m => normalizeMember(m));
+    
+    // 2. 상태 업데이트 (가족, 직분 리스트도 반드시 업데이트해야 함)
+    setMembers(newMembers);
+    setFamilies(familiesRes.data || []);
+    setRoles(rolesRes.data || []);
+    setUserRole((profileRes.data?.role as 'admin' | 'user') || 'user');
+
+    // 3. ⭐ 핵심: 수정/추가 후 상세 모달로 이동하는 로직
+    if (memberId) {
+      // 새로 추가하거나 수정한 멤버의 ID가 들어온 경우 -> 그 사람의 상세창을 띄움
+      const target = newMembers.find(m => m.id === memberId);
+      if (target) {
+        setSelectedMember(target);
       }
-    } catch (e) { console.error('Load error:', e); } finally { setLoading(false); }
-  };
+    } else if (selectedMember && actionType !== 'delete') {
+      // memberId는 없지만 기존에 상세창이 열려있었던 경우 -> 데이터만 최신화
+      const updated = newMembers.find(m => m.id === selectedMember.id);
+      if (updated) {
+        setSelectedMember(updated);
+      }
+    } else if (actionType === 'delete') {
+      // 삭제한 경우 상세창 닫기
+      setSelectedMember(null);
+    }
+
+  } catch (e) {
+    console.error('Load error:', e);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleEditMember = (member: any) => {
     const latestMemberData = members.find(m => m.id === member.id) || member;
@@ -1534,7 +1560,7 @@ function App() {
           <div className="px-4 lg:px-6 py-3">
             <div className="flex items-center gap-2 lg:gap-3">
               <button onClick={() => resetToInitialView('active')} className="p-1 rounded-lg hover:bg-slate-100 transition flex-shrink-0">
-                <img src="/apple-touch-icon.png" alt="Home" className="w-8 h-8 object-contain" />
+                <img src="/favicon-32.png" alt="Home" className="w-8 h-8 object-contain" />
               </button>
               <div className="relative flex-1 max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
