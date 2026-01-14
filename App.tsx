@@ -1456,48 +1456,62 @@ function App() {
     return head ? head.korean_name : 'Family';
   };
 
+  // 메인 데이터 계산 로직
   const { displayedMembers, displayedFamilies, totalFamiliesCount, totalPeopleCount, activeMembersCount, familiesCount, birthdaysCount } = useMemo(() => {
-    let filtered = members;
+    // 1. 먼저 필터 조건에 맞는 '당사자들'을 찾습니다.
+    let filterMatchedMembers = members;
 
     if (activeMenu === 'birthdays') {
-      filtered = filtered.filter((m) => m.birthday && (new Date(m.birthday).getMonth()) === activeBirthdayMonth);
+      filterMatchedMembers = filterMatchedMembers.filter((m) => m.birthday && (new Date(m.birthday).getMonth()) === activeBirthdayMonth);
     } else if (activeMenu === 'recent') {
-      filtered = filtered.filter((m) => m.registration_date && m.registration_date >= recentDateRange.from && m.registration_date <= recentDateRange.to);
+      filterMatchedMembers = filterMatchedMembers.filter((m) => m.registration_date && m.registration_date >= recentDateRange.from && m.registration_date <= recentDateRange.to);
     } else if (activeMenu === 'filter' && selectedFilter) {
       const parent = parentLists.find(p => p.id === selectedFilter.parent_id);
       const pType = (parent?.type || '').trim().toLowerCase();
       const cName = selectedFilter.name.trim().toLowerCase().replace(/\s+/g, '');
-      filtered = filtered.filter(m => {
+      filterMatchedMembers = filterMatchedMembers.filter(m => {
         const val = (m as any)[pType];
         if (Array.isArray(val)) return val.some(v => (v || '').toString().trim().toLowerCase().replace(/\s+/g, '') === cName);
         return val?.toString().trim().toLowerCase().replace(/\s+/g, '') === cName;
       });
     }
 
+    // Active Only 적용
     if (activeOnly && activeMenu !== 'filter') {
-      filtered = filtered.filter((m) => m.status?.toLowerCase() === 'active');
+      filterMatchedMembers = filterMatchedMembers.filter((m) => m.status?.toLowerCase() === 'active');
     }
 
+    // 검색어 필터링 (필터된 결과 내에서 검색)
     const query = searchQuery.trim().toLowerCase();
     if (query) {
-      const matchedMembers = filtered.filter((m) => {
+      filterMatchedMembers = filterMatchedMembers.filter((m) => {
         const nameKo = (m.korean_name || '').toLowerCase();
         const nameEn = (m.english_name || '').toLowerCase();
         const phoneDigits = (m.phone || '').replace(/[^0-9]/g, '');
         const queryDigits = query.replace(/[^0-9]/g, '');
         return nameKo.includes(query) || nameEn.includes(query) || (queryDigits && phoneDigits.includes(queryDigits));
       });
-      const matchedFamilyIds = Array.from(new Set(matchedMembers.map(m => m.family_id).filter(Boolean)));
-      filtered = filtered.filter(m => (m.family_id && matchedFamilyIds.includes(m.family_id)) || matchedMembers.some(mm => mm.id === m.id));
     }
 
-    const sorted = [...filtered].sort((a, b) => {
+    // 2. ⭐ 핵심: 필터에 걸린 멤버들의 family_id 세트를 만듭니다.
+    const matchedFamilyIdsSet = new Set(filterMatchedMembers.map(m => m.family_id).filter(Boolean));
+
+    // 3. Family View 여부에 따라 보여줄 멤버 리스트 결정
+    // Family View이면 해당 가족 전원을, Card View이면 필터된 당사자만 보여줍니다.
+    const finalMembersToShow = familyView 
+      ? members.filter(m => matchedFamilyIdsSet.has(m.family_id)) 
+      : filterMatchedMembers;
+
+    // 4. 정렬 로직 적용
+    const sorted = [...finalMembersToShow].sort((a, b) => {
+      // 생일 모드 정렬
       if (activeMenu === 'birthdays') {
         const dA = a.birthday ? parseInt(a.birthday.split('-')[2], 10) : 0;
         const dB = b.birthday ? parseInt(b.birthday.split('-')[2], 10) : 0;
         return dA - dB || a.korean_name.localeCompare(b.korean_name, 'ko');
       }
 
+      // 검색 모드 정렬 (검색자 > 가족대표 > 나이순)
       if (query) {
         const isMatch = (m: Member) => {
           const nK = m.korean_name.toLowerCase();
@@ -1514,29 +1528,36 @@ function App() {
         return (calcAge(b.birthday) || 0) - (calcAge(a.birthday) || 0);
       }
 
+      // 최신 등록 모드 정렬
       if (activeMenu === 'recent') {
         return (b.registration_date || '').localeCompare(a.registration_date || '') || a.korean_name.localeCompare(b.korean_name, 'ko');
       }
 
+      // 기본 정렬 (이름/나이)
       let res = 0;
       if (sortBy === 'name') res = a.korean_name.localeCompare(b.korean_name, 'ko');
       else if (sortBy === 'age') res = (calcAge(a.birthday) || 0) - (calcAge(b.birthday) || 0);
       return sortOrder === 'asc' ? res : -res;
     });
 
-    const searchedFamilyIds = Array.from(new Set(filtered.map((m) => m.family_id).filter(Boolean)));
-    const sortedFamilyIds = (searchedFamilyIds as string[]).sort((idA, idB) => getFamilyLabel(idA).localeCompare(getFamilyLabel(idB), 'ko'));
+    // 가족 ID 리스트 정렬 (Family View 렌더링용)
+    const sortedFamilyIds = Array.from(matchedFamilyIdsSet).sort((idA, idB) => 
+      getFamilyLabel(idA).localeCompare(getFamilyLabel(idB), 'ko')
+    );
+
+    // 통계용 데이터
+    const activePeople = members.filter(m => m.status?.toLowerCase() === 'active');
 
     return { 
       displayedMembers: sorted, 
       displayedFamilies: sortedFamilyIds,
-      totalFamiliesCount: sortedFamilyIds.length,
-      totalPeopleCount: filtered.length,
-      activeMembersCount: members.filter(m => m.status?.toLowerCase() === 'active').length, 
-      familiesCount: new Set(members.filter(m => m.status?.toLowerCase() === 'active').map(m => m.family_id)).size, 
+      totalFamiliesCount: matchedFamilyIdsSet.size,
+      totalPeopleCount: filterMatchedMembers.length, // 필터에 '딱 걸린' 사람 수
+      activeMembersCount: activePeople.length, 
+      familiesCount: new Set(activePeople.map(m => m.family_id)).size, 
       birthdaysCount: members.filter(m => m.birthday && (new Date(m.birthday).getMonth()) === new Date().getMonth()).length 
     };
-  }, [members, searchQuery, activeOnly, sortBy, sortOrder, activeMenu, selectedFilter, parentLists, recentDateRange, activeBirthdayMonth]);
+    }, [members, searchQuery, activeOnly, sortBy, sortOrder, activeMenu, selectedFilter, parentLists, recentDateRange, activeBirthdayMonth, familyView]);
 
   if (loading) return <div className="h-screen flex items-center justify-center text-slate-400">Loading...</div>;
   if (!userRole) return <Login onLogin={(role) => { setUserRole(role); load(); }} />;
@@ -1560,7 +1581,7 @@ function App() {
           <div className="px-4 lg:px-6 py-3">
             <div className="flex items-center gap-2 lg:gap-3">
               <button onClick={() => resetToInitialView('active')} className="p-1 rounded-lg hover:bg-slate-100 transition flex-shrink-0">
-                <img src="/apple-touch-icon.png" alt="Home" className="w-8 h-8 object-contain" />
+                <img src="/public/apple-touch-icon.png" alt="Home" className="w-8 h-8 object-contain" />
               </button>
               <div className="relative flex-1 max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
