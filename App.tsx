@@ -649,7 +649,7 @@ function App() {
 
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="bg-white/95 border-b border-slate-200 px-4 lg:px-6 py-3 sticky top-0 z-30 flex items-center gap-3">
-          <button onClick={() => resetToInitialView('active')} className="p-1 hover:bg-slate-100 rounded-lg transition-colors"><img src="/favicon-32.png" className="w-8 h-8" alt="Logo" /></button>
+          <button onClick={() => resetToInitialView('active')} className="p-1 hover:bg-slate-100 rounded-lg transition-colors"><img src="/apple-touch-icon.png" className="w-8 h-8" alt="Logo" /></button>
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input ref={searchInputRef} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && setSearchQuery('')} className="w-full pl-9 pr-9 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-100 outline-none text-sm" placeholder={placeholder} />
