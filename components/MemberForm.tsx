@@ -42,7 +42,6 @@ interface MemberFormProps {
 const RELATIONSHIPS = ['Head', 'Spouse', 'Son', 'Daughter', 'Parent', 'Sibling', 'Other'];
 
 export default function MemberForm({ isOpen, onClose, onSuccess, initialData, parentLists, childLists }: MemberFormProps) {
-  // 1. 모든 Hook은 최상단에
   const [members, setMembers] = useState<MemberData[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeMemberIndex, setActiveMemberIndex] = useState(0);
@@ -53,9 +52,9 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
   const [editingMemoText, setEditingMemoText] = useState('');
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
 
-  const currentMember = members[activeMemberIndex] || null;
+  // 현재 선택된 멤버 (데이터가 없을 경우 null 반환)
+  const currentMember = members.length > 0 ? members[activeMemberIndex] : null;
 
-  // 2. 유틸리티 함수
   const getTagParentId = () => parentLists.find(p => p.name === '태그' || p.type?.toLowerCase() === 'tags')?.id;
   const availableTags = useMemo(() => localChildLists.filter(c => c.parent_id === getTagParentId()), [localChildLists, parentLists]);
 
@@ -98,14 +97,11 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
     updateMember(activeMemberIndex, { [field]: f });
   };
 
-  // 3. 비즈니스 로직
-
-  // ⭐ 대표자 중복 체크 및 자동 성별 로직이 포함된 업데이트 함수
   const updateMember = (index: number, updates: Partial<MemberData>) => {
     const newMembers = [...members];
+    if (!newMembers[index]) return;
     const target = { ...newMembers[index], ...updates };
 
-    // 가. 중복 대표자 체크
     if (updates.relationship === 'Head') {
       const existingHeadIndex = newMembers.findIndex((m, i) => i !== index && (m.relationship === 'Head' || m.is_head));
       if (existingHeadIndex !== -1) {
@@ -115,7 +111,6 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
       target.is_head = true;
     }
 
-    // 나. 관계 변경에 따른 자동 성별 선택 로직
     if (updates.relationship) {
       const head = newMembers.find(m => m.relationship === 'Head' || m.is_head);
       if (updates.relationship === 'Spouse' && head?.gender) {
@@ -191,7 +186,6 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
   };
 
   const handleSaveMembers = async () => {
-    // 필수 항목 검증
     const invalidMember = members.find(m => !m.korean_name.trim() || !m.relationship || !m.gender);
     if (invalidMember) {
       alert(`⚠️ [${invalidMember.korean_name || '새 멤버'}]님의 한글 이름, 관계, 성별을 모두 입력해주세요.`);
@@ -204,6 +198,7 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
       let familyId = initialData?.family_id || members.find(m => m.family_id)?.family_id || null;
       if (!familyId) {
         const { data: newFam } = await supabase.from('families').insert({ family_name: members[0].korean_name }).select().single();
+        if (!newFam) throw new Error("Family creation failed");
         familyId = newFam.id;
       }
       let currentIdToReturn = '';
@@ -211,13 +206,14 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
         const m = members[i];
         const finalData = { ...m, family_id: familyId, birthday: m.birthday || null, baptism_date: m.baptism_date || null, registration_date: m.registration_date || null };
         const id = finalData.id;
-        delete (finalData as any).id;
-        delete (finalData as any).is_head;
+        const sendData = { ...finalData };
+        delete (sendData as any).id;
+        delete (sendData as any).is_head;
         if (id) {
-          await supabase.from('members').update(finalData).eq('id', id);
+          await supabase.from('members').update(sendData).eq('id', id);
           if (i === activeMemberIndex) currentIdToReturn = id;
         } else {
-          const { data: nData } = await supabase.from('members').insert(finalData).select().single();
+          const { data: nData } = await supabase.from('members').insert(sendData).select().single();
           if (i === activeMemberIndex) currentIdToReturn = nData.id;
         }
       }
@@ -225,7 +221,6 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
     } catch (error) { alert('저장 실패'); } finally { setLoading(false); }
   };
 
-  // 4. 데이터 로드 로직
   const loadFamily = async (member: any) => {
     setLoading(true);
     try {
@@ -241,7 +236,6 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
           const sorted = sortMembers(mapped);
           setMembers(sorted);
           setActiveMemberIndex(sorted.findIndex(m => m.id === member.id));
-          setLoading(false);
           return;
         }
       }
@@ -250,7 +244,6 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
     } catch (err) { console.error(err); } finally { setLoading(false); }
   };
 
-  // ⭐ 가족 추가 함수 (기본값 Spouse, 성별 여, 즉시 활성화)
   const createEmptyMember = (isHead = false): MemberData => ({
     korean_name: '', english_name: '', gender: 'Female', birthday: '', phone: '', email: '',
     address: members[0]?.address || '', relationship: isHead ? 'Head' : 'Spouse',
@@ -262,7 +255,7 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
     const newM = createEmptyMember(false);
     const updated = [...members, newM];
     setMembers(updated);
-    setActiveMemberIndex(updated.length - 1); // 추가 즉시 활성화
+    setActiveMemberIndex(updated.length - 1);
   };
 
   useEffect(() => {
@@ -293,7 +286,8 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
   };
 
   const handleUpdateMemo = (idx: number) => {
-    const currentMemos = (currentMember?.memo || "").split('\n\n').filter(Boolean);
+    if (!currentMember) return;
+    const currentMemos = (currentMember.memo || "").split('\n\n').filter(Boolean);
     const match = currentMemos[idx].match(/^\[(.*?)\] (.*)$/s);
     const ts = match ? match[1] : new Date().toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
     currentMemos[idx] = `[${ts}] ${editingMemoText.trim()}`;
@@ -301,7 +295,8 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
     setEditingMemoIndex(null);
   };
 
-  if (!isOpen) return null;
+  // ✅ 중요: 데이터가 준비되지 않았을 때 렌더링을 차단하여 photo_url null 에러를 방지합니다.
+  if (!isOpen || !currentMember) return null;
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[60] flex items-center justify-center p-2 sm:p-4 overflow-hidden">
@@ -335,7 +330,6 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
           <div className="flex-1 overflow-y-auto p-6 sm:p-10 custom-scrollbar">
             <div className="max-w-5xl mx-auto space-y-12">
               
-              {/* Profile Header Row */}
               <div className="flex flex-col md:flex-row gap-10 items-start">
                 <div className="flex flex-col items-center gap-4 mx-auto md:mx-0">
                   <div className="relative">
@@ -378,17 +372,15 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
                 </div>
               </div>
 
-              {/* Contact & Address */}
               <section className="space-y-6">
                 <div className="flex items-center gap-3 pb-2 border-b border-slate-100"><div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center"><Phone className="w-4 h-4 text-blue-600" /></div><h3 className="font-black text-slate-800 uppercase tracking-wider text-sm">Contact & Address</h3></div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6">
                   <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Phone Number</label><input type="tel" value={currentMember.phone} onChange={(e) => updateMember(activeMemberIndex, { phone: formatPhoneNumber(e.target.value) })} className="w-full bg-white border-b-2 border-slate-100 focus:border-blue-500 px-1 py-2 font-semibold outline-none" placeholder="000-000-0000" /></div>
-                  <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Email</label><input type="email" value={currentMember.email} onChange={(e) => updateMember(activeMemberIndex, { email: e.target.value })} className="w-full bg-white border-b-2 border-slate-100 focus:border-blue-500 px-1 py-2 font-semibold outline-none" placeholder="example@email.com" /></div>
+                  <div className="space-y-1"><label className="text-[10px) font-black text-slate-400 uppercase ml-1">Email</label><input type="email" value={currentMember.email} onChange={(e) => updateMember(activeMemberIndex, { email: e.target.value })} className="w-full bg-white border-b-2 border-slate-100 focus:border-blue-500 px-1 py-2 font-semibold outline-none" placeholder="example@email.com" /></div>
                   <div className="sm:col-span-2 space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Home Address</label><input type="text" value={currentMember.address} onChange={(e) => updateMember(activeMemberIndex, { address: e.target.value })} className="w-full bg-white border-b-2 border-slate-100 focus:border-blue-500 px-1 py-2 font-semibold outline-none" placeholder="Enter full address" /></div>
                 </div>
               </section>
 
-              {/* Church & Administration */}
               <section className="space-y-6">
                 <div className="flex items-center gap-3 pb-2 border-b border-slate-100"><div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center"><Briefcase className="w-4 h-4 text-blue-600" /></div><h3 className="font-black text-slate-800 uppercase tracking-wider text-sm">Church & Administration</h3></div>
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
@@ -410,7 +402,6 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
                 </div>
               </section>
 
-              {/* Tags Section */}
               <section className="space-y-6 p-8 bg-slate-50/50 rounded-[2rem]">
                 <div className="flex items-center gap-2"><Tag className="text-purple-500" size={20} /><h3 className="text-sm font-black text-slate-700 uppercase tracking-widest">Global Tags</h3></div>
                 <div className="flex flex-wrap gap-2">
@@ -421,11 +412,9 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
                         updateMember(activeMemberIndex, { tags: Array.from(new Set(next)) });
                     }} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${currentMember.tags?.includes(tag.name) ? 'bg-purple-600 border-purple-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-500 hover:border-purple-300'}`}>#{tag.name}</button>
                   ))}
-                  <div className="relative flex items-center"><input type="text" placeholder="New Tag..." className="pl-4 pr-10 py-2 rounded-xl border-2 border-dashed border-slate-200 focus:border-purple-400 outline-none text-xs font-bold w-32" onKeyDown={(e) => { if (e.key === 'Enter') { handleAddTag((e.target as HTMLInputElement).value); (e.target as HTMLInputElement).value = ''; } }} /><Plus className="absolute right-3 w-4 h-4 text-slate-300" /></div>
                 </div>
               </section>
 
-              {/* Memo Section */}
               <section className="space-y-6">
                 <div className="flex items-center gap-2"><Info className="text-amber-500" size={20} /><h3 className="text-sm font-black text-slate-700 uppercase tracking-widest">Memo Log</h3></div>
                 <div className="flex gap-4">
