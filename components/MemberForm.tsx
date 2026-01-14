@@ -247,41 +247,86 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
     } catch (err) { console.error(err); } finally { setLoading(false); }
   };
 
-  const createEmptyMember = (isHead = false): MemberData => {
-    const head = members.find(m => m.relationship === 'Head' || m.is_head);
-    let defaultGender: 'Male' | 'Female' = 'Female';
-    let defaultRel = isHead ? 'Head' : 'Spouse';
+  const createEmptyMember = (isHead = false, shouldInherit = false): MemberData => {
+  // shouldInherit가 true일 때만 기존 가족(members[0])의 정보를 가져옴
+  const baseMember = shouldInherit ? members[0] : null;
+  
+  const head = members.find(m => m.relationship === 'Head' || m.is_head);
+  let defaultGender: 'Male' | 'Female' | '' = '';
+  let defaultRel = isHead ? 'Head' : 'Spouse';
 
-    if (!isHead && head?.gender) {
-      if (defaultRel === 'Spouse') defaultGender = head.gender === 'Male' ? 'Female' : 'Male';
-    }
+  if (!isHead && head?.gender) {
+    if (defaultRel === 'Spouse') defaultGender = head.gender === 'Male' ? 'Female' : 'Male';
+  }
 
-    return {
-      korean_name: '', english_name: '', gender: defaultGender, birthday: '', phone: '', email: '',
-      address: members[0]?.address || '', relationship: defaultRel,
-      is_baptized: false, baptism_date: '', registration_date: new Date().toISOString().split('T')[0],
-      offering_number: '', for_slip: '', memo: '', photo_url: '', tags: [], status: 'Active', role: '', mokjang: members[0]?.mokjang || '', is_head: isHead
-    };
+  return {
+    korean_name: '',
+    english_name: '',
+    gender: defaultGender as any,
+    birthday: '',
+    phone: '',
+    email: '',
+    address: baseMember?.address || '', // 상속 여부에 따라 빈칸 혹은 기존 주소
+    relationship: defaultRel,
+    is_baptized: false,
+    baptism_date: '',
+    registration_date: new Date().toISOString().split('T')[0],
+    offering_number: '',
+    for_slip: '',
+    memo: '',
+    photo_url: '',
+    tags: [],
+    status: 'Active',
+    role: '',
+    mokjang: baseMember?.mokjang || '', // 상속 여부에 따라 빈칸 혹은 기존 목장
+    is_head: isHead
   };
+};
 
   const handleAddFamilyMember = () => {
-    const newM = createEmptyMember(false);
-    const updated = [...members, newM];
-    setMembers(updated);
-    setActiveMemberIndex(updated.length - 1);
-  };
+  // 가족 구성원을 추가할 때는 기존 주소/목장을 상속받음 (true 전달)
+  const newM = createEmptyMember(false, true); 
+  const updated = [...members, newM];
+  setMembers(updated);
+  setActiveMemberIndex(updated.length - 1);
+};
 
-  useEffect(() => {
-    if (isOpen) {
-      setDuplicateWarning(null);
-      setLocalChildLists(childLists);
-      if (initialData) loadFamily(initialData);
-      else {
-        setMembers([createEmptyMember(true)]);
-        setActiveMemberIndex(0);
-      }
+ useEffect(() => {
+  if (isOpen) {
+    setDuplicateWarning(null);
+    setLocalChildLists(childLists);
+    
+    if (initialData) {
+      loadFamily(initialData);
+    } else {
+      // 1. 완전히 새로운 등록일 경우, 빈 데이터로 직접 초기화
+      const freshMember: MemberData = {
+        korean_name: '',
+        english_name: '',
+        gender: '',
+        birthday: '',
+        phone: '',
+        email: '',
+        address: '', // 확실히 빈칸으로 설정
+        relationship: 'Head',
+        is_baptized: false,
+        baptism_date: '',
+        registration_date: new Date().toISOString().split('T')[0],
+        offering_number: '',
+        for_slip: '',
+        memo: '',
+        photo_url: '',
+        tags: [],
+        status: 'Active',
+        role: '',
+        mokjang: '', // 확실히 빈칸으로 설정
+        is_head: true
+      };
+      setMembers([freshMember]);
+      setActiveMemberIndex(0);
     }
-  }, [isOpen, initialData]);
+  }
+}, [isOpen, initialData]);
 
   useEffect(() => {
     if (!isOpen) return;
