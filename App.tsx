@@ -176,6 +176,7 @@ const STATUS_COLORS: Record<string, string> = {
 function Sidebar({ activeMembersCount, familiesCount, birthdaysCount, activeOnly, sidebarOpen, onCloseSidebar, onClickActiveMembers, onSelectMenu, parentLists, childLists, onSelectFilter, activeMenu, selectedFilter, members, onNewMember, onSignOut, userRole }: { activeMembersCount: number; familiesCount: number; birthdaysCount: number; activeOnly: boolean; sidebarOpen: boolean; onCloseSidebar: () => void; onClickActiveMembers: () => void; onSelectMenu: (menu: MenuKey) => void; parentLists: ParentList[]; childLists: ChildList[]; onSelectFilter: (parentType: string, child: ChildList) => void; activeMenu: MenuKey; selectedFilter: ChildList | null; members: Member[]; onNewMember: () => void; onSignOut: () => void; userRole: 'admin' | 'user' | null; }) {
   const [now, setNow] = useState(new Date());
   const [expandedParents, setExpandedParents] = useState<Record<string, boolean>>({});
+  
 
   useEffect(() => {
     const interval = setInterval(() => setNow(new Date()), 60_000);
@@ -733,34 +734,35 @@ function BirthdayCard({
   roles: Role[];
   onClick: () => void;
 }) {
-  const age = calcAge(member.birthday);
   const roleMeta = roles.find(r => r.name === member.role);
 
-  const date = member.birthday ? new Date(member.birthday) : null;
-  const month = date?.toLocaleString('en', { month: 'short' }).toUpperCase();
-  const day = date ? date.getDate() : '';
+  // 1. 타임존 오류를 방지하기 위해 문자열을 '-'로 잘라서 직접 숫자를 가져옵니다.
+  const birthdayStr = member.birthday || ''; // 예: "1990-05-15"
+  const parts = birthdayStr.split('-');
+  
+  const year = parts[0];
+  const monthIdx = parseInt(parts[1], 10) - 1; // 0-indexed (Jan is 0)
+  const day = parts[2]; // "15"
+
+  // 월 이름을 가져오기 위한 처리
+  const monthName = !isNaN(monthIdx) 
+    ? new Date(2024, monthIdx, 1).toLocaleString('en', { month: 'short' }).toUpperCase()
+    : '';
+
+  // 2. 나이 계산: "Turning X" (올해 몇 살이 되는가)
+  // 단순히 (현재 연도 - 태어난 연도)를 하면 올해 생일에 맞이할 나이가 됩니다.
+  const currentYear = new Date().getFullYear();
+  const birthYear = parseInt(year, 10);
+  const turningAge = !isNaN(birthYear) ? currentYear - birthYear : null;
 
   return (
     <div
         onClick={onClick}
-        className="
-          bg-white
-          rounded-2xl
-          border border-slate-100
-          px-4 py-3
-          shadow-sm
-          hover:shadow-md
-          transition
-          cursor-pointer
-          flex items-center gap-4
-          w-full
-        "
+        className="bg-white rounded-2xl border border-slate-100 px-4 py-3 shadow-sm hover:shadow-md transition cursor-pointer flex items-center gap-4 w-full"
       >
-
-
-      {/* Date */}
+      {/* Date: 문자열에서 직접 가져온 day를 사용 */}
       <div className="w-12 h-14 rounded-xl bg-slate-50 border border-slate-100 flex flex-col items-center justify-center flex-shrink-0">
-        <div className="text-[10px] font-bold text-pink-500">{month}</div>
+        <div className="text-[10px] font-bold text-pink-500">{monthName}</div>
         <div className="text-xl font-black text-slate-800">{day}</div>
       </div>
 
@@ -771,22 +773,14 @@ function BirthdayCard({
             {member.korean_name}
           </span>
           <span className="text-base font-extrabold text-slate-600 whitespace-nowrap">
-            Turning {age !== null ? age + 1 : '-'}
+            {/* Turning 뒤에 정확한 나이 표시 */}
+            Turning {turningAge !== null ? turningAge : '-'}
           </span>
         </div>
 
         <div className="mt-1">
           <span
-            className={`
-              inline-block
-              px-2.5 py-1
-              rounded-md
-              text-[11px]
-              font-bold
-              ${roleMeta?.bg_color || 'bg-slate-100'}
-              ${roleMeta?.text_color || 'text-slate-600'}
-              bg-opacity-20
-            `}
+            className={`inline-block px-2.5 py-1 rounded-md text-[11px] font-bold ${roleMeta?.bg_color || 'bg-slate-100'} ${roleMeta?.text_color || 'text-slate-600'} bg-opacity-20`}
           >
             {member.role || 'Member'}
           </span>
@@ -1505,9 +1499,16 @@ function App() {
   // 메인 데이터 계산 로직
   const { displayedMembers, displayedFamilies, totalFamiliesCount, totalPeopleCount, activeMembersCount, familiesCount, birthdaysCount } = useMemo(() => {
     let filterMatchedMembers = members;
+ 
+  if (activeMenu === 'birthdays') {
+    filterMatchedMembers = filterMatchedMembers.filter((m) => {
+      if (!m.birthday) return false;
+      // '2024-02-01' -> ['2024', '02', '01'] -> 두 번째 값 '02'를 숫자로 변환
+      const birthMonth = parseInt(m.birthday.split('-')[1], 10); 
+      // parseInt('02')는 2이므로, 0부터 시작하는 index와 비교하기 위해 1을 뺍니다.
+      return (birthMonth - 1) === activeBirthdayMonth;
+    });
 
-    if (activeMenu === 'birthdays') {
-      filterMatchedMembers = filterMatchedMembers.filter((m) => m.birthday && (new Date(m.birthday).getMonth()) === activeBirthdayMonth);
     } else if (activeMenu === 'recent') {
       filterMatchedMembers = filterMatchedMembers.filter((m) => m.registration_date && m.registration_date >= recentDateRange.from && m.registration_date <= recentDateRange.to);
     } else if (activeMenu === 'filter' && selectedFilter) {
@@ -1583,6 +1584,8 @@ function App() {
     );
 
     const activePeople = members.filter(m => m.status?.toLowerCase() === 'active');
+    const vancouverNow = new Date().toLocaleString("en-US", {timeZone: "America/Vancouver"});
+    const currentVancouverMonth = new Date(vancouverNow).getMonth();
 
     return { 
       displayedMembers: sorted, 
@@ -1591,8 +1594,12 @@ function App() {
       totalPeopleCount: filterMatchedMembers.length,
       activeMembersCount: activePeople.length, 
       familiesCount: new Set(activePeople.map(m => m.family_id)).size, 
-      birthdaysCount: members.filter(m => m.birthday && (new Date(m.birthday).getMonth()) === new Date().getMonth()).length 
-    };
+      birthdaysCount: members.filter(m => {
+    if (!m.birthday) return false;
+    const birthMonth = parseInt(m.birthday.split('-')[1], 10);
+    return (birthMonth - 1) === currentVancouverMonth; // 현재 밴쿠버 월과 비교
+  }).length 
+};
     }, [members, searchQuery, activeOnly, sortBy, sortOrder, activeMenu, selectedFilter, parentLists, recentDateRange, activeBirthdayMonth, familyView]);
 
   if (loading) return <div className="h-screen flex items-center justify-center text-slate-400">Loading...</div>;
