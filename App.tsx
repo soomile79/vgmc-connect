@@ -176,7 +176,7 @@ const STATUS_COLORS: Record<string, string> = {
 function Sidebar({ activeMembersCount, familiesCount, birthdaysCount, activeOnly, sidebarOpen, onCloseSidebar, onClickActiveMembers, onSelectMenu, parentLists, childLists, onSelectFilter, activeMenu, selectedFilter, members, onNewMember, onSignOut, userRole }: { activeMembersCount: number; familiesCount: number; birthdaysCount: number; activeOnly: boolean; sidebarOpen: boolean; onCloseSidebar: () => void; onClickActiveMembers: () => void; onSelectMenu: (menu: MenuKey) => void; parentLists: ParentList[]; childLists: ChildList[]; onSelectFilter: (parentType: string, child: ChildList) => void; activeMenu: MenuKey; selectedFilter: ChildList | null; members: Member[]; onNewMember: () => void; onSignOut: () => void; userRole: 'admin' | 'user' | null; }) {
   const [now, setNow] = useState(new Date());
   const [expandedParents, setExpandedParents] = useState<Record<string, boolean>>({});
-  
+
 
   useEffect(() => {
     const interval = setInterval(() => setNow(new Date()), 60_000);
@@ -1377,22 +1377,24 @@ function App() {
   });
 
   // 데이터 로드
-  const load = async (actionType?: 'save' | 'delete', memberId?: string) => {
+  const load = async (actionType?: 'save' | 'delete', memberId?: string, showLoader: boolean = false) => {
   try {
-    if (members.length === 0) setLoading(true);
+    // showLoader가 true이거나 데이터가 아예 없으면 로딩 화면 표시
+    if (showLoader || members.length === 0) setLoading(true);
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       setUserRole(null);
-      setLoading(false); // ✅ 수정: 사용자가 없으면 즉시 로딩 해제
+      setLoading(false);
       return;
     }
 
+    // 최신 데이터를 다시 가져옴 (No-cache 효과)
     const [membersRes, familiesRes, rolesRes, profileRes] = await Promise.all([
       supabase.from('members').select('*'),
       supabase.from('families').select('*'),
       supabase.from('roles').select('*'),
-      supabase.from('profiles').select('role').eq('id', user.id).single()
+      supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
     ]);
     
     const newMembers = (membersRes.data || []).map(m => normalizeMember(m));
@@ -1406,16 +1408,13 @@ function App() {
       await fetchSystemLists();
     }
 
+    // 특정 멤버 선택 유지 로직
     if (memberId) {
       const target = newMembers.find(m => m.id === memberId);
-      if (target) {
-        setSelectedMember(target);
-      }
+      if (target) setSelectedMember(target);
     } else if (selectedMember && actionType !== 'delete') {
       const updated = newMembers.find(m => m.id === selectedMember.id);
-      if (updated) {
-        setSelectedMember(updated);
-      }
+      if (updated) setSelectedMember(updated);
     } else if (actionType === 'delete') {
       setSelectedMember(null);
     }
@@ -1423,7 +1422,7 @@ function App() {
   } catch (e) {
     console.error('Load error:', e);
   } finally {
-    setLoading(false); // ✅ 수정: 에러가 나도 로딩 해제
+    setLoading(false);
   }
 };
 
@@ -1473,11 +1472,23 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const resetToInitialView = (menu: MenuKey = 'active') => {
-    setActiveMenu(menu); setSelectedFilter(null); setSearchQuery('');
-    setActiveOnly(true); setFamilyView(false); setSelectedMember(null); setSidebarOpen(false);
-    load();
-    requestAnimationFrame(() => { if (mainScrollRef.current) mainScrollRef.current.scrollTo({ top: 0, behavior: 'auto' }); });
+  const resetToInitialView = async (menu: MenuKey = 'active') => {
+  // 1. 상태 초기화
+  setSidebarOpen(false);
+  setActiveMenu(menu);
+  setSelectedFilter(null);
+  setSearchQuery('');
+  setActiveOnly(true);
+  setFamilyView(false);
+  setSelectedMember(null);
+
+  // 2. 강제 로딩과 함께 데이터 새로고침 (세 번째 인자 true가 강제 로딩)
+  await load(undefined, undefined, true);
+
+  // 3. 스크롤을 맨 위로 이동
+  requestAnimationFrame(() => { 
+    if (mainScrollRef.current) mainScrollRef.current.scrollTo({ top: 0, behavior: 'auto' }); 
+    });
   };
 
   const goToFilter = (parentType: string, child: ChildList) => {
@@ -1612,7 +1623,7 @@ function App() {
       <Sidebar
         activeMembersCount={activeMembersCount} familiesCount={familiesCount} birthdaysCount={birthdaysCount}
         activeOnly={activeOnly} sidebarOpen={sidebarOpen} onCloseSidebar={() => setSidebarOpen(false)}
-        onClickActiveMembers={() => resetToInitialView('active')}
+        onClickActiveMembers={() => resetToInitialView('active')} // 여기서도 로딩 발생
         onSelectMenu={(menu) => resetToInitialView(menu)}
         onSelectFilter={goToFilter}
         activeMenu={activeMenu} selectedFilter={selectedFilter} parentLists={parentLists} childLists={childLists}
@@ -1623,9 +1634,11 @@ function App() {
         <header className="bg-white/95 backdrop-blur-lg border-b border-slate-200 shadow-sm sticky top-0 z-30">
           <div className="px-4 lg:px-6 py-3">
             <div className="flex items-center gap-2 lg:gap-3">
-              <button onClick={() => resetToInitialView('active')} className="p-1 rounded-lg hover:bg-slate-100 transition flex-shrink-0">
-                <img src="/apple-touch-icon.png" alt="Home" className="w-8 h-8 object-contain" />
-              </button>
+              <button 
+              onClick={() => resetToInitialView('active')} // 이제 클릭 시 로딩바가 돌면서 새로고침됨
+              className="p-1 rounded-lg hover:bg-slate-100 transition flex-shrink-0" >
+              <img src="/apple-touch-icon.png" alt="Home" className="w-8 h-8 object-contain" />
+            </button>
               <div className="relative flex-1 max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input ref={searchInputRef} type="text" placeholder={placeholder} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') setSearchQuery(''); }} className="w-full pl-9 pr-9 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-100 text-sm text-slate-700" />
