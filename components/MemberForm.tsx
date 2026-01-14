@@ -51,11 +51,12 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
   const [editingMemoIndex, setEditingMemoIndex] = useState<number | null>(null);
   const [editingMemoText, setEditingMemoText] = useState('');
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
+  const [newTagName, setNewTagName] = useState('');
 
   // 현재 선택된 멤버 (데이터가 없을 경우 null 반환)
   const currentMember = members.length > 0 ? members[activeMemberIndex] : null;
 
-  const getTagParentId = () => parentLists.find(p => p.name === '태그' || p.type?.toLowerCase() === 'tags')?.id;
+  const getTagParentId = () => parentLists.find(p => p.name.trim() === '태그' || p.type?.toLowerCase().trim() === 'tags' || p.name.toLowerCase().trim() === 'tags')?.id;
   const availableTags = useMemo(() => localChildLists.filter(c => c.parent_id === getTagParentId()), [localChildLists, parentLists]);
 
   const sortMembers = (mList: MemberData[]) => {
@@ -111,13 +112,15 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
       target.is_head = true;
     }
 
-    if (updates.relationship) {
+    if (updates.relationship || updates.gender) {
       const head = newMembers.find(m => m.relationship === 'Head' || m.is_head);
-      if (updates.relationship === 'Spouse' && head?.gender) {
+      const rel = updates.relationship || target.relationship;
+      
+      if (rel === 'Spouse' && head?.gender) {
         target.gender = head.gender === 'Male' ? 'Female' : 'Male';
-      } else if (updates.relationship === 'Son') {
+      } else if (rel === 'Son') {
         target.gender = 'Male';
-      } else if (updates.relationship === 'Daughter') {
+      } else if (rel === 'Daughter') {
         target.gender = 'Female';
       }
     }
@@ -244,12 +247,22 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
     } catch (err) { console.error(err); } finally { setLoading(false); }
   };
 
-  const createEmptyMember = (isHead = false): MemberData => ({
-    korean_name: '', english_name: '', gender: 'Female', birthday: '', phone: '', email: '',
-    address: members[0]?.address || '', relationship: isHead ? 'Head' : 'Spouse',
-    is_baptized: false, baptism_date: '', registration_date: new Date().toISOString().split('T')[0],
-    offering_number: '', for_slip: '', memo: '', photo_url: '', tags: [], status: 'Active', role: '', mokjang: members[0]?.mokjang || '', is_head: isHead
-  });
+  const createEmptyMember = (isHead = false): MemberData => {
+    const head = members.find(m => m.relationship === 'Head' || m.is_head);
+    let defaultGender: 'Male' | 'Female' = 'Female';
+    let defaultRel = isHead ? 'Head' : 'Spouse';
+
+    if (!isHead && head?.gender) {
+      if (defaultRel === 'Spouse') defaultGender = head.gender === 'Male' ? 'Female' : 'Male';
+    }
+
+    return {
+      korean_name: '', english_name: '', gender: defaultGender, birthday: '', phone: '', email: '',
+      address: members[0]?.address || '', relationship: defaultRel,
+      is_baptized: false, baptism_date: '', registration_date: new Date().toISOString().split('T')[0],
+      offering_number: '', for_slip: '', memo: '', photo_url: '', tags: [], status: 'Active', role: '', mokjang: members[0]?.mokjang || '', is_head: isHead
+    };
+  };
 
   const handleAddFamilyMember = () => {
     const newM = createEmptyMember(false);
@@ -283,6 +296,40 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
     const currentMemos = (currentMember.memo || "").split('\n\n').filter(Boolean);
     updateMember(activeMemberIndex, { memo: [`[${ts}] ${newMemo.trim()}`, ...currentMemos].join('\n\n') });
     setNewMemo('');
+  };
+
+  const handleAddNewTag = async () => {
+    const name = newTagName.trim();
+    if (!name) return;
+    const parentId = getTagParentId();
+    if (!parentId) { alert("태그 부모 리스트를 찾을 수 없습니다."); return; }
+
+    if (localChildLists.some(c => c.parent_id === parentId && c.name === name)) {
+      alert("이미 존재하는 태그입니다.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.from('child_lists').insert({
+        parent_id: parentId,
+        name: name,
+        order: localChildLists.filter(c => c.parent_id === parentId).length + 1
+      }).select().single();
+
+      if (error) throw error;
+      if (data) {
+        setLocalChildLists(prev => [...prev, data]);
+        const cur = currentMember?.tags || [];
+        updateMember(activeMemberIndex, { tags: Array.from(new Set([...cur, data.name])) });
+        setNewTagName('');
+      }
+    } catch (err) {
+      console.error(err);
+      alert("태그 추가 실패");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleUpdateMemo = (idx: number) => {
@@ -412,6 +459,22 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
                         updateMember(activeMemberIndex, { tags: Array.from(new Set(next)) });
                     }} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${currentMember.tags?.includes(tag.name) ? 'bg-purple-600 border-purple-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-500 hover:border-purple-300'}`}>#{tag.name}</button>
                   ))}
+                  <div className="flex items-center gap-2 ml-2">
+                    <input 
+                      type="text" 
+                      value={newTagName} 
+                      onChange={(e) => setNewTagName(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddNewTag()}
+                      placeholder="New Tag..." 
+                      className="px-3 py-2 rounded-xl text-xs font-bold border border-slate-200 outline-none focus:border-purple-300 w-24 sm:w-32"
+                    />
+                    <button 
+                      onClick={handleAddNewTag}
+                      className="p-2 bg-purple-100 text-purple-600 rounded-xl hover:bg-purple-200 transition-colors"
+                    >
+                      <Plus size={16} />
+                    </button>
+                  </div>
                 </div>
               </section>
 
