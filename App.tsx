@@ -206,6 +206,7 @@ function Sidebar({ activeMembersCount, familiesCount, birthdaysCount, activeOnly
   const cName = (childName || '').trim().toLowerCase().replace(/\s+/g, '');
     
     const filtered = members.filter((m) => {
+      if (activeOnly && m.status?.toLowerCase() !== 'active') return false;
       const memberValue = (m as any)[pType];
       
       // 1. 직접 필드 매칭 (예: m.mokjang, m.role, m.status)
@@ -1042,6 +1043,11 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
                   <div className={`inline-block px-3 sm:px-4 py-1 rounded-lg sm:rounded-xl text-[15px] sm:text-m font-bold tracking-wide ${roleBg} ${roleText} bg-opacity-40`}>
                     {member.role || 'Member'}
                   </div>
+                  {member.mokjang && (
+                    <div className="inline-block px-3 sm:px-4 py-1 rounded-lg sm:rounded-xl text-[15px] sm:text-m font-bold tracking-wide bg-blue-50 text-blue-600 border border-blue-100">
+                      {member.mokjang}
+                    </div>
+                  )}
                   {member.tags?.map(tag => (
                     <span key={tag} className="px-3 py-1 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-500 shadow-sm">
                       #{tag}
@@ -1137,16 +1143,27 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
                   {regInfo && <p className="text-[10px] sm:text-[12px] text-slate-500 mt-1 ml-6">{regInfo.years}y {regInfo.months}m</p>}
                 </div>
 
-                {/* Baptism (세례일) */}
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Award className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 flex-shrink-0" />
-                    <p className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-widest">Baptism</p>
-                  </div>
-                  <p className="text-sm sm:text-sm font-bold text-slate-600 break-words ml-6">
-                    {member.is_baptized ? (member.baptism_date || 'Yes') : 'No'}
-                  </p>
-                </div>
+	                {/* Baptism (세례일) */}
+	                <div className="min-w-0">
+	                  <div className="flex items-center gap-2 mb-2">
+	                    <Award className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 flex-shrink-0" />
+	                    <p className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-widest">Baptism</p>
+	                  </div>
+	                  <p className="text-sm sm:text-sm font-bold text-slate-600 break-words ml-6">
+	                    {member.is_baptized ? (member.baptism_date || 'Yes') : 'No'}
+	                  </p>
+	                </div>
+
+	                {/* Mokjang (목장) */}
+	                <div className="min-w-0">
+	                  <div className="flex items-center gap-2 mb-2">
+	                    <Home className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 flex-shrink-0" />
+	                    <p className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-widest">Mokjang</p>
+	                  </div>
+	                  <p className="text-sm sm:text-sm font-bold text-slate-600 break-words ml-6">
+	                    {member.mokjang || '-'}
+	                  </p>
+	                </div>
 
                 {/* Offering # (헌금번호) */}
                 <div className="min-w-0">
@@ -1377,6 +1394,10 @@ function App() {
     setRoles(rolesRes.data || []);
     setUserRole((profileRes.data?.role as 'admin' | 'user') || 'user');
 
+    if (actionType === 'save') {
+      await fetchSystemLists();
+    }
+
     if (memberId) {
       const target = newMembers.find(m => m.id === memberId);
       if (target) {
@@ -1486,7 +1507,7 @@ function App() {
       });
     }
 
-    if (activeOnly && activeMenu !== 'filter') {
+    if (activeOnly) {
       filterMatchedMembers = filterMatchedMembers.filter((m) => m.status?.toLowerCase() === 'active');
     }
 
@@ -1504,7 +1525,10 @@ function App() {
     const matchedFamilyIdsSet = new Set(filterMatchedMembers.map(m => m.family_id).filter(Boolean));
 
     const finalMembersToShow = familyView 
-      ? members.filter(m => matchedFamilyIdsSet.has(m.family_id)) 
+      ? (activeOnly 
+          ? members.filter(m => matchedFamilyIdsSet.has(m.family_id) && m.status?.toLowerCase() === 'active')
+          : members.filter(m => matchedFamilyIdsSet.has(m.family_id))
+        )
       : filterMatchedMembers;
 
     const sorted = [...finalMembersToShow].sort((a, b) => {
