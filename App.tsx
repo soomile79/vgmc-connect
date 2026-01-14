@@ -1204,11 +1204,25 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
                     const memberRel = member.relationship?.toLowerCase() || '';
                     const fmRel = fm.relationship?.toLowerCase() || '';
                     const displayRelationship = getRelationshipLabel(memberRel, fmRel);
+                    const isActive = fm.status?.toLowerCase() === 'active';
 
                     return (
-                      <button key={fm.id} onClick={() => onSelectMember(fm)} className="flex items-center gap-4 sm:gap-5 p-3 sm:p-5 rounded-xl sm:rounded-[2rem] bg-white border border-slate-50 shadow-sm hover:shadow-md hover:border-blue-100 transition-all group text-left">
+                      <button
+                      key={fm.id}
+                      onClick={() => onSelectMember(fm)}
+                      className={`
+                        flex items-center gap-4 sm:gap-5
+                        p-3 sm:p-5
+                        rounded-xl sm:rounded-[2rem]
+                        bg-white border border-slate-50
+                        shadow-sm transition-all group text-left
+                        ${isActive ? 'hover:shadow-md hover:border-blue-100' : ''}
+                        ${!isActive ? 'opacity-50' : ''}
+                      `}
+                    >
+
                         <div className="relative flex-shrink-0">
-                          <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-lg sm:rounded-2xl ${fmRoleBg} flex items-center justify-center overflow-hidden ring-1 ring-slate-100 opacity-30`}>
+                          <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-lg sm:rounded-2xl ${fmRoleBg} flex items-center justify-center overflow-hidden ring-1 ring-slate-100 opacity-60`}>
                             {fm.photo_url ? (
                               <img src={fm.photo_url} alt={fm.korean_name} className="w-full h-full object-cover" />
                             ) : (
