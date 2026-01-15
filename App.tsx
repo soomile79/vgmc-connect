@@ -434,11 +434,11 @@ function MemberCard({ member, age, roles, onClick, childLists }: {
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline gap-2 flex-wrap">
-              <h3 className="text-lg font-bold text-slate-800">{member.korean_name}</h3>
+              <h3 className="text-lg md:text-xl font-bold text-slate-800">{member.korean_name}</h3>
               {(age !== null || genderLabel) && <span className="text-xs text-slate-400 font-medium">{age !== null && `${age}`}{age !== null && genderLabel && ' · '}{genderLabel}</span>}
               <span className={`w-2 h-2 rounded-full ${statusColor} flex-shrink-0`}></span>
             </div>
-            {member.english_name && <div className="text-xs text-slate-400 font-medium mt-0.5">{member.english_name}</div>}
+            {member.english_name && <div className="text-xs md:text-sm text-slate-400 font-medium mt-0.5">{member.english_name}</div>}
           </div>
         </div>
 
@@ -446,19 +446,19 @@ function MemberCard({ member, age, roles, onClick, childLists }: {
         <div className="flex flex-wrap gap-1.5">
           {/* 1. 직분 (Role) */}
           {member.role && (
-            <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${roleBg} ${roleText}`} style={{ opacity: 0.8 }}>
+            <span className={`px-2 py-0.5 rounded-md text-[11.5px] font-bold ${roleBg} ${roleText}`} style={{ opacity: 0.8 }}>
               {member.role}
             </span>
           )}
           {/* 2. 목장 (Mokjang) */}
           {member.mokjang && (
-            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-100">
+            <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-blue-50 text-blue-600 border border-blue-100">
               {member.mokjang}
             </span>
           )}
         {/* 3. 태그 (중복 제거 로직 추가: Array.from(new Set(...))) */}
         {Array.from(new Set(member.tags || [])).map((tag: any) => (
-          <span key={tag} className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-white border border-slate-200 text-slate-500">
+          <span key={tag} className="px-1.5 py-0.5 rounded-md text-[11px] font-semibold bg-white border border-slate-200 text-slate-500">
             #{getTagLabel(tag, childLists)}
           </span>
         ))}
@@ -467,13 +467,13 @@ function MemberCard({ member, age, roles, onClick, childLists }: {
         {/* 주소 및 전화번호 (기존 유지) */}
         <div className="space-y-1">
           {member.address && (
-            <div className="flex items-start gap-1.5 text-xs text-slate-600">
+            <div className="flex items-start gap-1.5 text-xs md:text-sm  text-slate-600">
               <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0" />
               <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(member.address)}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="hover:text-blue-600 hover:underline break-words">{member.address}</a>
             </div>
           )}
           {member.phone && (
-            <div className="flex items-center gap-1.5 text-xs text-slate-600">
+            <div className="flex items-center gap-1.5 text-xs md:text-sm text-slate-600">
               <Smartphone className="w-3.5 h-3.5" />
               <a href={`tel:${member.phone.replace(/[^0-9+]/g, '')}`} onClick={(e) => e.stopPropagation()} className="hover:text-blue-600 hover:underline">{member.phone}</a>
             </div>
@@ -1112,7 +1112,7 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
                     <Smartphone className="w-5 h-5 sm:w-6 sm:h-6" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[10px] sm:text-[10.5px] font-bold text-slate-500 uppercase tracking-[0.15em] mb-1">Mobile Phone</p>
+                    <p className="text-[10px] sm:text-[12px] font-bold text-slate-500 uppercase tracking-[0.15em] mb-1">연락처</p>
                     <a href={`tel:${member.phone}`} className="text-sm sm:text-base font-bold text-slate-500 hover:text-blue-300 transition-colors break-all">{member.phone || ''}</a>
                   </div>
                 </div>
@@ -1123,7 +1123,7 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
                     <Mail className="w-5 h-5 sm:w-6 sm:h-6" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[10px] sm:text-[10.5px] font-bold text-slate-500 uppercase tracking-[0.15em] mb-1">Email Address</p>
+                    <p className="text-[10px] sm:text-[12px] font-bold text-slate-500 uppercase tracking-[0.15em] mb-1">E-mail</p>
                     <a href={`mailto:${member.email}`} className="text-sm sm:text-base font-bold text-slate-500 hover:text-blue-300 transition-colors break-all">{member.email || ''}</a>
                   </div>
                 </div>
@@ -1134,7 +1134,7 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
                     <MapPin className="w-5 h-5 sm:w-6 sm:h-6" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[10px] sm:text-[10.5px] font-bold text-slate-500 uppercase tracking-[0.15em] mb-1">Home Address</p>
+                    <p className="text-[10px] sm:text-[12px] font-bold text-slate-500 uppercase tracking-[0.15em] mb-1">주소</p>
                     <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(member.address || '')}`} target="_blank" rel="noopener noreferrer" className="text-sm sm:text-m font-bold text-slate-500 hover:text-blue-300 transition-colors break-words">{member.address || ''}</a>
                   </div>
                 </div>
@@ -1149,7 +1149,7 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 mb-2">
                     <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 flex-shrink-0" />
-                    <p className="text-[10px] sm:text-[10.5px] font-bold text-slate-500 uppercase tracking-[0.15em]">Birthday</p>
+                    <p className="text-[10px] sm:text-[12px] font-bold text-slate-500 uppercase tracking-[0.15em]">생일</p>
                   </div>
                   <p className="text-sm sm:text-sm font-bold text-slate-600 break-words ml-6">{member.birthday || '-'}</p>
                 </div>
@@ -1158,7 +1158,7 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 mb-2">
                     <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 flex-shrink-0" />
-                    <p className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-widest">Registration</p>
+                    <p className="text-[10px] sm:text-[12px] font-bold text-slate-500 uppercase tracking-widest">등록일</p>
                   </div>
                   <p className="text-sm sm:text-sm font-bold text-slate-600 break-words ml-6">{member.registration_date || '-'}</p>
                   {regInfo && <p className="text-[10px] sm:text-[12px] text-slate-500 mt-1 ml-6">{regInfo.years}y {regInfo.months}m</p>}
@@ -1168,7 +1168,7 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
 	                <div className="min-w-0">
 	                  <div className="flex items-center gap-2 mb-2">
 	                    <Award className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 flex-shrink-0" />
-	                    <p className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-widest">Baptism</p>
+	                    <p className="text-[10px] sm:text-[12px] font-bold text-slate-500 uppercase tracking-widest">세례</p>
 	                  </div>
 	                  <p className="text-sm sm:text-sm font-bold text-slate-600 break-words ml-6">
 	                    {member.is_baptized ? (member.baptism_date || 'Yes') : 'No'}
@@ -1179,7 +1179,7 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
 	                <div className="min-w-0">
 	                  <div className="flex items-center gap-2 mb-2">
 	                    <Home className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 flex-shrink-0" />
-	                    <p className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-widest">Mokjang</p>
+	                    <p className="text-[10px] sm:text-[12px] font-bold text-slate-500 uppercase tracking-widest">목장</p>
 	                  </div>
 	                  <p className="text-sm sm:text-sm font-bold text-slate-600 break-words ml-6">
 	                    {member.mokjang || '-'}
@@ -1190,7 +1190,7 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 mb-2">
                     <Wallet className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 flex-shrink-0" />
-                    <p className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-widest">Offering #</p>
+                    <p className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-widest">헌금 번호</p>
                   </div>
                   <p className="text-sm sm:text-sm font-bold text-slate-600 break-words ml-6">{member.offering_number || '-'}</p>
                 </div>
