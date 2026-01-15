@@ -49,6 +49,16 @@ const getTagLabel = (tag: string, childLists: ChildList[]) => {
   return matched ? matched.name : tag;
 };
 
+
+/* ================= PHOTO HELPER ================= */
+const getMemberPhotoUrl = (path: string | null | undefined) => {
+  if (!path) return null;
+  // 이미 완전한 URL(http...)인 경우 그대로 반환
+  if (path.startsWith('http')) return path; 
+  // 경로인 경우 Supabase Public URL 생성
+  return supabase.storage.from('photos').getPublicUrl(path).data.publicUrl;
+};
+
 /* ================= DATA NORMALIZATION ================= */
 const normalizeMember = (m: any): Member => {
   try {
@@ -414,9 +424,12 @@ function MemberCard({ member, age, roles, onClick, childLists }: {
     <div onClick={onClick} className={`bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer group relative overflow-hidden ${!isActive ? 'opacity-50' : ''}`}>
       <div className="absolute top-0 right-0 w-24 h-24 bg-slate-50 rounded-bl-[5rem] -mr-8 -mt-8 transition-colors group-hover:bg-blue-50/50" />
       <div className="relative space-y-4">
-        <div className="flex items-start justify-between gap-4">
-          <div className={`relative flex items-center justify-center w-14 h-14 rounded-2xl ${roleBg} shadow-inner flex-shrink-0 overflow-hidden`}>
-            {member.photo_url ? <img src={member.photo_url} alt={member.korean_name} className="w-full h-full object-cover" /> : <svg className={`w-6 h-6 ${roleText}`} style={{ opacity: 0.5 }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>}
+        <div className="flex items-start justify-between gap-4"> 
+          <div className={`
+              relative flex items-center justify-center w-14 h-14 rounded-2xl ${roleBg} shadow-inner flex-shrink-0 overflow-hidden
+              ${!member.photo_url ? 'opacity-50' : 'opacity-100'} // ⬅️ 추가
+            `}>
+                        {member.photo_url ? <img src={getMemberPhotoUrl(member.photo_url)} alt={member.korean_name} className="w-full h-full object-cover" /> : <svg className={`w-6 h-6 ${roleText}`} style={{ opacity: 0.5 }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>}
             {isHead && <CrownBadge />}
           </div>
           <div className="flex-1 min-w-0">
@@ -539,10 +552,24 @@ function FamilyCard({
             const isActive = statusKey === 'active';
             return (
               <div key={member.id} onClick={() => onMemberClick(member)} className={`flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer ${!isActive ? 'opacity-50' : ''}`}>
-                <div className={`relative flex items-center justify-center w-10 h-10 rounded-lg ${bg} flex-shrink-0`} style={{ opacity: 0.3 }}>
-                  {member.photo_url ? <img src={member.photo_url} alt={member.korean_name} className="w-full h-full rounded-lg object-cover" /> : <svg className={`w-5 h-5 ${text}`} style={{ opacity: 0.5 }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>}
-                  {isHead && <CrownBadge />}
-                </div>
+                <div className={`
+                    relative flex items-center justify-center w-10 h-10 rounded-lg ${bg} flex-shrink-0
+                    ${!member.photo_url ? 'opacity-40' : 'opacity-100'}
+                  `}>
+                    {/* 내부 이미지 로직 */}
+                    {member.photo_url ? (
+                      <img 
+                        src={getMemberPhotoUrl(member.photo_url)} 
+                        alt={member.korean_name} 
+                        className="w-full h-full rounded-lg object-cover" 
+                      />
+                    ) : (
+                      <svg className={`w-5 h-5 ${text}`} style={{ opacity: 0.5 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    )}
+                    {isHead && <CrownBadge />}
+                  </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-baseline gap-2 flex-wrap"><span className="text-base sm:text-lg font-bold text-slate-600 break-words leading-snug">{member.korean_name}</span>{(age !== null || gender) && <span className="text-[10px] text-slate-400 font-bold">{age !== null && age}{age !== null && gender && ' · '}{gender}</span>}</div>
                     <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
@@ -1012,9 +1039,9 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
             <div className="flex items-start gap-3 sm:gap-5 md:gap-6">
               {/* Profile Image Card */}
               <div className="relative">
-                <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 lg:w-32 lg:h-32 rounded-xl sm:rounded-[1.5rem] bg-white shadow-xl flex items-center justify-center overflow-hidden ring-1 ring-black/5 opacity-70">
+                <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 lg:w-32 lg:h-32 rounded-xl sm:rounded-[1.5rem] bg-white shadow-xl flex items-center justify-center overflow-hidden ring-1 ring-black/5  ${!member.photo_url ? 'opacity-50' : 'opacity-100'}">
                   {member.photo_url ? (
-                    <img src={member.photo_url} alt={member.korean_name} className="w-full h-full object-cover" />
+                    <img src={getMemberPhotoUrl(member.photo_url)} alt={member.korean_name} className="w-full h-full object-cover" />
                   ) : (
                     <div className={`w-full h-full flex items-center justify-center ${roleText} opacity-30`}>
                       <Users className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16" strokeWidth={1} />
