@@ -59,7 +59,7 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
 
   const currentMember = members.length > 0 ? members[activeMemberIndex] : null;
   const currentRole = roles.find(r => r.name === currentMember?.role);
-  const roleBg = currentRole?.bg_color ?? 'bg-slate-200';
+  const roleBg = currentRole?.bg_color ?? 'bg-slate-100';
   const roleText = currentRole?.text_color ?? 'text-slate-500';
 
   const getTagParentId = () => parentLists.find(p => p.name.trim() === '태그' || p.type?.toLowerCase().trim() === 'tags')?.id;
@@ -99,8 +99,8 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
   };
 
   const CrownBadge = () => (
-    <div className="absolute -top-2 -left-2 w-7 h-7 rounded-full bg-white flex items-center justify-center shadow-md z-10 border border-slate-50">
-      <Crown size={14} className="text-amber-500 fill-amber-500" />
+    <div className="absolute -top-1 -left-1 w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-white flex items-center justify-center shadow-md z-10 border border-slate-50">
+      <Crown size={12} className="text-amber-500 fill-amber-500 sm:w-3.5 sm:h-3.5" />
     </div>
   );
 
@@ -203,17 +203,13 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
 
   const handleDeleteCurrentMember = async () => {
     if (!currentMember) return;
-    
-    // 만약 아직 DB에 저장되지 않은 새 멤버라면 로컬 상태에서만 삭제
     if (!currentMember.id) {
       const updated = members.filter((_, i) => i !== activeMemberIndex);
       if (updated.length === 0) onClose();
       else { setMembers(updated); setActiveMemberIndex(0); }
       return;
     }
-
     if (!confirm("정말 삭제하시겠습니까?")) return;
-    
     setLoading(true);
     try {
       if (currentMember.photo_url) await deletePhotoFromStorage(currentMember.photo_url);
@@ -250,9 +246,7 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
 
   useEffect(() => {
     if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
+    const handleKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
@@ -267,14 +261,8 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
 
   useEffect(() => {
     const loadSignedUrl = async () => {
-      if (!currentMember?.photo_url) {
-        setPhotoSignedUrl(null);
-        return;
-      }
-      if (currentMember.photo_url.startsWith('http')) {
-        setPhotoSignedUrl(currentMember.photo_url);
-        return;
-      }
+      if (!currentMember?.photo_url) { setPhotoSignedUrl(null); return; }
+      if (currentMember.photo_url.startsWith('http')) { setPhotoSignedUrl(currentMember.photo_url); return; }
       const { data } = await supabase.storage.from('photos').createSignedUrl(currentMember.photo_url, 3600);
       if (data) setPhotoSignedUrl(data.signedUrl);
     };
@@ -294,7 +282,6 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
           setLoading(false);
         });
       } else {
-        // [New Member 전용 초기화] (요청사항 4, 7, 8, 9 모두 반영됨)
         setMembers([{
           korean_name: '', english_name: '', gender: '', birthday: '', phone: '', email: '',
           address: '', relationship: 'Head', is_baptized: false, baptism_date: '', 
@@ -306,232 +293,209 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
     }
   }, [isOpen, initialData]);
 
-  /* ================= 5. RENDER ================= */
   if (!isOpen || !currentMember) return null;
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[60] flex items-center justify-center p-2 sm:p-4 overflow-hidden" onClick={onClose}>
-      <div className="bg-white w-full max-w-7xl max-h-[95vh] rounded-[2rem] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-300" onClick={e => e.stopPropagation()}>
+      <div className="bg-white w-full max-w-7xl max-h-[95vh] rounded-[1.5rem] sm:rounded-[2rem] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-300" onClick={e => e.stopPropagation()}>
         
-        {/* 상단 컬러 밴드 섹션 (New Member 시에도 선택된 Role에 따라 색상 반영) */}
-        <div className={`relative flex-shrink-0 ${roleBg} bg-opacity-35 p-6 sm:p-8`}>
-          <div className="flex flex-col sm:flex-row items-start justify-between gap-6">
-            <div className="flex items-start gap-6">
-              <div className="relative group">
+        {/* 상단 컬러 밴드 (모바일 대응 Compact) */}
+        <div className={`relative flex-shrink-0 ${roleBg} bg-opacity-35 p-4 sm:p-8`}>
+          <div className="flex flex-col sm:flex-row items-start justify-between gap-4 sm:gap-6">
+            <div className="flex items-center sm:items-start gap-4 sm:gap-6">
+              <div className="relative group w-20 h-20 sm:w-32 sm:h-32 rounded-[1.2rem] sm:rounded-[2rem] bg-white shadow-lg flex items-center justify-center overflow-hidden ring-2 sm:ring-4 ring-white flex-shrink-0">
                 {(currentMember.relationship === 'Head' || currentMember.is_head) && <CrownBadge />}
-                
-                <div className={`w-24 h-24 sm:w-32 sm:h-32 rounded-[2rem] bg-white shadow-xl flex items-center justify-center overflow-hidden ring-4 ring-white relative ${!currentMember.photo_url ? 'opacity-50' : ''}`}>
-                  {photoSignedUrl ? (
-                    <img src={photoSignedUrl} alt="profile" className="w-full h-full object-cover" />
-                  ) : (
-                    <User size={48} className="text-slate-300" />
+                {photoSignedUrl ? (
+                  <img src={photoSignedUrl} className="w-full h-full object-cover" />
+                ) : (
+                  <User size={32} className="text-slate-300 sm:w-12 sm:h-12" />
+                )}
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1">
+                  <button onClick={() => fileInputRef.current?.click()} className="text-white text-[9px] sm:text-[10px] font-bold flex items-center gap-1"><Camera size={10}/> 사진변경</button>
+                  {currentMember.photo_url && (
+                    <button onClick={() => { deletePhotoFromStorage(currentMember.photo_url); updateMember(activeMemberIndex, { photo_url: '' }); }} className="text-white text-[9px] sm:text-[10px] font-bold flex items-center gap-1"><Trash2 size={10}/> 삭제</button>
                   )}
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1">
-                    <button onClick={() => fileInputRef.current?.click()} className="text-white text-[10px] font-bold flex items-center gap-1 hover:text-blue-200"><Camera size={12}/> 사진변경</button>
-                    {currentMember.photo_url && (
-                      <button onClick={() => { deletePhotoFromStorage(currentMember.photo_url); updateMember(activeMemberIndex, { photo_url: '' }); }} className="text-white text-[10px] font-bold flex items-center gap-1 hover:text-rose-200"><Trash2 size={12}/> 사진삭제</button>
-                    )}
-                  </div>
                 </div>
                 <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handlePhotoUpload} />
               </div>
 
-              <div className="min-w-0 pt-2">
-                <div className="flex items-center gap-3 flex-wrap mb-1">
-                  <h2 className="text-3xl font-bold text-slate-800">{currentMember.korean_name || '새 멤버 추가'}</h2>
-                  <span className="text-lg text-slate-500 font-medium">
+              <div className="min-w-0 pt-1 sm:pt-2">
+                <div className="flex items-center gap-2 sm:gap-3 flex-wrap mb-0.5">
+                  <h2 className="text-xl sm:text-3xl font-bold text-slate-800 truncate">{currentMember.korean_name || '새 멤버'}</h2>
+                  <span className="text-sm sm:text-lg text-slate-500 font-medium">
                     {calculateAge(currentMember.birthday) || '-'}세 · {currentMember.gender === 'Male' ? 'M' : currentMember.gender === 'Female' ? 'F' : '-'}
                   </span>
                 </div>
-                <div className="text-xl text-slate-400 font-medium mb-4">{currentMember.english_name || 'English Name'}</div>
-                
-                <div className="flex flex-wrap gap-2">
-                  {currentMember.role && (
-                    <span className={`px-3 py-1 rounded-lg bg-white/60 border border-white text-xs font-bold ${roleText}`}>
-                      {currentMember.role}
-                    </span>
-                  )}
-                  {currentMember.mokjang && (
-                    <span className="px-3 py-1 rounded-lg bg-blue-50 border border-blue-100 text-xs font-bold text-blue-600">
-                      {currentMember.mokjang}
-                    </span>
-                  )}
-                  {currentMember.tags?.map(tag => (
-                    <span key={tag} className="px-3 py-1 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-500 shadow-sm">
-                      #{tag}
-                    </span>
-                  ))}
+                <div className="text-sm sm:text-xl text-slate-400 font-medium mb-2 sm:mb-4 truncate">{currentMember.english_name || 'English Name'}</div>
+                <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                  <span className={`px-2 py-0.5 sm:px-3 sm:py-1 rounded-md sm:rounded-lg bg-white/60 border border-white text-[10px] sm:text-xs font-bold ${roleText}`}>{currentMember.role || '직분'}</span>
+                  {currentMember.mokjang && <span className="px-2 py-0.5 sm:px-3 sm:py-1 rounded-md sm:rounded-lg bg-blue-50 border border-blue-100 text-[10px] sm:text-xs font-bold text-blue-600">{currentMember.mokjang}</span>}
                 </div>
               </div>
             </div>
-            
-            <button onClick={onClose} className="p-2 hover:bg-white/50 rounded-full transition-colors">
-              <X size={24} className="text-slate-500" />
-            </button>
+            <button onClick={onClose} className="absolute top-4 right-4 p-1.5 hover:bg-white/50 rounded-full text-slate-500 sm:static sm:p-2"><X size={20} className="sm:w-6 sm:h-6" /></button>
           </div>
         </div>
 
         <div className="flex-1 flex overflow-hidden">
-          {/* 사이드바: New Member 등록 시에도 추가되는 가족들을 실시간 확인 가능 */}
-          <div className="hidden lg:flex w-72 border-r border-slate-100 bg-slate-50/50 flex-col p-4 gap-2 overflow-y-auto">
+          {/* 사이드바 (모바일에서는 간략히 하거나 숨김 고려 가능하나 일단 유지) */}
+          <div className="hidden lg:flex w-64 border-r border-slate-100 bg-slate-50/50 flex-col p-4 gap-2 overflow-y-auto">
             <div className="px-2 mb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest flex justify-between items-center">
               <span>Family Members</span>
-              <button onClick={handleAddExisting} title="기존 멤버 가족에 추가" className="text-blue-600 hover:bg-blue-50 p-1 rounded"><UserPlus size={16}/></button>
+              <button onClick={handleAddExisting} title="기존 멤버 추가" className="text-blue-600 hover:bg-blue-50 p-1 rounded"><UserPlus size={16}/></button>
             </div>
             {members.map((m, idx) => (
-              <button 
-                key={idx} 
-                onClick={() => setActiveMemberIndex(idx)}
-                className={`flex items-center gap-3 p-3 rounded-2xl transition-all ${activeMemberIndex === idx ? 'bg-white shadow-md text-blue-600' : 'text-slate-500 hover:bg-white'} ${m.status?.toLowerCase() !== 'active' ? 'opacity-50' : ''}`}
-              >
-                <div className="relative w-10 h-10 rounded-xl bg-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0">
-                  {m.photo_url ? (
-                    <img src={supabase.storage.from('photos').getPublicUrl(m.photo_url).data.publicUrl} className="w-full h-full object-cover" />
-                  ) : (
-                    <User size={20}/>
-                  )}
-                  {(m.relationship === 'Head' || m.is_head) && <div className="absolute -top-1 -left-1 bg-amber-400 text-white rounded-full p-0.5 border border-white shadow-sm"><Crown size={10}/></div>}
+              <button key={idx} onClick={() => setActiveMemberIndex(idx)} className={`flex items-center gap-3 p-3 rounded-2xl transition-all ${activeMemberIndex === idx ? 'bg-white shadow-md text-blue-600' : 'text-slate-500 hover:bg-white'} ${m.status?.toLowerCase() !== 'active' ? 'opacity-50' : ''}`}>
+                <div className="relative w-9 h-9 rounded-xl bg-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+                  {m.photo_url ? <img src={supabase.storage.from('photos').getPublicUrl(m.photo_url).data.publicUrl} className="w-full h-full object-cover" /> : <User size={18}/>}
+                  {(m.relationship === 'Head' || m.is_head) && <div className="absolute -top-1 -left-1 bg-amber-400 text-white rounded-full p-0.5 border border-white shadow-sm"><Crown size={8}/></div>}
                 </div>
                 <div className="text-left min-w-0">
-                  <div className="text-sm font-bold truncate">{m.korean_name || '이름 없음'}</div>
-                  <div className="text-[10px] font-medium opacity-60 uppercase">{m.relationship} · {calculateAge(m.birthday) || '-'}세</div>
+                  <div className="text-xs font-bold truncate">{m.korean_name || '이름 없음'}</div>
+                  <div className="text-[9px] font-medium opacity-60 uppercase">{m.relationship}</div>
                 </div>
               </button>
             ))}
-            <button onClick={handleAddFamilyMember} className="mt-2 w-full p-3 rounded-2xl border-2 border-dashed border-slate-200 text-slate-400 flex items-center justify-center gap-2 hover:border-blue-300 hover:text-blue-500 transition-all"><Plus size={18}/>가족 추가</button>
+            <button onClick={handleAddFamilyMember} className="mt-2 w-full p-2.5 rounded-xl border-2 border-dashed border-slate-200 text-slate-400 flex items-center justify-center gap-2 hover:border-blue-300 hover:text-blue-500 transition-all text-xs font-bold"><Plus size={14}/>가족 추가</button>
           </div>
 
-          {/* 메인 폼 영역 */}
-          <div className="flex-1 overflow-y-auto p-6 sm:p-10 custom-scrollbar bg-white">
-            <div className="max-w-4xl mx-auto space-y-10">
-              <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-400 ml-1">한글 이름 <span className="text-rose-500">*</span></label>
-                  <input type="text" value={currentMember.korean_name} onChange={e => updateMember(activeMemberIndex, { korean_name: e.target.value })} className="w-full bg-slate-50 border-none rounded-2xl px-5 py-3 font-bold text-slate-700" />
+          <div className="flex-1 overflow-y-auto p-4 sm:p-10 custom-scrollbar bg-white">
+            <div className="max-w-4xl mx-auto space-y-8 sm:space-y-10">
+              
+              {/* 1. 이름/성별/관계/생일 - 콤팩트 그리드 */}
+              <section className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+                <div className="col-span-2 md:col-span-1 space-y-1">
+                  <label className="text-[12px] font-bold text-slate-400 ml-1">한글 이름 <span className="text-rose-500">*</span></label>
+                  <input type="text" value={currentMember.korean_name} onChange={e => updateMember(activeMemberIndex, { korean_name: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-m font-bold text-slate-700" />
+                </div>
+                <div className="col-span-2 md:col-span-1 space-y-1">
+                  <label className="text-[12px] font-bold text-slate-400 ml-1">영문 이름 (Legal) </label>
+                  <input type="text" value={currentMember.english_name} onChange={e => updateMember(activeMemberIndex, { english_name: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-m font-bold text-slate-700" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-400 ml-1">영문 이름</label>
-                  <input type="text" value={currentMember.english_name} onChange={e => updateMember(activeMemberIndex, { english_name: e.target.value })} className="w-full bg-slate-50 border-none rounded-2xl px-5 py-3 font-bold text-slate-700" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-400 ml-1">성별 <span className="text-rose-500">*</span></label>
-                  <div className="flex bg-slate-100 p-1 rounded-2xl h-[52px]">
-                    <button onClick={() => updateMember(activeMemberIndex, { gender: 'Male' })} className={`flex-1 rounded-xl text-xs font-bold transition-all ${currentMember.gender === 'Male' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400'}`}>남성</button>
-                    <button onClick={() => updateMember(activeMemberIndex, { gender: 'Female' })} className={`flex-1 rounded-xl text-xs font-bold transition-all ${currentMember.gender === 'Female' ? 'bg-rose-500 text-white shadow-md' : 'text-slate-400'}`}>여성</button>
+                  <label className="text-[12px] font-bold text-slate-400 ml-1">성별 <span className="text-rose-500">*</span></label>
+                  <div className="flex bg-slate-100 p-1 rounded-xl h-[40px]">
+                    <button onClick={() => updateMember(activeMemberIndex, { gender: 'Male' })} className={`flex-1 rounded-lg text-[12px] font-bold transition-all ${currentMember.gender === 'Male' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400'}`}>남성</button>
+                    <button onClick={() => updateMember(activeMemberIndex, { gender: 'Female' })} className={`flex-1 rounded-lg text-[12px] font-bold transition-all ${currentMember.gender === 'Female' ? 'bg-rose-500 text-white shadow-sm' : 'text-slate-400'}`}>여성</button>
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-400 ml-1">관계 <span className="text-rose-500">*</span></label>
-                  <select value={currentMember.relationship} onChange={e => updateMember(activeMemberIndex, { relationship: e.target.value })} className="w-full bg-slate-50 border-none rounded-2xl px-5 py-3 font-bold text-slate-700">
+                  <label className="text-[12px] font-bold text-slate-400 ml-1">관계 <span className="text-rose-500">*</span></label>
+                  <select value={currentMember.relationship} onChange={e => updateMember(activeMemberIndex, { relationship: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-3 py-2.5 text-xs font-bold text-slate-700 outline-none">
                     {RELATIONSHIPS.map(r => <option key={r} value={r}>{r}</option>)}
                   </select>
                 </div>
+              </section>
+
+              <section className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-400 ml-1">생년월일</label>
-                  <input type="text" value={currentMember.birthday} onChange={e => updateMember(activeMemberIndex, { birthday: e.target.value })} className="w-full bg-slate-50 border-none rounded-2xl px-5 py-3 font-bold text-slate-700" placeholder="YYYY-MM-DD" />
+                  <label className="text-[12px] font-bold text-slate-400 ml-1">생년월일</label>
+                  <input type="text" value={currentMember.birthday} onChange={e => updateMember(activeMemberIndex, { birthday: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-m font-bold text-slate-700" placeholder="YYYY-MM-DD" />
                 </div>
+                <div className="space-y-1"><label className="text-[12px] font-bold text-slate-400 ml-1">전화번호</label><input type="tel" value={currentMember.phone} onChange={e => updateMember(activeMemberIndex, { phone: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-m font-bold text-slate-700" /></div>
+                <div className="space-y-1"><label className="text-[12px] font-bold text-slate-400 ml-1">이메일</label><input type="email" value={currentMember.email} onChange={e => updateMember(activeMemberIndex, { email: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-m font-bold text-slate-700" /></div>
               </section>
 
-              <section className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-slate-100">
-                <div className={`p-5 rounded-3xl border-2 transition-all ${currentMember.is_baptized ? 'bg-blue-50/50 border-blue-100' : 'bg-slate-50 border-transparent'}`}>
-                  <label className="flex items-center gap-3 cursor-pointer mb-2">
-                    <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${currentMember.is_baptized ? 'bg-sky-600 border-sky-600' : 'bg-white border-slate-200'}`}>
-                      {currentMember.is_baptized && <Check size={14} className="text-white" />}
-                    </div>
-                    <input type="checkbox" className="hidden" checked={currentMember.is_baptized} onChange={e => updateMember(activeMemberIndex, { is_baptized: e.target.checked })} />
-                    <span className="text-sm font-bold text-slate-700">세례 여부</span>
-                  </label>
-                  {currentMember.is_baptized && (
-                    <input type="text" value={currentMember.baptism_date} onChange={e => updateMember(activeMemberIndex, { baptism_date: e.target.value })} className="w-full bg-transparent border-b border-blue-200 py-1 text-sm font-bold text-sky-800 outline-none" placeholder="세례일 (YYYY-MM-DD)" />
-                  )}
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1"><label className="text-xs font-bold text-slate-400">헌금번호</label><input type="text" value={currentMember.offering_number} onChange={e => updateMember(activeMemberIndex, { offering_number: e.target.value })} className="w-full bg-slate-50 border-none rounded-2xl px-5 py-3 font-bold text-slate-700" /></div>
-                  <div className="space-y-1"><label className="text-xs font-bold text-slate-400">Slip #</label><input type="text" value={currentMember.for_slip} onChange={e => updateMember(activeMemberIndex, { for_slip: e.target.value })} className="w-full bg-slate-50 border-none rounded-2xl px-5 py-3 font-bold text-slate-700" /></div>
-                </div>
+              <section className="space-y-1">
+                <label className="text-[12px] font-bold text-slate-400 ml-1">집 주소</label>
+                <input type="text" value={currentMember.address} onChange={e => updateMember(activeMemberIndex, { address: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-m font-bold text-slate-700" />
               </section>
 
-              <section className="space-y-4 pt-6 border-t border-slate-100">
-                <div className="flex items-center gap-2 mb-2"><Tag className="text-purple-600" size={18} /><h3 className="font-bold text-slate-800">Global Tags</h3></div>
-                <div className="flex flex-wrap gap-2">
-                  {availableTags.map(tag => (
-                    <button key={tag.id} onClick={() => {
-                      const cur = currentMember.tags;
-                      const next = cur.includes(tag.name) ? cur.filter(t => t !== tag.name) : [...cur, tag.name];
-                      updateMember(activeMemberIndex, { tags: next });
-                    }} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${currentMember.tags.includes(tag.name) ? 'bg-purple-600 border-purple-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-500 hover:border-purple-300'}`}>#{tag.name}</button>
-                  ))}
-                  <div className="flex items-center gap-2 ml-2">
-                    <input type="text" value={newTagName} onChange={e => setNewTagName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddNewTag()} placeholder="New Tag..." className="px-3 py-2 rounded-xl text-xs font-bold border border-slate-200 outline-none w-28" />
-                    <button onClick={handleAddNewTag} className="p-2 bg-purple-100 text-purple-600 rounded-xl hover:bg-purple-200 transition-colors"><Plus size={16} /></button>
+              {/* 5. 세례, 헌금번호, Slip# - 수평 줄 맞춤 레이아웃 */}
+              <section className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 border-t border-slate-100">
+                <div className="space-y-1">
+                  <label className="text-[12px] font-bold text-slate-400 ml-1">세례여부</label>
+                  <div className={`flex flex-col gap-2 p-2 rounded-xl border-2 transition-all ${currentMember.is_baptized ? 'bg-blue-50/50 border-blue-100' : 'bg-slate-50 border-transparent'}`}>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${currentMember.is_baptized ? 'bg-sky-600 border-sky-600' : 'bg-white border-slate-200'}`}>
+                        {currentMember.is_baptized && <Check size={12} className="text-white" />}
+                      </div>
+                      <input type="checkbox" className="hidden" checked={currentMember.is_baptized} onChange={e => updateMember(activeMemberIndex, { is_baptized: e.target.checked })} />
+                      <span className="text-[12px] font-bold text-slate-600">예</span>
+                    </label>
+                    {currentMember.is_baptized && (
+                      <input type="text" value={currentMember.baptism_date} onChange={e => updateMember(activeMemberIndex, { baptism_date: e.target.value })} className="w-full bg-transparent border-b border-blue-200 text-[12px] font-bold text-sky-800 outline-none" placeholder="YYYY-MM-DD" />
+                    )}
                   </div>
                 </div>
+                <div className="space-y-1">
+                  <label className="text-[12px] font-bold text-slate-400 ml-1">헌금번호</label>
+                  <input type="text" value={currentMember.offering_number} onChange={e => updateMember(activeMemberIndex, { offering_number: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-m font-bold text-slate-700 h-[46px] md:h-[54px]" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[12px] font-bold text-slate-400 ml-1">Slip #</label>
+                  <input type="text" value={currentMember.for_slip} onChange={e => updateMember(activeMemberIndex, { for_slip: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-m font-bold text-slate-700 h-[46px] md:h-[54px]" />
+                </div>
               </section>
 
-              <section className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-slate-100">
-                <div className="space-y-1"><label className="text-xs font-bold text-slate-400">전화번호</label><input type="tel" value={currentMember.phone} onChange={e => updateMember(activeMemberIndex, { phone: e.target.value })} className="w-full bg-slate-50 border-none rounded-2xl px-5 py-3 font-bold text-slate-700" /></div>
-                <div className="space-y-1"><label className="text-xs font-bold text-slate-400">이메일</label><input type="email" value={currentMember.email} onChange={e => updateMember(activeMemberIndex, { email: e.target.value })} className="w-full bg-slate-50 border-none rounded-2xl px-5 py-3 font-bold text-slate-700" /></div>
-                <div className="md:col-span-2 space-y-1"><label className="text-xs font-bold text-slate-400">집 주소</label><input type="text" value={currentMember.address} onChange={e => updateMember(activeMemberIndex, { address: e.target.value })} className="w-full bg-slate-50 border-none rounded-2xl px-5 py-3 font-bold text-slate-700" /></div>
-              </section>
-
+              {/* 6. 목장, 직분, 상태, 등록일 */}
               <section className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-6 border-t border-slate-100">
                 {['mokjang', 'role', 'status'].map(field => {
                   const parent = parentLists.find(p => p.type === field || p.name.includes(field === 'mokjang' ? '목장' : field === 'role' ? '직분' : '상태'));
                   return (
                     <div key={field} className="space-y-1">
-                      <label className="text-xs font-bold text-slate-400 capitalize">{parent?.name || field}</label>
-                      <select value={(currentMember as any)[field] || ''} onChange={e => updateMember(activeMemberIndex, { [field]: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-xs font-bold text-slate-700">
+                      <label className="text-[12px] font-bold text-slate-400 capitalize ml-1">{parent?.name || field}</label>
+                      <select value={(currentMember as any)[field] || ''} onChange={e => updateMember(activeMemberIndex, { [field]: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-3 py-2.5 text-[13px] font-bold text-slate-700">
                         <option value="">선택</option>
                         {childLists.filter(c => c.parent_id === parent?.id).map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                       </select>
                     </div>
                   );
                 })}
-                <div className="space-y-1"><label className="text-xs font-bold text-slate-400">등록일</label><input type="text" value={currentMember.registration_date} onChange={e => updateMember(activeMemberIndex, { registration_date: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-xs font-bold text-slate-700" /></div>
+                <div className="space-y-1">
+                  <label className="text-[12px] font-bold text-slate-400 ml-1">등록일</label>
+                  <input type="text" value={currentMember.registration_date} onChange={e => updateMember(activeMemberIndex, { registration_date: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700" />
+                </div>
               </section>
 
-              <section className="space-y-4 pt-6 border-t border-slate-100">
-                <div className="flex items-center gap-2 mb-2"><Info className="text-amber-500" size={18} /><h3 className="font-bold text-slate-800">Memos</h3></div>
-                <div className="flex gap-2">
-                  <textarea value={newMemo} onChange={e => setNewMemo(e.target.value)} placeholder="새 메모를 입력하세요..." className="flex-1 bg-slate-50 border-none rounded-2xl px-5 py-3 text-sm min-h-[80px] focus:ring-2 focus:ring-amber-100" />
-                  <button onClick={() => { if (!newMemo.trim()) return; const ts = new Date().toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }); const cur = currentMember.memo ? currentMember.memo.split('\n\n').filter(Boolean) : []; updateMember(activeMemberIndex, { memo: [`[${ts}] ${newMemo.trim()}`, ...cur].join('\n\n') }); setNewMemo(''); }} className="px-6 bg-amber-500 text-white rounded-2xl font-bold hover:bg-amber-600 transition-colors">추가</button>
+              {/* 7. Global Tags */}
+              <section className="space-y-3 pt-6 border-t border-slate-100">
+                <div className="flex items-center gap-2 mb-1"><Tag className="text-purple-600" size={16} /><h3 className="text-m font-bold text-slate-800">Global Tags</h3></div>
+                <div className="flex flex-wrap gap-2">
+                  {availableTags.map(tag => (
+                    <button key={tag.id} onClick={() => {
+                      const cur = currentMember.tags;
+                      const next = cur.includes(tag.name) ? cur.filter(t => t !== tag.name) : [...cur, tag.name];
+                      updateMember(activeMemberIndex, { tags: next });
+                    }} className={`px-3 py-1.5 rounded-lg text-[13px] font-bold border transition-all ${currentMember.tags.includes(tag.name) ? 'bg-purple-600 border-purple-600 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-500 hover:border-purple-300'}`}>#{tag.name}</button>
+                  ))}
+                  <div className="flex items-center gap-2">
+                    <input type="text" value={newTagName} onChange={e => setNewTagName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddNewTag()} placeholder="New Tag..." className="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-slate-200 outline-none w-24" />
+                    <button onClick={handleAddNewTag} className="p-1.5 bg-purple-100 text-purple-600 rounded-lg hover:bg-purple-200 transition-colors"><Plus size={14} /></button>
+                  </div>
                 </div>
-                
-                <div className="space-y-3 mt-4">
+              </section>
+
+              {/* 8. Memo Log */}
+              <section className="space-y-3 pt-6 border-t border-slate-100">
+                <div className="flex items-center gap-2 mb-1"><Info className="text-amber-500" size={16} /><h3 className="text-m font-bold text-slate-800">Memo Log</h3></div>
+                <div className="flex gap-2">
+                  <textarea value={newMemo} onChange={e => setNewMemo(e.target.value)} placeholder="새 메모를 입력하세요..." className="flex-1 bg-slate-50 border-none rounded-xl px-4 py-3 text-sm min-h-[70px] focus:ring-2 focus:ring-amber-100 outline-none" />
+                  <button onClick={() => { if (!newMemo.trim()) return; const ts = new Date().toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }); const cur = currentMember.memo ? currentMember.memo.split('\n\n').filter(Boolean) : []; updateMember(activeMemberIndex, { memo: [`[${ts}] ${newMemo.trim()}`, ...cur].join('\n\n') }); setNewMemo(''); }} className="px-4 bg-amber-500 text-white rounded-xl font-bold hover:bg-amber-600 transition-colors text-xs">추가</button>
+                </div>
+                <div className="space-y-2 mt-2">
                   {currentMember.memo?.split('\n\n').filter(Boolean).map((m, i) => {
                     const match = m.match(/^\[(.*?)\] (.*)$/s);
                     const ts = match ? match[1] : 'LOG';
                     const content = match ? match[2] : m;
                     const isEditing = editingMemoIndex === i;
-
                     return (
-                      <div key={i} className="group p-5 bg-slate-50 rounded-3xl relative hover:shadow-sm transition-shadow">
+                      <div key={i} className="group p-3 sm:p-4 bg-slate-50 rounded-2xl relative">
                         {isEditing ? (
                           <div className="space-y-2">
-                            <textarea autoFocus value={editingMemoText} onChange={e => setEditingMemoText(e.target.value)} className="w-full bg-white border-none rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-blue-100" />
-                            <div className="flex justify-end gap-2">
-                              <button onClick={() => setEditingMemoIndex(null)} className="text-xs font-bold text-slate-400">취소</button>
-                              <button onClick={() => {
-                                const curMemos = currentMember.memo.split('\n\n').filter(Boolean);
-                                curMemos[i] = `[${ts}] ${editingMemoText}`;
-                                updateMember(activeMemberIndex, { memo: curMemos.join('\n\n') });
-                                setEditingMemoIndex(null);
-                              }} className="text-xs font-bold text-blue-600">저장</button>
-                            </div>
+                            <textarea autoFocus value={editingMemoText} onChange={e => setEditingMemoText(e.target.value)} className="w-full bg-white border-none rounded-lg px-3 py-2 text-sm" />
+                            <div className="flex justify-end gap-2"><button onClick={() => setEditingMemoIndex(null)} className="text-[10px] font-bold text-slate-400">취소</button><button onClick={() => { const curMemos = currentMember.memo.split('\n\n').filter(Boolean); curMemos[i] = `[${ts}] ${editingMemoText}`; updateMember(activeMemberIndex, { memo: curMemos.join('\n\n') }); setEditingMemoIndex(null); }} className="text-[10px] font-bold text-blue-600">저장</button></div>
                           </div>
                         ) : (
                           <>
-                            <div className="flex justify-between mb-2">
-                              <span className="text-[10px] font-black text-blue-500 bg-blue-50 px-2 py-1 rounded-md">{ts}</span>
+                            <div className="flex justify-between mb-1">
+                              <span className="text-[10px] font-black text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded">{ts}</span>
                               <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
-                                <button onClick={() => { setEditingMemoIndex(i); setEditingMemoText(content); }} className="text-slate-400 hover:text-blue-500"><Edit size={14}/></button>
-                                <button onClick={() => {
-                                  const curMemos = currentMember.memo.split('\n\n').filter(Boolean);
-                                  updateMember(activeMemberIndex, { memo: curMemos.filter((_, idx) => idx !== i).join('\n\n') });
-                                }} className="text-slate-400 hover:text-rose-500"><Trash2 size={14}/></button>
+                                <button onClick={() => { setEditingMemoIndex(i); setEditingMemoText(content); }} className="text-slate-400 hover:text-blue-500"><Edit size={12}/></button>
+                                <button onClick={() => { const curMemos = currentMember.memo.split('\n\n').filter(Boolean); updateMember(activeMemberIndex, { memo: curMemos.filter((_, idx) => idx !== i).join('\n\n') }); }} className="text-slate-400 hover:text-rose-500"><Trash2 size={12}/></button>
                               </div>
                             </div>
-                            <p className="text-sm text-slate-600 font-medium leading-relaxed whitespace-pre-wrap">{content}</p>
+                            <p className="text-[13px] text-slate-600 font-medium leading-relaxed whitespace-pre-wrap">{content}</p>
                           </>
                         )}
                       </div>
@@ -543,14 +507,15 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
           </div>
         </div>
 
-        <div className="px-8 py-6 border-t border-slate-100 flex items-center justify-between bg-white flex-shrink-0">
-          <div className="flex gap-2">
-            <button onClick={handleDeleteCurrentMember} className="flex items-center gap-2 px-4 py-2 text-rose-500 font-bold hover:bg-rose-50 rounded-xl transition-all text-xs uppercase tracking-widest outline-none"><Trash2 size={18} /> Delete</button>
-            {currentMember.id && <button onClick={handleMoveOut} className="flex items-center gap-2 px-4 py-2 text-slate-500 font-bold hover:bg-slate-50 rounded-xl transition-all text-xs uppercase tracking-widest outline-none"><LogOut size={18} /> 독립시키기</button>}
+        {/* 푸터 (Compact) */}
+        <div className="px-4 py-4 sm:px-8 sm:py-6 border-t border-slate-100 flex items-center justify-between bg-white flex-shrink-0">
+          <div className="flex gap-1 sm:gap-2">
+            <button onClick={handleDeleteCurrentMember} className="flex items-center gap-1.5 px-3 py-2 text-rose-500 font-bold hover:bg-rose-50 rounded-xl transition-all text-[10px] sm:text-xs uppercase tracking-widest outline-none"><Trash2 size={16} /> <span className="hidden sm:inline">Delete</span></button>
+            <button onClick={handleMoveOut} className="flex items-center gap-1.5 px-3 py-2 text-slate-500 font-bold hover:bg-slate-50 rounded-xl transition-all text-[10px] sm:text-xs uppercase tracking-widest outline-none"><LogOut size={16} /> <span className="hidden sm:inline">독립</span></button>
           </div>
-          <div className="flex gap-3">
-            <button onClick={onClose} className="px-6 py-3 rounded-2xl text-slate-400 font-bold hover:bg-slate-50 text-sm uppercase tracking-widest outline-none">Cancel</button>
-            <button onClick={handleSaveMembers} disabled={loading} className="px-10 py-3 bg-blue-600 text-white rounded-2xl font-black shadow-xl hover:bg-blue-700 flex items-center gap-2 text-sm uppercase tracking-widest outline-none">{loading ? 'Saving...' : 'Save All Changes'}<Save size={18} /></button>
+          <div className="flex gap-2 sm:gap-3">
+            <button onClick={onClose} className="px-4 py-2 sm:px-6 sm:py-3 rounded-xl sm:rounded-2xl text-slate-400 font-bold hover:bg-slate-50 text-[11px] sm:text-sm uppercase tracking-widest outline-none">Cancel</button>
+            <button onClick={handleSaveMembers} disabled={loading} className="px-6 py-2 sm:px-10 sm:py-3 bg-blue-600 text-white rounded-xl sm:rounded-2xl font-black shadow-lg hover:bg-blue-700 flex items-center gap-2 text-[11px] sm:text-sm uppercase tracking-widest outline-none">{loading ? '...' : 'Save'}<Save size={16} /></button>
           </div>
         </div>
       </div>
