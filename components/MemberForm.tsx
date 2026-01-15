@@ -333,7 +333,7 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
       <div className="bg-white w-full max-w-7xl max-h-[95vh] rounded-[1.5rem] sm:rounded-[2rem] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-300" onClick={e => e.stopPropagation()}>
         
         {/* 상단 컬러 밴드 섹션 */}
-        <div className={`relative flex-shrink-0 ${roleBg} bg-opacity-35 p-4 md:p-8`}>
+        <div className={`relative flex-shrink-0 ${roleBg} bg-opacity-35 p-3 md:p-6`}>
           <div className="flex flex-col sm:flex-row items-start justify-between gap-4 sm:gap-6">
             <div className="flex items-center sm:items-start gap-4 md:gap-8">
               <div className="relative group w-20 h-20 md:w-32 md:h-32 rounded-[1.2rem] md:rounded-[2rem] bg-white shadow-xl flex items-center justify-center overflow-hidden ring-2 md:ring-4 ring-white flex-shrink-0">
@@ -373,7 +373,7 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
 
         <div className="flex-1 flex overflow-hidden">
           {/* 왼쪽 사이드바 */}
-          <div className="hidden lg:flex w-72 border-r border-slate-100 bg-slate-50/50 flex-col p-4 gap-2 overflow-y-auto">
+          <div className="hidden lg:flex w-60 border-r border-slate-100 bg-slate-50/50 flex-col p-4 gap-2 overflow-y-auto">
             <div className="px-2 mb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest flex justify-between items-center">
               <span>Family Members</span>
               <button onClick={handleAddExisting} title="기존 멤버 추가" className="text-blue-600 hover:bg-blue-50 p-1.5 rounded-lg"><UserPlus size={16}/></button>
@@ -393,7 +393,7 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
             <button onClick={handleAddFamilyMember} className="mt-2 w-full p-3 rounded-xl border-2 border-dashed border-slate-200 text-slate-400 flex items-center justify-center gap-2 hover:border-blue-300 hover:text-blue-500 transition-all text-xs font-bold uppercase"><Plus size={16}/>가족 추가</button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 md:p-10 custom-scrollbar bg-white">
+          <div className="flex-1 overflow-y-auto p-4 md:p-4 custom-scrollbar bg-white">
             <div className="max-w-4xl mx-auto space-y-8 md:space-y-12">
               
               <section className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
@@ -402,7 +402,7 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
                   <input type="text" value={currentMember.korean_name} onChange={e => updateMember(activeMemberIndex, { korean_name: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm md:text-base font-bold text-slate-700 focus:ring-2 focus:ring-blue-100" />
                 </div>
                 <div className="col-span-2 md:col-span-1 space-y-1">
-                  <label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">영문 이름</label>
+                  <label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">영문 이름 (Legal)</label>
                   <input type="text" value={currentMember.english_name} onChange={e => updateMember(activeMemberIndex, { english_name: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm md:text-base font-bold text-slate-700" />
                 </div>
                 <div className="space-y-1">
@@ -489,7 +489,7 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
               <section className="space-y-4 pt-6 border-t border-slate-100 pb-10">
                 <div className="flex items-center gap-2 mb-1"><Info className="text-amber-500" size={16} /><h3 className="text-sm md:text-sm font-bold text-slate-800 uppercase tracking-tight">Memo Log</h3></div>
                 <div className="flex gap-2">
-                  <textarea value={newMemo} onChange={e => setNewMemo(e.target.value)} placeholder="새 메모를 입력하세요..." className="flex-1 bg-slate-50 border-none rounded-xl px-4 py-3 text-sm md:text-base focus:ring-2 focus:ring-amber-100 outline-none min-h-[80px]" />
+                  <textarea value={newMemo} onChange={e => setNewMemo(e.target.value)} placeholder="새 메모를 입력하세요..." className="flex-1 bg-slate-50 border-none rounded-xl px-4 py-3 text-sm md:text-base focus:ring-2 focus:ring-amber-100 outline-none min-h-[60px]" />
                   <button onClick={() => { if (!newMemo.trim()) return; const ts = new Date().toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }); const cur = currentMember.memo ? currentMember.memo.split('\n\n').filter(Boolean) : []; updateMember(activeMemberIndex, { memo: [`[${ts}] ${newMemo.trim()}`, ...cur].join('\n\n') }); setNewMemo(''); }} className="px-5 md:px-8 bg-amber-500 text-white rounded-xl md:rounded-2xl font-black hover:bg-amber-600 transition-colors text-xs md:text-sm">추가</button>
                 </div>
                 <div className="space-y-3 mt-4">
