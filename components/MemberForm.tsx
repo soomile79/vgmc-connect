@@ -464,7 +464,7 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
                     </div>
                   );
                 })}
-                <div className="space-y-1"><label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">등록일</label><input type="text" value={currentMember.registration_date} onChange={e => updateMember(activeMemberIndex, { registration_date: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm md:text-base font-bold text-slate-700" /></div>
+                <div className="space-y-1"><label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">등록일</label><input type="text" value={currentMember.registration_date} onChange={e => updateMember(activeMemberIndex, { registration_date: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-s md:text-sm font-bold text-slate-700" /></div>
               </section>
 
               {/* 7. Global Tags 섹션 */}
