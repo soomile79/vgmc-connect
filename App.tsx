@@ -1723,9 +1723,59 @@ function App() {
                     <Check className="w-5 h-5" /><span className="hidden sm:inline ml-1.5 text-xs font-semibold">Active Only</span>
                   </button>
                   <div className="flex items-center gap-0.5 bg-slate-100 rounded-lg p-0.5">
-                    <button onClick={() => setFamilyView(false)} className={`p-2 rounded-md transition-all ${!familyView ? 'bg-white shadow-sm text-slate-800' : 'text-slate-50'}`}><LayoutGrid size={18} /></button>
-                    <button onClick={() => setFamilyView(true)} className={`p-2 rounded-md transition-all ${familyView ? 'bg-white shadow-sm text-slate-800' : 'text-slate-50'}`}><Users size={18} /></button>
-                  </div>
+  {/* Card View */}
+  <div className="relative group">
+    <button
+      onClick={() => setFamilyView(false)}
+      className={`
+        p-2 rounded-md transition-all
+        ${!familyView
+          ? 'bg-white shadow-sm text-slate-800 opacity-100'
+          : 'text-slate-400 opacity-40 hover:opacity-80'}
+      `}
+    >
+      <LayoutGrid size={18} />
+    </button>
+
+    {/* Tooltip */}
+    <div className="
+      absolute -bottom-8 left-1/2 -translate-x-1/2
+      px-2 py-1 rounded-md bg-slate-800 text-white
+      text-[10px] font-semibold whitespace-nowrap
+      opacity-0 group-hover:opacity-100
+      transition-opacity pointer-events-none
+    ">
+      Card View
+    </div>
+  </div>
+
+  {/* Family View */}
+  <div className="relative group">
+    <button
+      onClick={() => setFamilyView(true)}
+      className={`
+        p-2 rounded-md transition-all
+        ${familyView
+          ? 'bg-white shadow-sm text-slate-800 opacity-100'
+          : 'text-slate-400 opacity-40 hover:opacity-80'}
+      `}
+    >
+      <Users size={18} />
+    </button>
+
+    {/* Tooltip */}
+    <div className="
+      absolute -bottom-8 left-1/2 -translate-x-1/2
+      px-2 py-1 rounded-md bg-slate-800 text-white
+      text-[10px] font-semibold whitespace-nowrap
+      opacity-0 group-hover:opacity-100
+      transition-opacity pointer-events-none
+    ">
+      Family View
+    </div>
+  </div>
+</div>
+
                   <div className="hidden sm:flex items-center gap-2 bg-slate-100 rounded-lg p-1">
                     <div className="relative">
                       <button onClick={() => setShowSortDropdown(!showSortDropdown)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold bg-white shadow-sm text-slate-700">
