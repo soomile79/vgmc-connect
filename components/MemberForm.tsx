@@ -270,6 +270,27 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
     setActiveMemberIndex(updated.findIndex(m => m.korean_name === name));
   };
 
+const BAPTISM_TAG_NAME = '세례';
+
+useEffect(() => {
+  if (!currentMember) return;
+
+  const hasTag = currentMember.tags.includes(BAPTISM_TAG_NAME);
+  const shouldHave = currentMember.is_baptized;
+
+  if (shouldHave && !hasTag) {
+    updateMember(activeMemberIndex, {
+      tags: [...currentMember.tags, BAPTISM_TAG_NAME]
+    });
+  }
+
+  if (!shouldHave && hasTag) {
+    updateMember(activeMemberIndex, {
+      tags: currentMember.tags.filter(t => t !== BAPTISM_TAG_NAME)
+    });
+  }
+}, [currentMember?.is_baptized]);
+
   /* ================= 4. EFFECTS ================= */
 
   // props로 전달된 데이터를 로컬 상태와 동기화 (가장 중요!)
@@ -439,7 +460,8 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
                       <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${currentMember.is_baptized ? 'bg-sky-600 border-sky-600' : 'bg-white border-slate-200'}`}>
                         {currentMember.is_baptized && <Check size={12} className="text-white" />}
                       </div>
-                      <input type="checkbox" className="hidden" checked={currentMember.is_baptized} onChange={e => updateMember(activeMemberIndex, { is_baptized: e.target.checked })} />
+                      <input type="checkbox" className="hidden" checked={currentMember.is_baptized} 
+                      onChange={e => updateMember(activeMemberIndex, { is_baptized: e.target.checked })} />
                       <span className="text-[11px] md:text-xs font-black text-slate-600">Yes</span>
                     </label>
                     {currentMember.is_baptized && (
