@@ -429,7 +429,7 @@ function MemberCard({ member, age, roles, onClick, childLists }: {
               relative flex items-center justify-center w-14 h-14 rounded-2xl ${roleBg} shadow-inner flex-shrink-0 overflow-hidden
               ${!member.photo_url ? 'opacity-50' : 'opacity-100'} // ⬅️ 추가
             `}>
-                        {member.photo_url ? <img src={getMemberPhotoUrl(member.photo_url)} alt={member.korean_name} className="w-full h-full object-cover" /> : <svg className={`w-6 h-6 ${roleText}`} style={{ opacity: 0.5 }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>}
+             {member.photo_url ? <img src={getMemberPhotoUrl(member.photo_url)} alt={member.korean_name} className="w-full h-full object-cover" /> : <svg className={`w-6 h-6 ${roleText}`} style={{ opacity: 0.5 }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>}
             {isHead && <CrownBadge />}
           </div>
           <div className="flex-1 min-w-0">
@@ -1242,18 +1242,33 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
                       `}
                     >
 
-                        <div className="relative flex-shrink-0">
-                          <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-lg sm:rounded-2xl ${fmRoleBg} flex items-center justify-center overflow-hidden ring-1 ring-slate-100 opacity-60`}>
-                            {fm.photo_url ? (
-                              <img src={fm.photo_url} alt={fm.korean_name} className="w-full h-full object-cover" />
-                            ) : (
-                              <div className={`w-full h-full flex items-center justify-center ${fmRoleText}`}>
-                                <Users className="w-6 h-6 sm:w-7 sm:h-7" strokeWidth={1} />
-                              </div>
-                            )}
-                          </div>
+                        <div
+                          className={`
+                            relative flex items-center justify-center
+                            w-12 h-12 sm:w-14 sm:h-14
+                            rounded-lg sm:rounded-2xl
+                            ${fmRoleBg}
+                            flex-shrink-0
+                            overflow-hidden
+                            ring-1 ring-slate-100
+                            ${!fm.photo_url ? 'opacity-40' : 'opacity-100'}
+                          `}
+                        >
+                          {fm.photo_url ? (
+                            <img
+                              src={getMemberPhotoUrl(fm.photo_url)}
+                              alt={fm.korean_name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className={`w-full h-full flex items-center justify-center ${fmRoleText}`}>
+                              <Users className="w-6 h-6 sm:w-7 sm:h-7" strokeWidth={1} />
+                            </div>
+                          )}
+
                           {isFmHead && <CrownBadge />}
                         </div>
+
                         <div className="flex-1 min-w-0">
                           <p className="text-sm sm:text-lg font-bold text-slate-800 group-hover:text-blue-600 transition-colors break-words">{fm.korean_name}</p>
                           <p className="text-xs text-slate-500 tracking-wide flex items-center gap-2 flex-wrap capitalize">
