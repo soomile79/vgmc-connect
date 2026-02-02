@@ -51,20 +51,19 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
   const [newMemo, setNewMemo] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // [수정] props로 들어오는 childLists가 변경될 때 localChildLists도 업데이트되도록 설정
   const [localChildLists, setLocalChildLists] = useState<ChildList[]>(childLists);
   const [newTagName, setNewTagName] = useState('');
   const [roles, setRoles] = useState<Role[]>([]);
   const [editingMemoIndex, setEditingMemoIndex] = useState<number | null>(null);
   const [editingMemoText, setEditingMemoText] = useState('');
   const [photoSignedUrl, setPhotoSignedUrl] = useState<string | null>(null);
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
 
   const currentMember = members.length > 0 ? members[activeMemberIndex] : null;
   const currentRole = roles.find(r => r.name === currentMember?.role);
   const roleBg = currentRole?.bg_color ?? 'bg-slate-100';
   const roleText = currentRole?.text_color ?? 'text-slate-500';
 
-  // [수정] 태그 부모 ID를 찾는 로직을 더 유연하게 변경
   const getTagParentId = () => {
     const found = parentLists.find(p => 
       p.name.includes('태그') || 
@@ -81,7 +80,25 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
     return localChildLists.filter(c => c.parent_id === parentId);
   }, [localChildLists, parentLists]);
 
+   const birthdayInputRef = useRef<HTMLInputElement>(null);
+
   /* ================= 2. HELPERS ================= */
+
+  const formatBirthday = (value: string) => {
+    const v = value.replace(/\D/g, '');
+    if (v.length <= 4) return v;
+    if (v.length <= 6) return `${v.slice(0, 4)}-${v.slice(4)}`;
+    return `${v.slice(0, 4)}-${v.slice(4, 6)}-${v.slice(6, 8)}`;
+  };
+
+  // 전화번호 포맷 (010-0000-0000)
+  const formatPhone = (value: string) => {
+    const v = value.replace(/\D/g, '');
+    if (v.length <= 3) return v;
+    if (v.length <= 7) return `${v.slice(0, 3)}-${v.slice(3)}`;
+    if (v.length <= 10) return `${v.slice(0, 3)}-${v.slice(3, 6)}-${v.slice(6)}`;
+    return `${v.slice(0, 3)}-${v.slice(3, 7)}-${v.slice(7, 11)}`;
+  };
 
   const calculateAge = (b: string) => {
     if (!b) return null;
@@ -123,34 +140,42 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
   /* ================= 3. ACTIONS ================= */
 
   const updateMember = (index: number, updates: Partial<MemberData>) => {
-    const newMembers = [...members];
-    if (!newMembers[index]) return;
-    const target = { ...newMembers[index], ...updates };
+    setMembers(prevMembers => {
+      const newMembers = [...prevMembers];
+      if (!newMembers[index]) return prevMembers;
+      
+      const target = { ...newMembers[index], ...updates };
+      newMembers[index] = target;
 
-    if (updates.relationship === 'Head') {
-      const hasHead = newMembers.some((m, i) => i !== index && m.relationship === 'Head');
-      if (hasHead) {
-        alert("⚠️ 한 가정에 대표자(Head)는 한 명만 지정할 수 있습니다.");
-        return;
-      }
-    }
-
-    if (updates.relationship) {
-      const head = newMembers.find(m => m.relationship === 'Head');
-      if (updates.relationship === 'Spouse' && head?.gender) {
-        target.gender = head.gender === 'Male' ? 'Female' : 'Male';
+      // Spouse 선택 시 Head와 반대 성별로 자동 세팅
+      if (updates.relationship === 'Spouse') {
+        const head = newMembers.find(m => m.relationship === 'Head');
+        if (head?.gender) {
+          target.gender = head.gender === 'Male' ? 'Female' : 'Male';
+        }
       } else if (updates.relationship === 'Son') target.gender = 'Male';
       else if (updates.relationship === 'Daughter') target.gender = 'Female';
-    }
 
-    newMembers[index] = target;
-    setMembers(newMembers);
+      // Head 성별 변경 시 Spouse 성별도 자동 반전
+      if (target.relationship === 'Head' && updates.gender) {
+        const spouseIdx = newMembers.findIndex(m => m.relationship === 'Spouse');
+        if (spouseIdx !== -1) {
+          newMembers[spouseIdx] = {
+            ...newMembers[spouseIdx],
+            gender: updates.gender === 'Male' ? 'Female' : 'Male'
+          };
+        }
+      }
+
+      return newMembers;
+    });
   };
 
   const handleAddFamilyMember = () => {
     const newM: MemberData = {
       korean_name: '', english_name: '', gender: '', birthday: '', phone: '', email: '',
-      address: members[0]?.address || '', relationship: 'Spouse',
+      address: members[0]?.address || '', 
+      relationship: '', // [수정] 기본값을 빈값으로 설정하여 사용자가 직접 선택하도록 유도
       is_baptized: false, baptism_date: '', registration_date: new Date().toISOString().split('T')[0],
       offering_number: '', for_slip: '', memo: '', photo_url: '', tags: [], status: 'Active', role: '', 
       mokjang: members[0]?.mokjang || '', is_head: false
@@ -197,36 +222,67 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
   };
 
   const handleSaveMembers = async () => {
-    if (!currentMember) return;
+    if (members.length === 0) return;
+
     const invalid = members.find(m => !m.korean_name.trim() || !m.relationship || !m.gender);
     if (invalid) {
       alert(`⚠️ [${invalid.korean_name || '새 멤버'}] 한글이름, 관계, 성별은 필수 항목입니다.`);
       return;
     }
 
+    const headMember = members.find(m => m.relationship === 'Head');
+    if (!headMember) {
+      alert("⚠️ 가족 대표자(Head)를 지정해야 저장할 수 있습니다.");
+      return;
+    }
+    const headName = headMember.korean_name;
+
     setLoading(true);
     try {
       let familyId = initialData?.family_id || members.find(m => m.family_id)?.family_id;
+
       if (!familyId) {
-        const { data: f } = await supabase.from('families').insert({ family_name: members[0].korean_name }).select().single();
+        const { data: f, error: fError } = await supabase
+          .from('families')
+          .insert({ family_name: headName }) 
+          .select().single();
+        if (fError) throw fError;
         familyId = f?.id;
+      } else {
+        await supabase.from('families').update({ family_name: headName }).eq('id', familyId);
       }
+
       let memberIdToOpen = '';
       for (let i = 0; i < members.length; i++) {
         const m = members[i];
         const { is_head, ...dbData } = m;
-        const payload = { ...dbData, family_id: familyId, birthday: m.birthday || null, baptism_date: m.baptism_date || null, registration_date: m.registration_date || null };
+        const payload = { 
+          ...dbData, 
+          family_id: familyId,
+          representative: headName,
+          birthday: m.birthday || null, 
+          baptism_date: m.baptism_date || null, 
+          registration_date: m.registration_date || null 
+        };
+
         if (m.id) {
           await supabase.from('members').update(payload).eq('id', m.id);
           if (i === activeMemberIndex) memberIdToOpen = m.id;
         } else {
-          const { data, error } = await supabase.from('members').insert(payload).select().single();
-          if (error) throw error;
+          const { data, error: iError } = await supabase.from('members').insert(payload).select().single();
+          if (iError) throw iError;
           if (i === activeMemberIndex) memberIdToOpen = data.id;
+          m.id = data.id;
         }
       }
       onSuccess('save', memberIdToOpen);
-    } catch (e) { alert("저장 실패"); } finally { setLoading(false); }
+      alert('성공적으로 저장되었습니다.');
+    } catch (e: any) { 
+      console.error("저장 중 에러:", e);
+      alert(`저장 실패: ${e.message || '알 수 없는 오류'}`); 
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   const handleDeleteCurrentMember = async () => {
@@ -293,7 +349,37 @@ useEffect(() => {
 
   /* ================= 4. EFFECTS ================= */
 
-  // props로 전달된 데이터를 로컬 상태와 동기화 (가장 중요!)
+  useEffect(() => {
+    const checkDuplicate = async () => {
+      if (!currentMember?.korean_name.trim()) {
+        setDuplicateWarning(null);
+        return;
+      }
+      const localDuplicate = members.find((m, i) => 
+        i !== activeMemberIndex && 
+        m.korean_name.trim() === currentMember.korean_name.trim() && 
+        m.birthday === currentMember.birthday
+      );
+      if (localDuplicate) {
+        setDuplicateWarning(`⚠️ 입력 중인 명단에 [${currentMember.korean_name}(${currentMember.birthday || '생일미입력'})]님이 이미 있습니다.`);
+        return;
+      }
+      try {
+        let query = supabase.from('members').select('id, korean_name, birthday').eq('korean_name', currentMember.korean_name.trim());
+        if (currentMember.birthday) query = query.eq('birthday', currentMember.birthday);
+        const { data } = await query.maybeSingle();
+        if (data && data.id !== currentMember.id) {
+          setDuplicateWarning(`⚠️ [${data.korean_name}(${data.birthday || '생일미입력'})]님이 이미 DB에 등록되어 있습니다.`);
+        } else {
+          setDuplicateWarning(null);
+        }
+      } catch (err) { console.error("Duplicate Check Error", err); }
+    };
+
+    const timer = setTimeout(checkDuplicate, 500);
+    return () => clearTimeout(timer);
+  }, [currentMember?.korean_name, currentMember?.birthday, activeMemberIndex]);
+
   useEffect(() => {
     setLocalChildLists(childLists);
   }, [childLists]);
@@ -377,7 +463,7 @@ useEffect(() => {
                 <div className="flex items-center gap-2 md:gap-4 flex-wrap mb-0.5">
                   <h2 className="text-xl md:text-3xl font-black text-slate-800 truncate">{currentMember.korean_name || '새 멤버'}</h2>
                   <span className="text-sm md:text-lg text-slate-500 font-bold">
-                    {calculateAge(currentMember.birthday) || '-'}세 · {currentMember.gender === 'Male' ? 'M' : currentMember.gender === 'Female' ? 'F' : '-'}
+                    {calculateAge(currentMember.birthday) || ' '} · {currentMember.gender === 'Male' ? 'M' : currentMember.gender === 'Female' ? 'F' : ' '}
                   </span>
                 </div>
                 <div className="text-sm md:text-xl text-slate-400 font-semibold mb-2 md:mb-4 truncate tracking-tight">{currentMember.english_name || 'English Name'}</div>
@@ -416,35 +502,97 @@ useEffect(() => {
 
           <div className="flex-1 overflow-y-auto p-4 md:p-4 custom-scrollbar bg-white">
             <div className="max-w-4xl mx-auto space-y-8 md:space-y-12">
-              
+
+              {/* 입력 섹션 */}
               <section className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
                 <div className="col-span-2 md:col-span-1 space-y-1">
                   <label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">한글 이름 <span className="text-rose-500">*</span></label>
-                  <input type="text" value={currentMember.korean_name} onChange={e => updateMember(activeMemberIndex, { korean_name: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm md:text-base font-bold text-slate-700 focus:ring-2 focus:ring-blue-100" />
+                  <input type="text" value={currentMember.korean_name} onChange={e => updateMember(activeMemberIndex, { korean_name: e.target.value })} className={`w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm md:text-base font-bold text-slate-700 focus:ring-2 ${duplicateWarning ? 'ring-2 ring-orange-400' : 'focus:ring-blue-100'}`} />
+                  {duplicateWarning && (
+                    <div className="flex items-center gap-1 text-orange-600 mt-1 animate-pulse">
+                      <AlertCircle size={12} />
+                      <span className="text-[10px] md:text-[11px] font-bold">{duplicateWarning}</span>
+                    </div>
+                  )}
                 </div>
+                
                 <div className="col-span-2 md:col-span-1 space-y-1">
                   <label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">영문 이름 (Legal)</label>
                   <input type="text" value={currentMember.english_name} onChange={e => updateMember(activeMemberIndex, { english_name: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm md:text-base font-bold text-slate-700" />
                 </div>
+
+                {/* 관계 */}
+                <div className="space-y-1">
+                  <label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">관계 <span className="text-rose-500">*</span></label>
+                  <select value={currentMember.relationship} onChange={e => updateMember(activeMemberIndex, { relationship: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-3 py-2.5 text-xs md:text-sm font-bold text-slate-700 outline-none">
+                    <option value="">선택</option>
+                    {RELATIONSHIPS.map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                </div>
+
+                {/* 성별 */}
                 <div className="space-y-1">
                   <label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">성별 <span className="text-rose-500">*</span></label>
                   <div className="flex bg-slate-100 p-1 rounded-xl h-[42px] md:h-[48px]">
                     <button onClick={() => updateMember(activeMemberIndex, { gender: 'Male' })} className={`flex-1 rounded-lg text-[11px] md:text-xs font-bold transition-all ${currentMember.gender === 'Male' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400'}`}>남성</button>
                     <button onClick={() => updateMember(activeMemberIndex, { gender: 'Female' })} className={`flex-1 rounded-lg text-[11px] md:text-xs font-bold transition-all ${currentMember.gender === 'Female' ? 'bg-rose-500 text-white shadow-sm' : 'text-slate-400'}`}>여성</button>
                   </div>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">관계 <span className="text-rose-500">*</span></label>
-                  <select value={currentMember.relationship} onChange={e => updateMember(activeMemberIndex, { relationship: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-3 py-2.5 text-xs md:text-sm font-bold text-slate-700 outline-none">
-                    {RELATIONSHIPS.map(r => <option key={r} value={r}>{r}</option>)}
-                  </select>
-                </div>
+                </div>                
               </section>
 
-              <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="space-y-1"><label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">생년월일</label><input type="text" value={currentMember.birthday} onChange={e => updateMember(activeMemberIndex, { birthday: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700" placeholder="YYYY-MM-DD" /></div>
-                <div className="space-y-1"><label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">전화번호</label><input type="tel" value={currentMember.phone} onChange={e => updateMember(activeMemberIndex, { phone: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700" placeholder="000-000-0000" /></div>
-                <div className="space-y-1"><label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase tracking-wide">E-mail</label><input type="email" value={currentMember.email} onChange={e => updateMember(activeMemberIndex, { email: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700" /></div>
+                <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* 생년월일 입력란 */}
+                <div className="space-y-1">
+                <label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">생년월일</label>
+                <div className="relative group">
+                  <input 
+                    type="text" 
+                    value={currentMember.birthday} 
+                    onChange={e => updateMember(activeMemberIndex, { birthday: formatBirthday(e.target.value) })} 
+                    maxLength={10}
+                    className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 pr-10" 
+                    placeholder="YYYY-MM-DD" 
+                  />
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-500 cursor-pointer">
+                    <Calendar 
+                      size={18} 
+                      onClick={() => birthdayInputRef.current?.showPicker()} 
+                    />
+                  </div>
+                  {/* 실제 달력 기능을 위한 숨겨진 input - tabIndex={-1} 추가 */}
+                  <input
+                    ref={birthdayInputRef}
+                    type="date"
+                    tabIndex={-1} // <--- 이 부분이 핵심입니다! 탭 포커스에서 제외함
+                    className="absolute opacity-0 pointer-events-none right-0 bottom-0 w-0 h-0"
+                    onChange={e => updateMember(activeMemberIndex, { birthday: e.target.value })}
+                  />
+                </div>
+              </div>
+
+                {/* 전화번호 입력란 */}
+                <div className="space-y-1">
+                  <label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">전화번호</label>
+                  <input 
+                    type="tel" 
+                    value={currentMember.phone} 
+                    onChange={e => updateMember(activeMemberIndex, { phone: formatPhone(e.target.value) })} 
+                    maxLength={13}
+                    className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700" 
+                    placeholder="000-0000-0000" 
+                  />
+                </div>
+
+                {/* 이메일 입력란 */}
+                <div className="space-y-1">
+                  <label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase tracking-wide">E-mail</label>
+                  <input 
+                    type="email" 
+                    value={currentMember.email} 
+                    onChange={e => updateMember(activeMemberIndex, { email: e.target.value })} 
+                    className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700" 
+                  />
+                </div>
               </section>
 
               <section className="space-y-1">
@@ -489,7 +637,7 @@ useEffect(() => {
                 <div className="space-y-1"><label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">등록일</label><input type="text" value={currentMember.registration_date} onChange={e => updateMember(activeMemberIndex, { registration_date: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-s md:text-sm font-bold text-slate-700" /></div>
               </section>
 
-              {/* 7. Global Tags 섹션 */}
+              {/* Tags 섹션 */}
               <section className="space-y-4 pt-6 border-t border-slate-100">
                 <div className="flex items-center gap-2 mb-1"><Tag className="text-purple-600" size={16} /><h3 className="text-sm md:text-s font-bold text-slate-800 uppercase tracking-tight">Global Tags</h3></div>
                 <div className="flex flex-wrap gap-2">
@@ -507,7 +655,7 @@ useEffect(() => {
                 </div>
               </section>
 
-              {/* 8. Memo Log */}
+              {/* Memo Log */}
               <section className="space-y-4 pt-6 border-t border-slate-100 pb-10">
                 <div className="flex items-center gap-2 mb-1"><Info className="text-amber-500" size={16} /><h3 className="text-sm md:text-sm font-bold text-slate-800 uppercase tracking-tight">Memo Log</h3></div>
                 <div className="flex gap-2">
