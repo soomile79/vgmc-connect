@@ -80,15 +80,17 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
     return localChildLists.filter(c => c.parent_id === parentId);
   }, [localChildLists, parentLists]);
 
-   const birthdayInputRef = useRef<HTMLInputElement>(null);
+  const birthdayInputRef = useRef<HTMLInputElement>(null);
+  const baptismDateInputRef = useRef<HTMLInputElement>(null); // 세례일용 추가
+  const registrationDateInputRef = useRef<HTMLInputElement>(null); // 등록일용 추가
 
   /* ================= 2. HELPERS ================= */
 
-  const formatBirthday = (value: string) => {
-    const v = value.replace(/\D/g, '');
-    if (v.length <= 4) return v;
-    if (v.length <= 6) return `${v.slice(0, 4)}-${v.slice(4)}`;
-    return `${v.slice(0, 4)}-${v.slice(4, 6)}-${v.slice(6, 8)}`;
+  const formatDate = (value: string) => {
+  const v = value.replace(/\D/g, '');
+  if (v.length <= 4) return v;
+  if (v.length <= 6) return `${v.slice(0, 4)}-${v.slice(4)}`;
+  return `${v.slice(0, 4)}-${v.slice(4, 6)}-${v.slice(6, 8)}`;
   };
 
   // 전화번호 포맷 (010-0000-0000)
@@ -548,7 +550,7 @@ useEffect(() => {
                   <input 
                     type="text" 
                     value={currentMember.birthday} 
-                    onChange={e => updateMember(activeMemberIndex, { birthday: formatBirthday(e.target.value) })} 
+                    onChange={e => updateMember(activeMemberIndex, { birthday: formatDate(e.target.value) })}
                     maxLength={10}
                     className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 pr-10" 
                     placeholder="YYYY-MM-DD" 
@@ -602,21 +604,40 @@ useEffect(() => {
 
               <section className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 border-t border-slate-100">
                 <div className="space-y-1">
-                  <label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">세례여부</label>
-                  <div className={`flex flex-col gap-2 p-2 rounded-xl border-2 transition-all ${currentMember.is_baptized ? 'bg-blue-50/50 border-blue-100' : 'bg-slate-50 border-transparent'}`}>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${currentMember.is_baptized ? 'bg-sky-600 border-sky-600' : 'bg-white border-slate-200'}`}>
-                        {currentMember.is_baptized && <Check size={12} className="text-white" />}
+                <label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">세례여부</label>
+                <div className={`flex flex-col gap-2 p-2 rounded-xl border-2 transition-all ${currentMember.is_baptized ? 'bg-blue-50/50 border-blue-100' : 'bg-slate-50 border-transparent'}`}>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${currentMember.is_baptized ? 'bg-sky-600 border-sky-600' : 'bg-white border-slate-200'}`}>
+                      {currentMember.is_baptized && <Check size={12} className="text-white" />}
+                    </div>
+                    <input type="checkbox" className="hidden" checked={currentMember.is_baptized} 
+                    onChange={e => updateMember(activeMemberIndex, { is_baptized: e.target.checked })} />
+                    <span className="text-[11px] md:text-xs font-black text-slate-600">Yes</span>
+                  </label>
+                  {currentMember.is_baptized && (
+                    <div className="relative group">
+                      <input 
+                        type="text" 
+                        value={currentMember.baptism_date} 
+                        onChange={e => updateMember(activeMemberIndex, { baptism_date: formatDate(e.target.value) })} 
+                        maxLength={10}
+                        className="w-full bg-transparent border-b border-blue-200 text-[11px] md:text-xs font-bold text-sky-800 outline-none pr-7" 
+                        placeholder="YYYY-MM-DD" 
+                      />
+                      <div className="absolute right-0 top-1/2 -translate-y-1/2 text-blue-400 hover:text-blue-600 cursor-pointer">
+                        <Calendar size={14} onClick={() => baptismDateInputRef.current?.showPicker()} />
                       </div>
-                      <input type="checkbox" className="hidden" checked={currentMember.is_baptized} 
-                      onChange={e => updateMember(activeMemberIndex, { is_baptized: e.target.checked })} />
-                      <span className="text-[11px] md:text-xs font-black text-slate-600">Yes</span>
-                    </label>
-                    {currentMember.is_baptized && (
-                      <input type="text" value={currentMember.baptism_date} onChange={e => updateMember(activeMemberIndex, { baptism_date: e.target.value })} className="w-full bg-transparent border-b border-blue-200 text-[11px] md:text-xs font-bold text-sky-800 outline-none" placeholder="YYYY-MM-DD" />
-                    )}
-                  </div>
+                      <input
+                        ref={baptismDateInputRef}
+                        type="date"
+                        tabIndex={-1}
+                        className="absolute opacity-0 pointer-events-none right-0 bottom-0 w-0 h-0"
+                        onChange={e => updateMember(activeMemberIndex, { baptism_date: e.target.value })}
+                      />
+                    </div>
+                  )}
                 </div>
+              </div>
                 <div className="space-y-1"><label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">헌금번호</label><input type="text" value={currentMember.offering_number} onChange={e => updateMember(activeMemberIndex, { offering_number: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm md:text-base font-bold text-slate-700 h-[42px] md:h-[48px]" /></div>
                 <div className="space-y-1"><label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">Slip #</label><input type="text" value={currentMember.for_slip} onChange={e => updateMember(activeMemberIndex, { for_slip: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm md:text-base font-bold text-slate-700 h-[42px] md:h-[48px]" /></div>
               </section>
@@ -634,7 +655,29 @@ useEffect(() => {
                     </div>
                   );
                 })}
-                <div className="space-y-1"><label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">등록일</label><input type="text" value={currentMember.registration_date} onChange={e => updateMember(activeMemberIndex, { registration_date: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-s md:text-sm font-bold text-slate-700" /></div>
+                <div className="space-y-1">
+                <label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">등록일</label>
+                <div className="relative group">
+                  <input 
+                    type="text" 
+                    value={currentMember.registration_date} 
+                    onChange={e => updateMember(activeMemberIndex, { registration_date: formatDate(e.target.value) })} 
+                    maxLength={10}
+                    className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-s md:text-sm font-bold text-slate-700 pr-10" 
+                    placeholder="YYYY-MM-DD"
+                  />
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-500 cursor-pointer">
+                    <Calendar size={18} onClick={() => registrationDateInputRef.current?.showPicker()} />
+                  </div>
+                  <input
+                    ref={registrationDateInputRef}
+                    type="date"
+                    tabIndex={-1}
+                    className="absolute opacity-0 pointer-events-none right-0 bottom-0 w-0 h-0"
+                    onChange={e => updateMember(activeMemberIndex, { registration_date: e.target.value })}
+                  />
+                </div>
+               </div>
               </section>
 
               {/* Tags 섹션 */}
