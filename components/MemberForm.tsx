@@ -21,6 +21,7 @@ type MemberData = {
   offering_number: string;
   for_slip: string;
   memo: string;
+  prayer_request: string; 
   photo_url: string;
   tags: string[];
   status: string;
@@ -48,7 +49,8 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
   const [members, setMembers] = useState<MemberData[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeMemberIndex, setActiveMemberIndex] = useState(0);
-  const [newMemo, setNewMemo] = useState('');
+  const [logType, setLogType] = useState<'Memo' | 'Prayer'>('Memo'); 
+  const [logText, setLogText] = useState(''); 
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [localChildLists, setLocalChildLists] = useState<ChildList[]>(childLists);
@@ -698,41 +700,102 @@ useEffect(() => {
                 </div>
               </section>
 
-              {/* Memo Log */}
+              {/* ================= 통합 로그 관리 (Memo + Prayer) ================= */}
               <section className="space-y-4 pt-6 border-t border-slate-100 pb-10">
-                <div className="flex items-center gap-2 mb-1"><Info className="text-amber-500" size={16} /><h3 className="text-sm md:text-sm font-bold text-slate-800 uppercase tracking-tight">Memo Log</h3></div>
-                <div className="flex gap-2">
-                  <textarea value={newMemo} onChange={e => setNewMemo(e.target.value)} placeholder="새 메모를 입력하세요..." className="flex-1 bg-slate-50 border-none rounded-xl px-4 py-3 text-sm md:text-base focus:ring-2 focus:ring-amber-100 outline-none min-h-[60px]" />
-                  <button onClick={() => { if (!newMemo.trim()) return; const ts = new Date().toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }); const cur = currentMember.memo ? currentMember.memo.split('\n\n').filter(Boolean) : []; updateMember(activeMemberIndex, { memo: [`[${ts}] ${newMemo.trim()}`, ...cur].join('\n\n') }); setNewMemo(''); }} className="px-5 md:px-8 bg-amber-500 text-white rounded-xl md:rounded-2xl font-black hover:bg-amber-600 transition-colors text-xs md:text-sm">추가</button>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    {logType === 'Memo' ? <Info className="text-blue-500" size={18} /> : <Heart className="text-rose-500" size={18} />}
+                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight">성도 기록 관리</h3>
+                  </div>
+                  
+                  {/* 타입 선택 스위치 */}
+                  <div className="flex p-1 bg-slate-100 rounded-xl">
+                    <button 
+                      type="button"
+                      onClick={() => setLogType('Memo')}
+                      className={`px-4 py-1.5 rounded-lg text-[11px] font-black transition-all ${logType === 'Memo' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}
+                    >메모</button>
+                    <button 
+                      type="button"
+                      onClick={() => setLogType('Prayer')}
+                      className={`px-4 py-1.5 rounded-lg text-[11px] font-black transition-all ${logType === 'Prayer' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-400'}`}
+                    >기도제목</button>
+                  </div>
                 </div>
+
+                <div className="flex gap-2">
+                  <textarea 
+                    value={logText} 
+                    onChange={e => setLogText(e.target.value)} 
+                    placeholder={logType === 'Memo' ? "상담 내용이나 메모를 입력하세요..." : "기도제목을 입력하세요..."}
+                    className={`flex-1 bg-slate-50 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 outline-none min-h-[70px] transition-all ${logType === 'Memo' ? 'focus:ring-blue-100' : 'focus:ring-rose-100'}`} 
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      if (!logText.trim()) return;
+                      const ts = new Date().toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+                      const entry = `[${ts}] ${logText.trim()}`;
+                      
+                      if (logType === 'Memo') {
+                        const cur = currentMember.memo ? currentMember.memo.split('\n\n').filter(Boolean) : [];
+                        updateMember(activeMemberIndex, { memo: [entry, ...cur].join('\n\n') });
+                      } else {
+                        const cur = currentMember.prayer_request ? currentMember.prayer_request.split('\n\n').filter(Boolean) : [];
+                        updateMember(activeMemberIndex, { prayer_request: [entry, ...cur].join('\n\n') });
+                      }
+                      setLogText('');
+                    }}
+                    className={`px-6 rounded-xl font-black text-white transition-all text-xs ${logType === 'Memo' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-rose-500 hover:bg-rose-600'}`}
+                  >
+                    추가
+                  </button>
+                </div>
+
+                {/* 통합 리스트 (메모와 기도제목을 합쳐서 최신순으로 출력) */}
                 <div className="space-y-3 mt-4">
-                  {currentMember.memo?.split('\n\n').filter(Boolean).map((m, i) => {
-                    const match = m.match(/^\[(.*?)\] (.*)$/s);
-                    const ts = match ? match[1] : 'LOG';
-                    const content = match ? match[2] : m;
-                    const isEditing = editingMemoIndex === i;
-                    return (
-                      <div key={i} className="group p-4 md:p-6 bg-slate-50 rounded-2xl md:rounded-3xl relative transition-all border border-transparent hover:border-slate-100">
-                        {isEditing ? (
-                          <div className="space-y-2">
-                            <textarea autoFocus value={editingMemoText} onChange={e => setEditingMemoText(e.target.value)} className="w-full bg-white border-none rounded-xl px-4 py-3 text-sm md:text-base" />
-                            <div className="flex justify-end gap-2"><button onClick={() => setEditingMemoIndex(null)} className="text-xs font-bold text-slate-400">취소</button><button onClick={() => { const curMemos = currentMember.memo.split('\n\n').filter(Boolean); curMemos[i] = `[${ts}] ${editingMemoText}`; updateMember(activeMemberIndex, { memo: curMemos.join('\n\n') }); setEditingMemoIndex(null); }} className="text-xs font-bold text-blue-600">저장</button></div>
-                          </div>
-                        ) : (
-                          <>
-                            <div className="flex justify-between mb-2">
-                              <span className="text-[10px] md:text-[10px] font-black text-blue-500 bg-blue-50 px-2 py-1 rounded-md">{ts}</span>
-                              <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-3">
-                                <button onClick={() => { setEditingMemoIndex(i); setEditingMemoText(content); }} className="text-slate-400 hover:text-blue-500 transition-colors"><Edit size={16}/></button>
-                                <button onClick={() => { if(confirm("삭제하시겠습니까?")) { const curMemos = currentMember.memo.split('\n\n').filter(Boolean); updateMember(activeMemberIndex, { memo: curMemos.filter((_, idx) => idx !== i).join('\n\n') }); } }} className="text-slate-400 hover:text-rose-500 transition-colors"><Trash2 size={16}/></button>
+                  {(() => {
+                    const memos = (currentMember.memo?.split('\n\n') || []).filter(Boolean).map(text => ({ text, type: 'Memo' }));
+                    const prayers = (currentMember.prayer_request?.split('\n\n') || []).filter(Boolean).map(text => ({ text, type: 'Prayer' }));
+                    
+                    return [...memos, ...prayers]
+                      .sort((a, b) => b.text.localeCompare(a.text)) // 날짜 문자열 기준 내림차순 정렬
+                      .map((item, idx) => {
+                        const match = item.text.match(/^\[(.*?)\] (.*)$/s);
+                        const date = match ? match[1] : 'LOG';
+                        const content = match ? match[2] : item.text;
+                        
+                        return (
+                          <div key={idx} className={`group p-4 rounded-2xl border transition-all relative ${item.type === 'Memo' ? 'bg-blue-50/30 border-blue-50' : 'bg-rose-50/30 border-rose-50'}`}>
+                            <div className="flex justify-between items-center mb-1">
+                              <div className="flex items-center gap-2">
+                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${item.type === 'Memo' ? 'bg-blue-100 text-blue-600' : 'bg-rose-100 text-rose-600'}`}>
+                                  {item.type === 'Memo' ? 'MEMO' : 'PRAYER'}
+                                </span>
+                                <span className="text-[10px] font-bold text-slate-400">{date}</span>
                               </div>
+                              <button 
+                                type="button"
+                                onClick={() => {
+                                  if(!confirm("삭제하시겠습니까?")) return;
+                                  if (item.type === 'Memo') {
+                                    const cur = currentMember.memo.split('\n\n').filter(Boolean);
+                                    updateMember(activeMemberIndex, { memo: cur.filter(s => s !== item.text).join('\n\n') });
+                                  } else {
+                                    const cur = currentMember.prayer_request.split('\n\n').filter(Boolean);
+                                    updateMember(activeMemberIndex, { prayer_request: cur.filter(s => s !== item.text).join('\n\n') });
+                                  }
+                                }}
+                                className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-rose-500 transition-all"
+                              >
+                                <Trash2 size={14}/>
+                              </button>
                             </div>
-                            <p className="text-xs md:text-sm text-slate-600 font-bold leading-relaxed whitespace-pre-wrap">{content}</p>
-                          </>
-                        )}
-                      </div>
-                    );
-                  })}
+                            <p className="text-xs text-slate-600 font-bold leading-relaxed whitespace-pre-wrap">{content}</p>
+                          </div>
+                        );
+                      });
+                  })()}
                 </div>
               </section>
             </div>
