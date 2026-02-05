@@ -3,6 +3,7 @@ import { supabase } from './lib/supabase';
 import SettingsPage from './components/SettingsPage';
 import MemberForm from './components/MemberForm';
 import Login from './components/Login';
+// import GlobalLogView from './components/GlobalLogView';
 // import { useTypingPlaceholder } from './hooks/useTypingPlaceholder';
 import {
   LayoutGrid,
@@ -32,7 +33,9 @@ import {
   ChevronUp,
   Crown,
   Clock,
-  Wallet
+  Wallet,
+  User,
+  Heart 
 } from 'lucide-react';
 
 const placeholders = [
@@ -83,6 +86,7 @@ const normalizeMember = (m: any): Member => {
       for_slip: m.for_slip || '',
       tags: Array.isArray(m.tags) ? m.tags : [],
       memo: m.memo ? String(m.memo) : '',
+      prayer_request: m.prayer_request ? String(m.prayer_request) : '',  
       photo_url: m.photo_url || null,
     };
   } catch (e) {
@@ -90,6 +94,245 @@ const normalizeMember = (m: any): Member => {
     return { id: '', korean_name: 'Error', tags: [], memo: '' } as any;
   }
 };
+
+/* ================= GLOBAL LOG MODAL (STACKED VERSION) ================= */
+function GlobalLogModal({ 
+  isOpen, 
+  onClose, 
+  members, 
+  onRefresh,
+  onSelectMember // 상세 정보를 띄우기 위한 함수
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  members: Member[];
+  onRefresh: () => void;
+  onSelectMember: (m: Member) => void;
+}) {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [filterType, setFilterType] = useState<'All' | 'Memo' | 'Prayer'>('All');
+  const [showAllTime, setShowAllTime] = useState(false);
+  const [editingLog, setEditingLog] = useState<{ id: string; text: string; memberId: string; type: 'Memo' | 'Prayer'; originalIndex: number } | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [onClose]);
+
+  const allLogs = useMemo(() => {
+    const logs: any[] = [];
+    members.forEach(m => {
+      const parse = (text: string | null | undefined, type: 'Memo' | 'Prayer') => {
+        if (!text) return;
+        text.split('\n\n').forEach((entry, idx) => {
+          const match = entry.match(/^\[(.*?)\] (.*)$/s);
+          if (match) logs.push({ 
+            member: m,
+            name: m.korean_name, 
+            date: match[1], 
+            content: match[2], 
+            type, 
+            originalIndex: idx,
+            id: m.id + type + match[1] 
+          });
+        });
+      };
+      parse(m.memo, 'Memo');
+      parse(m.prayer_request, 'Prayer');
+    });
+    return logs.sort((a, b) => b.date.localeCompare(a.date));
+  }, [members]);
+
+  const handleUpdate = async () => {
+    if (!editingLog || loading) return;
+    try {
+      setLoading(true);
+      const field = editingLog.type === 'Memo' ? 'memo' : 'prayer_request';
+      const targetMember = members.find(m => m.id === editingLog.memberId);
+      if (!targetMember) return;
+
+      const currentLogs = (targetMember[field]?.split('\n\n') || []);
+      const match = currentLogs[editingLog.originalIndex].match(/^\[(.*?)\]/);
+      const ts = match ? match[1] : new Date().toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+
+      currentLogs[editingLog.originalIndex] = `[${ts}] ${editingLog.text.trim()}`;
+      
+      const { error } = await supabase.from('members').update({ [field]: currentLogs.join('\n\n') }).eq('id', editingLog.memberId);
+      if (!error) {
+        setEditingLog(null);
+        if (onRefresh) onRefresh(); // 에러 방지 체크
+      }
+    } catch (e) { console.error(e); } finally { setLoading(false); }
+  };
+
+  const handleDelete = async (log: any) => {
+    if (!confirm('이 로그를 삭제하시겠습니까?')) return;
+    try {
+      setLoading(true);
+      const field = log.type === 'Memo' ? 'memo' : 'prayer_request';
+      const updatedLogs = (log.member[field]?.split('\n\n') || []).filter((_: any, i: number) => i !== log.originalIndex);
+      
+      const { error } = await supabase.from('members').update({ [field]: updatedLogs.join('\n\n') }).eq('id', log.member.id);
+      if (!error) {
+        if (onRefresh) onRefresh();
+      }
+    } catch (e) { console.error(e); } finally { setLoading(false); }
+  };
+
+  const filtered = allLogs.filter(log => {
+    const matchesSearch = log.name.includes(searchTerm) || log.content.includes(searchTerm);
+    const matchesType = filterType === 'All' || log.type === filterType;
+    if (showAllTime) return matchesSearch && matchesType;
+    const cleanDate = log.date.replace(/[\[\]]/g, '');
+    const dateParts = cleanDate.split('.');
+    const logYear = parseInt(dateParts[0]?.trim());
+    const logMonth = parseInt(dateParts[1]?.trim()) - 1;
+    return matchesSearch && matchesType && logYear === selectedYear && logMonth === selectedMonth;
+  });
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in" onClick={onClose}>
+      <div className="bg-white w-full max-w-4xl h-[85vh] rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+        
+        {/* Header - 필터 (기존 유지) */}
+        <div className="p-6 md:p-8 border-b border-slate-100 bg-white space-y-6 flex-shrink-0">
+          <div className="flex justify-between items-center">
+            <h3 className="text-xl font-black text-slate-700 flex items-center gap-3">
+              <div className="w-5 h-5 bg-sky-700 text-white flex items-center justify-center shadow-sm shadow-sky-200">
+                <Mail className="w-6 h-6" />
+              </div>
+              기도 & 메모 통합 로그
+            </h3>
+            <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><X /></button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-3">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 opacity-50" />
+                <input placeholder="이름 또는 내용 검색..." className="w-full bg-slate-50 border-none rounded-2xl pl-11 pr-4 py-3 text-sm focus:ring-2 focus:ring-emerald-100" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+              </div>
+              <div className="flex p-1 bg-slate-100 rounded-xl w-fit">
+                {(['All', 'Prayer', 'Memo'] as const).map(t => (
+                  <button key={t} onClick={() => setFilterType(t)} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${filterType === t ? 'bg-white text-sky-700 shadow-sm' : 'text-slate-500'}`}>{t === 'All' ? '전체' : t === 'Prayer' ? '기도제목' : '메모'}</button>
+                ))}
+              </div>
+            </div>
+            <div className="flex flex-col justify-end items-end gap-3">
+               <div className="flex items-center gap-2">
+                 <button onClick={() => setShowAllTime(!showAllTime)} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${showAllTime ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-500 border-slate-200'}`}>전체 기간</button>
+                 {!showAllTime && (
+                   <div className="flex gap-2">
+                     <select className="bg-slate-50 border-none rounded-xl text-sm font-bold py-2 pl-3 pr-8" value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))}>{[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}년</option>)}</select>
+                     <select className="bg-slate-50 border-none rounded-xl text-sm font-bold py-2 pl-3 pr-8" value={selectedMonth} onChange={e => setSelectedMonth(Number(e.target.value))}>{Array.from({length: 12}).map((_, i) => <option key={i} value={i}>{i+1}월</option>)}</select>
+                   </div>
+                 )}
+               </div>
+               <div className="text-[10px] font-bold text-slate-400 tracking-wide">{filtered.length} Logs Found</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Content List */}
+        <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-4 custom-scrollbar bg-slate-50/30">
+          {filtered.map((log, i) => {
+            const isEditing = editingLog?.id === log.id;
+
+            return (
+              <div 
+                key={i} 
+                className="group p-5 rounded-[1.5rem] bg-white border border-slate-100 hover:border-sky-200 hover:shadow-xl hover:-translate-y-0.5 transition-all relative"
+              >
+                <div className="flex justify-between items-start mb-3">
+                  <div className="flex items-center gap-3">
+                    {/* 사진 클릭 시 성도 상세 모달 띄우기 */}
+                    <div 
+                      onClick={() => onSelectMember(log.member)}
+                      className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center overflow-hidden cursor-pointer hover:ring-2 hover:ring-sky-400 transition-all"
+                    >
+                      {log.member.photo_url ? (
+                        <img src={getMemberPhotoUrl(log.member.photo_url)} className="w-full h-full object-cover" />
+                      ) : (
+                        <User className="text-slate-300 w-5 h-5" />
+                      )}
+                    </div>
+                    <div>
+                      {/* 이름 클릭 시 성도 상세 모달 띄우기 */}
+                      <div 
+                        onClick={() => onSelectMember(log.member)}
+                        className="font-black text-slate-800 hover:text-sky-600 cursor-pointer transition-colors"
+                      >
+                        {log.name}
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-bold">{log.member.mokjang || '소속 없음'}</div>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase ${log.type === 'Prayer' ? 'bg-rose-50 text-rose-500' : 'bg-blue-50 text-blue-500'}`}>
+                      {log.type === 'Prayer' ? '기도제목' : '메모'}
+                    </span>
+                  </div>
+                  
+                  {/* 수정 / 삭제 버튼 */}
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button 
+                      onClick={() => setEditingLog({ id: log.id, text: log.content, memberId: log.member.id, type: log.type, originalIndex: log.originalIndex })}
+                      className="p-2 hover:bg-slate-50 rounded-lg text-slate-400 hover:text-blue-500 transition-colors"
+                    >
+                      <Edit size={16} />
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(log)}
+                      className="p-2 hover:bg-slate-50 rounded-lg text-slate-400 hover:text-rose-500 transition-colors"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+
+                {isEditing ? (
+                  <div className="space-y-3 pl-[52px]">
+                    <textarea 
+                      value={editingLog.text} 
+                      onChange={e => setEditingLog({ ...editingLog, text: e.target.value })} 
+                      className="w-full p-4 bg-slate-50 rounded-2xl border-none text-sm focus:ring-2 focus:ring-sky-100 outline-none" 
+                      rows={3} 
+                    />
+                    <div className="flex justify-end gap-2">
+                      <button onClick={() => setEditingLog(null)} className="px-4 py-2 text-xs font-bold text-slate-400 hover:text-slate-600">취소</button>
+                      <button 
+                        onClick={handleUpdate}
+                        disabled={loading}
+                        className="px-5 py-2 text-xs font-bold bg-sky-500 text-white rounded-xl shadow-md hover:bg-sky-600 transition-all disabled:opacity-50"
+                      >
+                        {loading ? '저장 중...' : '저장하기'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-1 pl-[52px]">
+                    <p className="text-sm text-slate-600 font-medium leading-relaxed whitespace-pre-wrap">{log.content}</p>
+                    <span className="text-[10px] text-slate-300 font-bold mt-1 tracking-wider">{log.date}</span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {filtered.length === 0 && (
+            <div className="h-full flex flex-col items-center justify-center text-slate-300 py-20">
+              <Search className="w-16 h-16 mb-4 opacity-30" />
+              <p className="font-bold">조건에 맞는 기록이 없습니다.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /* ================= TYPES ================= */
 
@@ -118,6 +361,7 @@ type Member = {
   registration_date?: string | null;
   status?: string | null;
   memo?: string | null;
+  prayer_request?: string | null;
   offering_number?: string | null;
   for_slip?: string | null;
   tags?: string[] | null;
@@ -176,14 +420,52 @@ const calcYearsMonths = (dateStr?: string | null) => {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  active: 'bg-emerald-500',
+  active: 'bg-sky-500',
   inactive: 'bg-slate-300',
   pending: 'bg-amber-400',
 };
 
 /* ================= SIDEBAR Left Bar================= */
 
-function Sidebar({ activeMembersCount, familiesCount, birthdaysCount, activeOnly, sidebarOpen, onCloseSidebar, onClickActiveMembers, onSelectMenu, parentLists, childLists, onSelectFilter, activeMenu, selectedFilter, members, onNewMember, onSignOut, userRole }: { activeMembersCount: number; familiesCount: number; birthdaysCount: number; activeOnly: boolean; sidebarOpen: boolean; onCloseSidebar: () => void; onClickActiveMembers: () => void; onSelectMenu: (menu: MenuKey) => void; parentLists: ParentList[]; childLists: ChildList[]; onSelectFilter: (parentType: string, child: ChildList) => void; activeMenu: MenuKey; selectedFilter: ChildList | null; members: Member[]; onNewMember: () => void; onSignOut: () => void; userRole: 'admin' | 'user' | null; }) {
+function Sidebar({ 
+  activeMembersCount, 
+  familiesCount, 
+  birthdaysCount, 
+  activeOnly, 
+  sidebarOpen, 
+  onCloseSidebar, 
+  onClickActiveMembers, 
+  onSelectMenu, 
+  parentLists, 
+  childLists, 
+  onSelectFilter, 
+  activeMenu, 
+  selectedFilter, 
+  members, 
+  onNewMember, 
+  onSignOut, 
+  userRole,
+  onOpenGlobalLog // ⬅️ 기도/메모 로그 열기 프롭스 추가
+}: { 
+  activeMembersCount: number; 
+  familiesCount: number; 
+  birthdaysCount: number; 
+  activeOnly: boolean; 
+  sidebarOpen: boolean; 
+  onCloseSidebar: () => void; 
+  onClickActiveMembers: () => void; 
+  onSelectMenu: (menu: MenuKey) => void; 
+  parentLists: ParentList[]; 
+  childLists: ChildList[]; 
+  onSelectFilter: (parentType: string, child: ChildList) => void; 
+  activeMenu: MenuKey; 
+  selectedFilter: ChildList | null; 
+  members: Member[]; 
+  onNewMember: () => void; 
+  onSignOut: () => void; 
+  userRole: 'admin' | 'user' | null; 
+  onOpenGlobalLog: () => void; // ⬅️ 타입 정의 추가
+}) {
   const [now, setNow] = useState(new Date());
   const [expandedParents, setExpandedParents] = useState<Record<string, boolean>>({});
 
@@ -307,9 +589,9 @@ function Sidebar({ activeMembersCount, familiesCount, birthdaysCount, activeOnly
             </button>
           </div>
           <div className="mb-2">
-            <button onClick={() => onSelectMenu('recent')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors group ${activeMenu === 'recent' ? 'bg-emerald-50' : 'hover:bg-slate-50'}`}>
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${activeMenu === 'recent' ? 'bg-emerald-100' : 'bg-slate-50'}`}><UserCog className={`w-5 h-5 ${activeMenu === 'recent' ? 'text-emerald-600' : 'text-slate-600'}`} /></div>
-              <div className="flex-1 text-left"><div className={`text-sm font-semibold ${activeMenu === 'recent' ? 'text-emerald-700' : 'text-slate-700'}`}>최신 등록교인</div></div>
+            <button onClick={() => onSelectMenu('recent')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors group ${activeMenu === 'recent' ? 'bg-sky-50' : 'hover:bg-slate-50'}`}>
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${activeMenu === 'recent' ? 'bg-sky-100' : 'bg-slate-50'}`}><UserCog className={`w-5 h-5 ${activeMenu === 'recent' ? 'text-sky-600' : 'text-slate-600'}`} /></div>
+              <div className="flex-1 text-left"><div className={`text-sm font-semibold ${activeMenu === 'recent' ? 'text-sky-700' : 'text-slate-700'}`}>최신 등록교인</div></div>
               <ChevronRight className="w-4 h-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
             </button>
           </div>
@@ -357,6 +639,18 @@ function Sidebar({ activeMembersCount, familiesCount, birthdaysCount, activeOnly
     </div>
         {/* ===== BOTTOM FIXED AREA ===== */}
 <div className="shrink-0 text-s font-semibold text-slate-600 px-4 py-2 mb-3 bg-white border border-slate-200 rounded-lg text-center">
+  
+  {/* ⬇️ 추가된 기도 & 메모 로그 버튼 (Admin 전용) */}
+  {userRole === 'admin' && (
+    <button
+      onClick={onOpenGlobalLog}
+      className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-sky-50 text-sky-700 border border-sky-100 hover:bg-sky-100 transition-all mb-3 shadow-sm group"
+    >
+      <Mail className="w-4 h-4 text-sky-500 group-hover:scale-110 transition-transform" />
+      <span className="text-sm font-bold">기도 & 메모 로그</span>
+    </button>
+  )}
+
   <div className="text-xs text-slate-500 px-4 mb-2">
     Today : {now.getFullYear()}-
     {String(now.getMonth() + 1).padStart(2, '0')}-
@@ -820,162 +1114,168 @@ function BirthdayCard({
 }
 
 
-/* ================= MEMO SECTION ================= */
+/* ================= UNIFIED LOG SECTION (Memo + Prayer) ================= */
 function MemoSection({ member, onRefresh }: { member: Member; onRefresh: () => void; }) {
-  const [newMemo, setNewMemo] = useState('');
-  const [editingMemoIndex, setEditingMemoIndex] = useState<number | null>(null);
-  const [editingMemoText, setEditingMemoText] = useState('');
+  const [logType, setLogType] = useState<'Memo' | 'Prayer'>('Memo');
+  const [newLog, setNewLog] = useState('');
+  const [editingLog, setEditingLog] = useState<{ index: number; type: 'Memo' | 'Prayer'; text: string } | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Use member.memo directly but safely
-  const memoList = useMemo(() => {
-    try {
-      const raw = member?.memo ? String(member.memo) : '';
-      return raw.split('\n\n').map(m => String(m).trim()).filter(Boolean);
-    } catch (e) { return []; }
-  }, [member?.memo]);
+  // 1. 메모와 기도제목을 하나의 리스트로 합치고 정렬
+  const combinedLogs = useMemo(() => {
+    const memos = (member.memo?.split('\n\n') || []).filter(Boolean).map((text, index) => ({ text, type: 'Memo' as const, originalIndex: index }));
+    const prayers = (member.prayer_request?.split('\n\n') || []).filter(Boolean).map((text, index) => ({ text, type: 'Prayer' as const, originalIndex: index }));
+    
+    return [...memos, ...prayers].sort((a, b) => b.text.localeCompare(a.text));
+  }, [member.memo, member.prayer_request]);
 
-  const handleAddMemo = async () => {
-    if (!newMemo.trim() || loading || !member?.id) return;
+  // 2. 로그 추가 함수
+  const handleAddLog = async () => {
+    if (!newLog.trim() || loading || !member?.id) return;
     try {
       setLoading(true);
       const timestamp = new Date().toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
-      const memoEntry = `[${timestamp}] ${newMemo.trim()}`;
-      const updatedMemo = [memoEntry, ...memoList].join('\n\n');
-      const { error } = await supabase.from('members').update({ memo: updatedMemo }).eq('id', member.id);
+      const entry = `[${timestamp}] ${newLog.trim()}`;
+      
+      const field = logType === 'Memo' ? 'memo' : 'prayer_request';
+      const currentData = (member[field] ? member[field]?.split('\n\n') : []) || [];
+      const updatedData = [entry, ...currentData].join('\n\n');
+
+      const { error } = await supabase.from('members').update({ [field]: updatedData }).eq('id', member.id);
       if (!error) {
-        setNewMemo('');
+        setNewLog('');
         onRefresh();
       }
     } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
-  const handleUpdateMemo = async (index: number) => {
-    if (!editingMemoText.trim() || loading || !member?.id) return;
+  // 3. 로그 수정 함수
+  const handleUpdateLog = async () => {
+    if (!editingLog || !editingLog.text.trim() || loading) return;
     try {
       setLoading(true);
-      const currentMemos = [...memoList];
-      const entry = String(currentMemos[index] || '');
-      const match = entry.match(/^\[(.*?)\] (.*)$/s);
-      const timestamp = match ? match[1] : new Date().toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
-      currentMemos[index] = `[${timestamp}] ${editingMemoText.trim()}`;
-      const { error } = await supabase.from('members').update({ memo: currentMemos.join('\n\n') }).eq('id', member.id);
+      const field = editingLog.type === 'Memo' ? 'memo' : 'prayer_request';
+      const currentLogs = (member[field]?.split('\n\n') || []);
+      
+      // 기존 타임스탬프가 있으면 유지, 없으면 새로 생성
+      const match = currentLogs[editingLog.index].match(/^\[(.*?)\]/);
+      const ts = match ? match[1] : new Date().toLocaleString('ko-KR', { 
+        year: 'numeric', 
+        month: '2-digit', 
+        day: '2-digit', 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        hour12: false 
+      });
+      
+      currentLogs[editingLog.index] = `[${ts}] ${editingLog.text.trim()}`;
+
+      const { error } = await supabase.from('members').update({ [field]: currentLogs.join('\n\n') }).eq('id', member.id);
       if (!error) {
-        setEditingMemoIndex(null);
-        setEditingMemoText('');
+        setEditingLog(null);
         onRefresh();
       }
     } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
-  const handleDeleteMemo = async (index: number) => {
-    if (!confirm('이 메모를 삭제하시겠습니까?') || loading || !member?.id) return;
+  // 4. 로그 삭제 함수
+  const handleDeleteLog = async (type: 'Memo' | 'Prayer', index: number) => {
+    if (!confirm('이 기록을 삭제하시겠습니까?') || loading) return;
     try {
       setLoading(true);
-      const updatedMemos = memoList.filter((_, i) => i !== index);
-      const { error } = await supabase.from('members').update({ memo: updatedMemos.join('\n\n') }).eq('id', member.id);
+      const field = type === 'Memo' ? 'memo' : 'prayer_request';
+      const updatedLogs = (member[field]?.split('\n\n') || []).filter((_, i) => i !== index);
+      
+      const { error } = await supabase.from('members').update({ [field]: updatedLogs.join('\n\n') }).eq('id', member.id);
       if (!error) onRefresh();
     } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
-  if (!member) return null;
-
   return (
     <div className="space-y-6">
-      {/* <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Memo Log</div> */}
-      <div className="flex gap-2">
-        <textarea
-          value={newMemo}
-          onChange={(e) => setNewMemo(e.target.value)}
-          placeholder="새로운 메모를 입력하세요..."
-          className="
-            flex-1
-            px-3 py-2
-            rounded-xl
-            bg-slate-50
-            border border-transparent
-            focus:bg-white
-            focus:border-[#3c8fb5]
-            focus:ring-1 focus:ring-blue-50
-            transition-all
-            font-medium
-            text-slate-700
-            min-h-[56px]
-            text-sm
-          "
-        />
+      {/* 입력 섹션: 타입 선택 + 텍스트 영역 */}
+      <div className="space-y-3">
+        <div className="flex p-1 bg-slate-100 rounded-xl w-fit">
+          <button 
+            onClick={() => setLogType('Memo')}
+            className={`px-4 py-1.5 rounded-lg text-[11px] font-black transition-all ${logType === 'Memo' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}
+          >메모</button>
+          <button 
+            onClick={() => setLogType('Prayer')}
+            className={`px-4 py-1.5 rounded-lg text-[11px] font-black transition-all ${logType === 'Prayer' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-400'}`}
+          >기도제목</button>
+        </div>
 
-        <button
-          onClick={handleAddMemo}
-          disabled={loading}
-          className="
-            px-3
-            h-[56px]
-            bg-[#3c8fb5]
-            text-white
-            rounded-xl
-            font-bold
-            tracking-wide
-            hover:bg-[#327a9c]
-            transition-colors
-            text-xs
-            disabled:opacity-50
-            flex items-center justify-center
-          "
-        >
-          등록
-        </button>
+        <div className="flex gap-2">
+          <textarea
+            value={newLog}
+            onChange={(e) => setNewLog(e.target.value)}
+            placeholder={logType === 'Memo' ? "메모 입력..." : "기도제목 입력..."}
+            className={`flex-1 px-3 py-2 rounded-xl bg-slate-50 border-none focus:ring-2 text-sm min-h-[56px] ${logType === 'Memo' ? 'focus:ring-blue-100' : 'focus:ring-rose-100'}`}
+          />
+          <button
+            onClick={handleAddLog}
+            disabled={loading}
+            className={`px-4 rounded-xl font-bold text-white transition-all text-xs disabled:opacity-50 ${logType === 'Memo' ? 'bg-blue-600' : 'bg-rose-500'}`}
+          >
+            등록
+          </button>
+        </div>
       </div>
 
+      {/* 리스트 섹션: 통합 타임라인 */}
       <div className="space-y-4">
-        {memoList.map((entry, i) => {
-          const safeEntry = String(entry || '');
-          const match = safeEntry.match(/^\[(.*?)\] (.*)$/s);
+        {combinedLogs.map((log, i) => {
+          const match = log.text.match(/^\[(.*?)\] (.*)$/s);
           const timestamp = match ? match[1] : '';
-          const content = match ? match[2] : safeEntry;
+          const content = match ? match[2] : log.text;
+          const isEditing = editingLog?.type === log.type && editingLog?.index === log.originalIndex;
+
           return (
-            <div key={i} className="group/memo p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-1 relative">
-              {editingMemoIndex === i ? (
+            <div key={i} className={`group p-4 rounded-2xl border transition-all relative ${log.type === 'Memo' ? 'bg-blue-50/30 border-blue-50' : 'bg-rose-50/30 border-rose-50'}`}>
+              {isEditing ? (
                 <div className="space-y-3">
-                  <textarea value={editingMemoText} onChange={(e) => setEditingMemoText(e.target.value)} className="w-full p-4 rounded-2xl border-slate-200 text-sm focus:border-[#3c8fb5] focus:ring-2 focus:ring-blue-50" rows={3} />
+                  <textarea 
+                    value={editingLog.text} 
+                    onChange={(e) => setEditingLog({ ...editingLog, text: e.target.value })} 
+                    className="w-full p-3 rounded-xl border-none text-sm focus:ring-2 focus:ring-sky-100" 
+                    rows={3} 
+                  />
                   <div className="flex justify-end gap-2">
-                    <button onClick={() => setEditingMemoIndex(null)} className="px-4 py-2 text-xs font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest">취소</button>
-                    <button onClick={() => handleUpdateMemo(i)} className="px-4 py-2 text-xs font-black text-white bg-[#3c8fb5] rounded-xl uppercase tracking-widest">저장</button>
+                    <button onClick={() => setEditingLog(null)} className="px-3 py-1 text-[10px] font-bold text-slate-400">취소</button>
+                    <button onClick={handleUpdateLog} className="px-3 py-1 text-[10px] font-bold bg-slate-800 text-white rounded-lg">저장</button>
                   </div>
                 </div>
               ) : (
                 <>
-                  <div className="flex justify-between items-center">
-                    <div className="text-[10px] font-black text-[#3c8fb5] uppercase tracking-widest">{timestamp || '기존 메모'}</div>
-                    <div className="flex gap-1 opacity-0 group-hover/memo:opacity-100 transition-opacity">
-                      <button onClick={() => { setEditingMemoIndex(i); setEditingMemoText(content); }} className="p-1 hover:bg-blue-100 rounded-lg text-blue-600 transition-colors"><Edit className="w-3.5 h-3.5" /></button>
-                      <button onClick={() => handleDeleteMemo(i)} className="p-1 hover:bg-red-100 rounded-lg text-red-600 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                  <div className="flex justify-between items-center mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${log.type === 'Memo' ? 'bg-blue-100 text-blue-600' : 'bg-rose-100 text-rose-600'}`}>
+                        {log.type === 'Memo' ? 'MEMO' : 'PRAYER'}
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-400">{timestamp}</span>
+                    </div>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => setEditingLog({ index: log.originalIndex, type: log.type, text: content })} className="p-1 hover:bg-white rounded-lg text-slate-400"><Edit size={14} /></button>
+                      <button onClick={() => handleDeleteLog(log.type, log.originalIndex)} className="p-1 hover:bg-white rounded-lg text-rose-400"><Trash2 size={14} /></button>
                     </div>
                   </div>
-                  <div className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed font-medium">{content}</div>
+                  <div className="text-xs text-slate-700 font-medium leading-relaxed whitespace-pre-wrap">{content}</div>
                 </>
               )}
             </div>
           );
         })}
-        {memoList.length === 0 && (
-          <div className="
-            py-6
-            text-center
-            text-slate-400
-            text-xs
-            bg-slate-50
-            rounded-xl
-            border border-dashed border-slate-200
-          ">
-            등록된 메모가 없습니다.
+        
+        {combinedLogs.length === 0 && (
+          <div className="py-10 text-center text-slate-400 text-xs bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+            등록된 기록이 없습니다.
           </div>
         )}
-
-              </div>
-            </div>
-          );
-        }
+      </div>
+    </div>
+  );
+}
 
 /* ================= MEMBER DETAIL MODAL ================= */
 function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, onSelectMember, onEdit, userRole, onRefresh }: { member: Member; onClose: () => void; roles: Role[]; familyMembers: Member[]; onSelectMember: (member: Member) => void; onEdit: (member: Member) => void; userRole: 'admin' | 'user'; onRefresh: () => void; }) {
@@ -1020,7 +1320,7 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300" onClick={onClose}>
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[110] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300" onClick={onClose}>
       <div className="
             bg-white
             w-full
@@ -1411,6 +1711,7 @@ function App() {
   const [parentLists, setParentLists] = useState<ParentList[]>([]);
   const [childLists, setChildLists] = useState<ChildList[]>([]);
   const [userRole, setUserRole] = useState<'admin' | 'user' | null>(null);
+  const [isGlobalLogOpen, setIsGlobalLogOpen] = useState(false); 
   
   const [activeBirthdayMonth, setActiveBirthdayMonth] = useState(new Date().getMonth());
   const [recentDateRange, setRecentDateRange] = useState<{ from: string; to: string }>({
@@ -1418,6 +1719,23 @@ function App() {
     to: new Date().toISOString().split('T')[0]
   });
 
+  useEffect(() => {
+    // members 데이터가 로드된 후에 실행되어야 합니다.
+    if (members.length > 0) {
+      const params = new URLSearchParams(window.location.search);
+      const memberId = params.get('id');
+      
+      if (memberId) {
+        const target = members.find(m => m.id === memberId);
+        if (target) {
+          setSelectedMember(target);
+          // 주소창의 ?id=... 부분을 제거해서 깔끔하게 만듦 (새로고침 시 계속 뜨는 것 방지)
+          window.history.replaceState({}, '', window.location.pathname);
+        }
+      }
+    }
+  }, [members]); // members가 로딩될 때마다 체크
+  
   // 데이터 로드
   const load = async (actionType?: 'save' | 'delete', memberId?: string, showLoader: boolean = false) => {
   try {
@@ -1669,7 +1987,7 @@ function App() {
         onSelectMenu={(menu) => resetToInitialView(menu)}
         onSelectFilter={goToFilter}
         activeMenu={activeMenu} selectedFilter={selectedFilter} parentLists={parentLists} childLists={childLists}
-        members={members} onNewMember={handleNewMember} onSignOut={handleSignOut} userRole={userRole}
+        members={members} onNewMember={handleNewMember} onSignOut={handleSignOut} userRole={userRole}  onOpenGlobalLog={() => setIsGlobalLogOpen(true)}
       />
 
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -1683,7 +2001,7 @@ function App() {
             </button>
               <div className="relative flex-1 max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input ref={searchInputRef} type="text" placeholder={placeholder} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') setSearchQuery(''); }} className="w-full pl-9 pr-9 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-100 text-sm text-slate-700" />
+                <input ref={searchInputRef} type="text" placeholder={placeholder} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') setSearchQuery(''); }} className="w-full pl-9 pr-9 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-100 text-sm text-slate-700" />
                 {searchQuery && <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2"><X size={16} /></button>}
               </div>
               {!sidebarOpen && (
@@ -1851,6 +2169,16 @@ function App() {
         isOpen={isMemberFormOpen} onClose={() => { setIsMemberFormOpen(false); setEditingMember(null); }}
         onSuccess={async (type, id) => { setIsMemberFormOpen(false); setEditingMember(null); await load(type, id); if (type === 'delete') resetToInitialView(); }}
         initialData={editingMember} parentLists={parentLists} childLists={childLists}
+      />
+      
+      <GlobalLogModal 
+        isOpen={isGlobalLogOpen} 
+        onClose={() => setIsGlobalLogOpen(false)} 
+        members={members} 
+        // 1. 에러 해결: onRefresh에 실제 데이터 로드 함수 전달
+        onRefresh={() => load()} 
+        // 2. 성도 선택 시 로그 모달은 그대로 두고 성도만 선택
+        onSelectMember={(m) => setSelectedMember(m)} 
       />
     </div>
   );
