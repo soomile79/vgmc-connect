@@ -1762,7 +1762,7 @@ function AdminMemoModal({
   );
 }
 
-/* ================= MEMBER LIST VIEW ================= */
+/* ================= MEMBER LIST VIEW (인쇄 태그 복구 버전) ================= */
 function MemberListView({ members, filters, setFilters, onSelectMember, allMembers, sortConfig, setSortConfig }: any) {
   
   const handlePrint = () => {
@@ -1797,91 +1797,36 @@ function MemberListView({ members, filters, setFilters, onSelectMember, allMembe
 
   return (
     <div className="space-y-4 animate-in fade-in duration-500">
-      {/* ================= 인쇄 최적화 CSS ================= */}
+      {/* 인쇄 스타일 설정 */}
       <style>{`
         @media print {
-          @page { 
-            size: landscape; 
-            margin: 15mm 10mm 15mm 10mm; 
-          }
-          
+          @page { size: landscape; margin: 15mm 10mm 15mm 10mm; }
           aside, header, nav, .no-print, button, .mb-6 { display: none !important; }
-          
           body, html, #root, #root > div, main { 
-            overflow: visible !important; 
-            height: auto !important; 
-            position: static !important;
-            display: block !important;
-            background: white !important;
-            margin: 0 !important;
-            padding: 0 !important;
+            overflow: visible !important; height: auto !important; position: static !important;
+            display: block !important; background: white !important; margin: 0 !important; padding: 0 !important;
             color: #000 !important;
           }
-
-          .print-area { 
-            display: block !important;
-            width: 100% !important;
-            border: 1px solid #999 !important; 
-            border-radius: 0 !important;
-          }
-
-          table { 
-            width: 100% !important; 
-            border-collapse: collapse !important; 
-            font-size: 9.5pt !important; 
-          }
-          
-          th, td, span, div, p, h1 { 
-            color: #000 !important; 
-            font-weight: normal !important; /* 기본적으로 본문 bold 해제 */
-          }
-
-          th { 
-            background-color: #f2f2f2 !important; 
-            -webkit-print-color-adjust: exact; 
-            border: 1px solid #888 !important; 
-            padding: 10px 8px !important; /* 헤더 간격 확대 */
-            font-weight: bold !important; /* 헤더만 bold 유지 */
-          }
-
-          td { 
-            border: 1px solid #aaa !important; 
-            padding: 10px 8px !important; /* 컬럼 간격(높이/너비) 충분히 확보 */
-            word-break: break-all !important;
-            white-space: normal !important;
-            vertical-align: middle;
-          }
-
-          /* 상태 컬럼 인쇄 제외 */
-          .col-status {
-            display: none !important;
-          }
-
-          .col-small {
-            font-size: 8.5pt !important;
-          }
-
+          .print-area { display: block !important; width: 100% !important; border: 1px solid #999 !important; border-radius: 0 !important; }
+          table { width: 100% !important; border-collapse: collapse !important; font-size: 9pt !important; }
+          th, td, span, div, p, h1 { color: #000 !important; font-weight: normal !important; }
+          th { background-color: #f2f2f2 !important; -webkit-print-color-adjust: exact; border: 1px solid #888 !important; padding: 8px 4px !important; font-weight: bold !important; }
+          td { border: 1px solid #aaa !important; padding: 8px 6px !important; word-break: break-all !important; white-space: normal !important; vertical-align: middle; }
+          .col-status { display: none !important; } /* 인쇄 시 상태 제외 */
+          .col-small { font-size: 8pt !important; }
           thead { display: table-header-group !important; }
           tr { page-break-inside: avoid !important; }
-
-          .tag-print {
-            border: 1px solid #000 !important;
-            padding: 1px 4px !important;
-            margin: 1px !important;
-            font-size: 8pt !important;
-            border-radius: 2px !important;
-          }
+          .tag-print-badge { border: 1px solid #000 !important; padding: 1px 3px !important; margin-right: 2px !important; font-size: 7.5pt !important; border-radius: 2px !important; display: inline-block !important; }
         }
       `}</style>
 
-      {/* [웹 화면용] 필터 바 */}
+      {/* [웹 전용] 필터 바 */}
       <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap gap-2 items-center no-print">
         <div className="flex items-center gap-2 text-slate-400 mr-1 border-r pr-3">
           <Filter size={14} />
           <span className="text-[10px] font-black uppercase tracking-widest">Filter</span>
         </div>
         
-        {/* 드롭다운들 */}
         <select value={filters.ageGroup} onChange={e => setFilters({...filters, ageGroup: e.target.value})} className="bg-slate-50 border-none rounded-xl text-xs font-bold px-3 py-2 outline-none focus:ring-2 focus:ring-sky-100 cursor-pointer"><option value="">연령 그룹</option><option value="0-19">20세 미만</option><option value="20-39">20-30대</option><option value="40-59">40-50대</option><option value="60+">60세 이상</option></select>
         <select value={filters.gender} onChange={e => setFilters({...filters, gender: e.target.value})} className="bg-slate-50 border-none rounded-xl text-xs font-bold px-3 py-2 outline-none focus:ring-2 focus:ring-sky-100 cursor-pointer"><option value="">성별</option><option value="Male">남성</option><option value="Female">여성</option></select>
         <select value={filters.role} onChange={e => setFilters({...filters, role: e.target.value})} className="bg-slate-50 border-none rounded-xl text-xs font-bold px-3 py-2 outline-none focus:ring-2 focus:ring-sky-100 cursor-pointer"><option value="">직분</option>{Array.from(new Set(allMembers.map((m: any) => m.role).filter(Boolean))).map(r => <option key={String(r)} value={String(r)}>{String(r)}</option>)}</select>
@@ -1896,8 +1841,8 @@ function MemberListView({ members, filters, setFilters, onSelectMember, allMembe
           <span className="text-sm font-black text-sky-600 leading-none">{members.length}</span>
         </div>
 
-        <button onClick={handlePrint} className="ml-auto flex items-center gap-2 px-4 py-2 bg-sky-700 text-white rounded-xl font-bold text-xs hover:bg-slate-700 transition-all shadow-sm">
-          <Printer size={16} /> 출력
+        <button onClick={handlePrint} className="ml-auto flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl font-bold text-xs hover:bg-slate-700 transition-all shadow-sm">
+          <Printer size={16} /> 출력하기
         </button>
       </div>
 
@@ -1906,74 +1851,66 @@ function MemberListView({ members, filters, setFilters, onSelectMember, allMembe
         <div className="flex justify-between items-end">
           <div>
             <h1 className="text-3xl font-black text-black tracking-tight mb-2">성도 명단 리스트</h1>
-            <div className="text-sm font-bold text-black">
-              필터: <span className="font-medium">{getFilterDisplay()}</span>
-            </div>
+            <div className="text-sm font-bold text-black">필터: <span className="font-medium">{getFilterDisplay()}</span></div>
           </div>
           <div className="text-right">
             <div className="text-2xl font-black text-black">총 {members.length} 명</div>
-            <p className="text-[10px] text-black mt-2 font-medium tracking-tight">VGMC CONNECT | {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}</p>
+            <p className="text-[10px] text-black mt-2">VGMC CONNECT | {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}</p>
           </div>
         </div>
       </div>
 
       {/* 데이터 테이블 영역 */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden print:border-none print:rounded-none print-area">
-      <div className="overflow-x-auto custom-scrollbar">
-        <table className="w-full text-left border-collapse min-w-full md:min-w-[1100px]">
-          <thead>
-            <tr className="bg-slate-50 border-b border-slate-200">
-              <th onClick={() => requestSort('korean_name')} className="px-3 py-4 pl-4 md:pl-6 cursor-pointer hover:bg-slate-100 no-print whitespace-nowrap">
-                <div className="flex items-center text-xs md:text-sm">이름 {getSortIcon('korean_name')}</div>
-              </th>
-              <th className="hidden print:table-cell px-4 py-4 pl-6 text-sm">이름</th>
-              
-              <th className="hidden md:table-cell px-4 py-4 text-center text-sm">나이/성별</th>
-              <th className="px-3 py-4 text-xs md:text-sm">직분</th>
-              <th className="px-3 py-4 text-xs md:text-sm">목장</th>
-              <th className="px-3 py-4 text-xs md:text-sm">전화번호</th>
-              
-              <th className="hidden md:table-cell px-4 py-4 text-sm">주소</th>
-              <th className="hidden md:table-cell px-4 py-4 text-sm">태그</th>
+        <div className="overflow-x-auto custom-scrollbar">
+          <table className="w-full text-left border-collapse min-w-full md:min-w-[1100px]">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200">
+                <th onClick={() => requestSort('korean_name')} className="px-3 py-4 pl-4 md:pl-6 cursor-pointer hover:bg-slate-100 no-print whitespace-nowrap">
+                  <div className="flex items-center text-xs md:text-sm">이름 {getSortIcon('korean_name')}</div>
+                </th>
+                <th className="hidden print:table-cell px-4 py-4 pl-6 font-bold">이름</th>
+                
+                <th className="hidden md:table-cell print:table-cell px-4 py-4 text-center">나이/성별</th>
+                <th className="px-3 py-4 text-xs md:text-sm">직분</th>
+                <th className="px-3 py-4 text-xs md:text-sm">목장</th>
+                <th className="px-3 py-4 text-xs md:text-sm">전화번호</th>
+                
+                <th className="hidden md:table-cell print:table-cell px-4 py-4 min-w-[200px]">주소</th>
+                
+                {/* 🚀 태그 컬럼: 모바일(hidden) 숨김 / PC 및 인쇄(print) 표시 */}
+                <th className="hidden md:table-cell print:table-cell px-4 py-4">태그</th>
+                
+                <th className="hidden md:table-cell px-4 py-4 pr-6 text-right col-status">상태</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 print:divide-slate-200">
+              {members.map((m: any) => {
+                const age = calcAge(m.birthday);
+                const gender = m.gender === 'Male' ? '남' : m.gender === 'Female' ? '여' : '';
+                const ageGenderDisplay = [age, gender].filter(Boolean).join(' / ');
 
-              {/* 🚀 상태 컬럼: 모바일(hidden)에서 숨기고, PC(md:table-cell)에서만 표시 */}
-              <th className="hidden md:table-cell px-4 py-4 pr-6 text-right col-status text-sm">상태</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 print:divide-slate-200">
-          {members.map((m: any) => {
-          const age = calcAge(m.birthday);
-          const gender = m.gender === 'Male' ? '남' : m.gender === 'Female' ? '여' : '';
-          const ageGenderDisplay = [age, gender].filter(Boolean).join(' / ');
-
-           return (
-            <tr key={m.id} onClick={() => onSelectMember(m)} className="hover:bg-sky-50/30 transition-colors cursor-pointer group">
-          <td className="px-3 py-3 pl-4 md:pl-6 font-bold text-slate-800 text-sm md:text-base print:font-normal print:text-black">{m.korean_name || ''}</td>
-          
-          <td className="hidden md:table-cell px-4 py-3 text-xs text-slate-500 text-center print:font-normal print:text-black">
-            {ageGenderDisplay}
-          </td>
-          
-          <td className="px-3 py-3 text-xs md:text-sm text-slate-600 print:font-normal print:text-black">{m.role || ''}</td>
-          <td className="px-3 py-3 text-xs md:text-sm font-bold text-sky-600 print:font-normal print:text-black">{m.mokjang || ''}</td>
-          <td className="px-3 py-3 text-xs md:text-sm text-slate-500 whitespace-nowrap print:font-normal print:text-black">
-            <a href={`tel:${m.phone}`} onClick={(e) => e.stopPropagation()} className="hover:text-blue-600 md:no-underline">{m.phone || ''}</a>
-          </td>
-
-          <td className="hidden md:table-cell px-4 py-3 text-xs text-slate-700 leading-snug print:font-normal print:text-black">{m.address || ''}</td>
-              
-              {/* 태그: 모바일 숨김 */}
-              <td className="hidden md:table-cell px-4 py-3">
-                <div className="flex flex-wrap gap-1">
-                  {m.tags?.map((t: any) => (
-                    <span key={t} className="px-1.5 py-0.5 border border-slate-200 rounded text-[9px] text-slate-500">#{t}</span>
-                  ))}
-                </div>
-              </td>
-              
-              <td className="hidden md:table-cell px-4 py-3 pr-6 text-right col-status">
-            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${m.status === 'Active' ? 'bg-sky-100 text-sky-600' : 'bg-slate-100 text-slate-400'}`}>
-              {m.status || ''}
+                return (
+                  <tr key={m.id} onClick={() => onSelectMember(m)} className="hover:bg-sky-50/30 transition-colors cursor-pointer group">
+                    <td className="px-3 py-3 pl-4 md:pl-6 font-bold text-slate-800 text-sm md:text-base print:font-normal print:text-black">{m.korean_name || ''}</td>
+                    <td className="hidden md:table-cell print:table-cell px-4 py-3 text-xs text-center print:font-normal print:text-black">{ageGenderDisplay}</td>
+                    <td className="px-3 py-3 text-xs md:text-sm text-slate-600 print:font-normal print:text-black">{m.role || ''}</td>
+                    <td className="px-3 py-3 text-xs md:text-sm font-bold text-sky-600 print:font-normal print:text-black">{m.mokjang || ''}</td>
+                    <td className="px-3 py-3 text-xs md:text-sm text-slate-500 whitespace-nowrap col-small print:font-normal print:text-black">{m.phone || ''}</td>
+                    <td className="hidden md:table-cell print:table-cell px-4 py-3 text-xs text-slate-700 leading-snug col-small print:font-normal print:text-black">{m.address || ''}</td>
+                    
+                    {/* 🚀 태그 데이터: 인쇄 시 tag-print-badge 스타일 적용 */}
+                    <td className="hidden md:table-cell print:table-cell px-4 py-3">
+                      <div className="flex flex-wrap gap-1">
+                        {m.tags?.map((t: any) => (
+                          <span key={t} className="tag-print-badge no-print:bg-slate-50 no-print:text-slate-400 no-print:border no-print:px-1.5 no-print:py-0.5 no-print:rounded no-print:text-[9px] print:font-normal">#{t}</span>
+                        ))}
+                      </div>
+                    </td>
+                    
+                    <td className="hidden md:table-cell px-4 py-3 pr-6 text-right col-status">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${m.status === 'Active' ? 'bg-sky-100 text-sky-600' : 'bg-slate-100 text-slate-400'}`}>
+                        {m.status || ''}
                       </span>
                     </td>
                   </tr>
@@ -1981,11 +1918,11 @@ function MemberListView({ members, filters, setFilters, onSelectMember, allMembe
               })}
             </tbody>
           </table>
-                  </div>
-                </div>
-              </div>
-            );
-          }
+        </div>
+      </div>
+    </div>
+  );
+}
 /* ================= MAIN APP ================= */
 function App() {
   const [members, setMembers] = useState<Member[]>([]);
