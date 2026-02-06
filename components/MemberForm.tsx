@@ -389,11 +389,22 @@ useEffect(() => {
   }, [childLists]);
 
   useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  if (!isOpen) return;
+  
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      // ⬇️ 이벤트가 밑에 깔린 모달(상세 모달 등)로 전달되지 않게 차단
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation(); 
+      onClose();
+    }
+  };
+
+  // ⬇️ 세 번째 인자로 true를 주어 '캡처링' 단계에서 먼저 가로챕니다.
+  window.addEventListener('keydown', handleKeyDown, true);
+  return () => window.removeEventListener('keydown', handleKeyDown, true);
+}, [isOpen, onClose]);
 
   useEffect(() => {
     const loadRoles = async () => {
@@ -440,7 +451,7 @@ useEffect(() => {
   if (!isOpen || !currentMember) return null;
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[60] flex items-center justify-center p-2 sm:p-4 overflow-hidden" onClick={onClose}>
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[120] flex items-center justify-center p-2 sm:p-4 overflow-hidden" onClick={onClose}>
       <div className="bg-white w-full max-w-7xl max-h-[95vh] rounded-[1.5rem] sm:rounded-[2rem] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-300" onClick={e => e.stopPropagation()}>
         
         {/* 상단 컬러 밴드 섹션 */}
