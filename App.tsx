@@ -344,7 +344,7 @@ function GlobalLogModal({
                       >
                         {log.name}
                       </div>
-                      <div className="text-[10px] text-slate-400 font-bold">{log.member.mokjang || '소속 없음'}</div>
+                      <div className="text-[10px] text-slate-400 font-bold">{log.member.mokjang || ''}</div>
                     </div>
                     <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase ${log.type === 'Prayer' ? 'bg-rose-50 text-rose-500' : 'bg-blue-50 text-blue-500'}`}>
                       {log.type === 'Prayer' ? '기도제목' : '메모'}
