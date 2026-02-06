@@ -532,7 +532,7 @@ useEffect(() => {
                 </div>
                 
                 <div className="col-span-2 md:col-span-1 space-y-1">
-                  <label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">영문 이름 (Legal)</label>
+                  <label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">영문 이름 (Last, First Name)</label>
                   <input type="text" value={currentMember.english_name} onChange={e => updateMember(activeMemberIndex, { english_name: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm md:text-base font-bold text-slate-700" />
                 </div>
 
