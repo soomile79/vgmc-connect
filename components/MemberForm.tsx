@@ -532,7 +532,7 @@ useEffect(() => {
                 </div>
                 
                 <div className="col-span-2 md:col-span-1 space-y-1">
-                  <label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1">영문 이름 (Last, First Name)</label>
+                  <label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 ">영문 이름 (Last, First Name)</label>
                   <input type="text" value={currentMember.english_name} onChange={e => updateMember(activeMemberIndex, { english_name: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm md:text-base font-bold text-slate-700" />
                 </div>
 
@@ -695,14 +695,14 @@ useEffect(() => {
 
               {/* Tags 섹션 */}
               <section className="space-y-4 pt-6 border-t border-slate-100">
-                <div className="flex items-center gap-2 mb-1"><Tag className="text-purple-600" size={16} /><h3 className="text-sm md:text-s font-bold text-slate-800 uppercase tracking-tight">Global Tags</h3></div>
+                <div className="flex items-center gap-2 mb-1"><Tag className="text-purple-500" size={16} /><h3 className="text-sm md:text-s font-bold text-slate-800 uppercase tracking-tight">Global Tags</h3></div>
                 <div className="flex flex-wrap gap-2">
                   {availableTags.map(tag => (
                     <button key={tag.id} onClick={() => {
                       const cur = currentMember.tags;
                       const next = cur.includes(tag.name) ? cur.filter(t => t !== tag.name) : [...cur, tag.name];
                       updateMember(activeMemberIndex, { tags: next });
-                    }} className={`px-3 py-1.5 md:px-4 md:py-2 rounded-lg md:rounded-xl text-[13px] md:text-m font-bold border transition-all ${currentMember.tags.includes(tag.name) ? 'bg-purple-600 border-purple-600 text-white shadow-md' : 'bg-white border-slate-100 text-slate-500 hover:border-purple-200'}`}>#{tag.name}</button>
+                    }} className={`px-3 py-1.5 md:px-4 md:py-2 rounded-lg md:rounded-xl text-[13px] md:text-m font-bold border transition-all ${currentMember.tags.includes(tag.name) ? 'bg-purple-500 border-purple-500 text-white shadow-md' : 'bg-white border-slate-100 text-slate-500 hover:border-purple-200'}`}>#{tag.name}</button>
                   ))}
                   <div className="flex items-center gap-2">
                     <input type="text" value={newTagName} onChange={e => setNewTagName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddNewTag()} placeholder="New Tag..." className="px-3 py-1.5 md:px-4 md:py-2 rounded-lg md:rounded-xl text-[10px] md:text-xs font-bold border border-slate-200 outline-none w-24 md:w-32 focus:border-purple-300" />
