@@ -481,7 +481,7 @@ useEffect(() => {
                     {calculateAge(currentMember.birthday) || ' '} · {currentMember.gender === 'Male' ? 'M' : currentMember.gender === 'Female' ? 'F' : ' '}
                   </span>
                 </div>
-                <div className="text-sm md:text-xl text-slate-400 font-semibold mb-2 md:mb-4 truncate tracking-tight">{currentMember.english_name || 'English Name'}</div>
+                <div className="text-sm md:text-xl text-slate-400 font-semibold mb-2 md:mb-4 truncate tracking-tight">{currentMember.english_name || ''}</div>
                 <div className="flex flex-wrap gap-1.5 md:gap-2">
                   <span className={`px-2 py-0.5 md:px-3 md:py-1 rounded-md md:rounded-lg bg-white/60 border border-white text-[10px] md:text-xs font-bold ${roleText}`}>{currentMember.role || '직분'}</span>
                   {currentMember.mokjang && <span className="px-2 py-0.5 md:px-3 md:py-1 rounded-md md:rounded-lg bg-blue-50 border border-blue-100 text-[10px] md:text-xs font-bold text-blue-600 shadow-sm">{currentMember.mokjang}</span>}
