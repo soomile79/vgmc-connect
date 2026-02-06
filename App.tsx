@@ -1278,7 +1278,27 @@ function MemoSection({ member, onRefresh }: { member: Member; onRefresh: () => v
 }
 
 /* ================= MEMBER DETAIL MODAL ================= */
-function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, onSelectMember, onEdit, userRole, onRefresh }: { member: Member; onClose: () => void; roles: Role[]; familyMembers: Member[]; onSelectMember: (member: Member) => void; onEdit: (member: Member) => void; userRole: 'admin' | 'user'; onRefresh: () => void; }) {
+function MemberDetailModal({ 
+  member: rawMember, 
+  onClose, 
+  roles, 
+  familyMembers, 
+  onSelectMember, 
+  onEdit, 
+  userRole, 
+  onRefresh,
+  isMemberFormOpen // ⬅️ 상위 모달 상태 프롭스 추가
+}: { 
+  member: Member; 
+  onClose: () => void; 
+  roles: Role[]; 
+  familyMembers: Member[]; 
+  onSelectMember: (member: Member) => void; 
+  onEdit: (member: Member) => void; 
+  userRole: 'admin' | 'user'; 
+  onRefresh: () => void;
+  isMemberFormOpen: boolean; // ⬅️ 타입 추가
+}) {
   // Normalize data immediately
   const member = useMemo(() => normalizeMember(rawMember), [rawMember]);
   
@@ -1313,11 +1333,20 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
     } catch (e) { return []; }
   }, [familyMembers, member.id]);
 
+  // ⬇️ ESC 키 제어 로직 수정 (isMemberFormOpen 상태를 감시하여 논리적으로 제어)
   useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', handleEsc);
-    return () => window.removeEventListener('keydown', handleEsc);
-  }, [onClose]);
+    const handleEsc = (e: KeyboardEvent) => {
+      // ESC 키가 눌렸고, 수정 창(MemberForm)이 열려있지 않을 때만 닫기 명령 수행
+      if (e.key === 'Escape' && !isMemberFormOpen) {
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleEsc, true);
+    return () => window.removeEventListener('keydown', handleEsc, true);
+  }, [onClose, isMemberFormOpen]); // isMemberFormOpen이 바뀔 때 리스너를 다시 등록하여 상태 반영
 
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[110] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300" onClick={onClose}>
@@ -1339,7 +1368,7 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
             <div className="flex items-start gap-3 sm:gap-5 md:gap-6">
               {/* Profile Image Card */}
               <div className="relative">
-                <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 lg:w-32 lg:h-32 rounded-xl sm:rounded-[1.5rem] bg-white shadow-xl flex items-center justify-center overflow-hidden ring-1 ring-black/5  ${!member.photo_url ? 'opacity-50' : 'opacity-100'}">
+                <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 lg:w-32 lg:h-32 rounded-xl sm:rounded-[1.5rem] bg-white shadow-xl flex items-center justify-center overflow-hidden ring-1 ring-black/5">
                   {member.photo_url ? (
                     <img src={getMemberPhotoUrl(member.photo_url)} alt={member.korean_name} className="w-full h-full object-cover" />
                   ) : (
@@ -1443,7 +1472,6 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
               <hr className="border-t border-slate-200 " />
               
               {/* Detailed Info Row */}
-             
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 py-6 sm:py-8 border-t border-slate-50">
                 {/* Birthday */}
                 <div className="min-w-0">
@@ -1464,29 +1492,29 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
                   {regInfo && <p className="text-[10px] sm:text-[12px] text-slate-500 mt-1 ml-6">{regInfo.years}y {regInfo.months}m</p>}
                 </div>
 
-	                {/* Baptism (세례일) */}
-	                <div className="min-w-0">
-	                  <div className="flex items-center gap-2 mb-2">
-	                    <Award className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 flex-shrink-0" />
-	                    <p className="text-[10px] sm:text-[12px] font-bold text-slate-500 uppercase tracking-widest">세례</p>
-	                  </div>
-	                  <p className="text-sm sm:text-sm font-bold text-slate-600 break-words ml-6">
-	                    {member.is_baptized ? (member.baptism_date || 'Yes') : 'No'}
-	                  </p>
-	                </div>
+                {/* Baptism */}
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Award className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 flex-shrink-0" />
+                    <p className="text-[10px] sm:text-[12px] font-bold text-slate-500 uppercase tracking-widest">세례</p>
+                  </div>
+                  <p className="text-sm sm:text-sm font-bold text-slate-600 break-words ml-6">
+                    {member.is_baptized ? (member.baptism_date || 'Yes') : 'No'}
+                  </p>
+                </div>
 
-	                {/* Mokjang (목장) */}
-	                <div className="min-w-0">
-	                  <div className="flex items-center gap-2 mb-2">
-	                    <Home className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 flex-shrink-0" />
-	                    <p className="text-[10px] sm:text-[12px] font-bold text-slate-500 uppercase tracking-widest">목장</p>
-	                  </div>
-	                  <p className="text-sm sm:text-sm font-bold text-slate-600 break-words ml-6">
-	                    {member.mokjang || '-'}
-	                  </p>
-	                </div>
+                {/* Mokjang */}
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Home className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 flex-shrink-0" />
+                    <p className="text-[10px] sm:text-[12px] font-bold text-slate-500 uppercase tracking-widest">목장</p>
+                  </div>
+                  <p className="text-sm sm:text-sm font-bold text-slate-600 break-words ml-6">
+                    {member.mokjang || '-'}
+                  </p>
+                </div>
 
-                {/* Offering # (헌금번호) */}
+                {/* Offering # */}
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 mb-2">
                     <Wallet className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 flex-shrink-0" />
@@ -1495,7 +1523,8 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
                   <p className="text-sm sm:text-sm font-bold text-slate-600 break-words ml-6">{member.offering_number || '-'}</p>
                 </div>
               </div>
-                <hr className="border-t border-slate-200 " />
+              <hr className="border-t border-slate-200 " />
+
               {/* Family Members Section */}
               <div className="mt-6 sm:mt-10">
                 <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
@@ -1506,8 +1535,6 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
                   {otherFamilyMembers.map((fm) => {
                     const isFmHead = fm.relationship?.toLowerCase() === 'head' || fm.relationship?.toLowerCase() === 'self';
                     const fmAge = calcAge(fm.birthday);
-                    
-                    // Get role colors from database
                     const fmRoleMeta = roles?.find((r) => r.name === fm.role);
                     const fmRoleBg = fmRoleMeta?.bg_color ?? 'bg-slate-300';
                     const fmRoleText = fmRoleMeta?.text_color ?? 'text-slate-600';
@@ -1529,46 +1556,37 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
 
                     return (
                       <button
-                      key={fm.id}
-                      onClick={() => onSelectMember(fm)}
-                      className={`
-                        flex items-center gap-4 sm:gap-5
-                        p-3 sm:p-5
-                        rounded-xl sm:rounded-[2rem]
-                        bg-white border border-slate-50
-                        shadow-sm transition-all group text-left
-                        ${isActive ? 'hover:shadow-md hover:border-blue-100' : ''}
-                        ${!isActive ? 'opacity-50' : ''}
-                      `}
-                    >
-
-                        <div
-                          className={`
-                            relative flex items-center justify-center
-                            w-12 h-12 sm:w-14 sm:h-14
-                            rounded-lg sm:rounded-2xl
-                            ${fmRoleBg}
-                            flex-shrink-0
-                            overflow-hidden
-                            ring-1 ring-slate-100
-                            ${!fm.photo_url ? 'opacity-40' : 'opacity-100'}
-                          `}
-                        >
+                        key={fm.id}
+                        onClick={() => onSelectMember(fm)}
+                        className={`
+                          flex items-center gap-4 sm:gap-5
+                          p-3 sm:p-5
+                          rounded-xl sm:rounded-[2rem]
+                          bg-white border border-slate-50
+                          shadow-sm transition-all group text-left
+                          ${isActive ? 'hover:shadow-md hover:border-blue-100' : ''}
+                          ${!isActive ? 'opacity-50' : ''}
+                        `}
+                      >
+                        <div className={`
+                          relative flex items-center justify-center
+                          w-12 h-12 sm:w-14 sm:h-14
+                          rounded-lg sm:rounded-2xl
+                          ${fmRoleBg}
+                          flex-shrink-0
+                          overflow-hidden
+                          ring-1 ring-slate-100
+                          ${!fm.photo_url ? 'opacity-40' : 'opacity-100'}
+                        `}>
                           {fm.photo_url ? (
-                            <img
-                              src={getMemberPhotoUrl(fm.photo_url)}
-                              alt={fm.korean_name}
-                              className="w-full h-full object-cover"
-                            />
+                            <img src={getMemberPhotoUrl(fm.photo_url)} alt={fm.korean_name} className="w-full h-full object-cover" />
                           ) : (
                             <div className={`w-full h-full flex items-center justify-center ${fmRoleText}`}>
                               <Users className="w-6 h-6 sm:w-7 sm:h-7" strokeWidth={1} />
                             </div>
                           )}
-
                           {isFmHead && <CrownBadge />}
                         </div>
-
                         <div className="flex-1 min-w-0">
                           <p className="text-sm sm:text-lg font-bold text-slate-800 group-hover:text-blue-600 transition-colors break-words">{fm.korean_name}</p>
                           <p className="text-xs text-slate-500 tracking-wide flex items-center gap-2 flex-wrap capitalize">
@@ -1592,41 +1610,25 @@ function MemberDetailModal({ member: rawMember, onClose, roles, familyMembers, o
           </div>
 
           {/* Admin Memo Column */}
-            {userRole === 'admin' && (
-              <div className="w-full lg:w-80 xl:w-96 bg-white flex flex-col border-t lg:border-t-0 lg:border-l lg:border-slate-100">
-                
-                {/* Header */}
-                <div className="p-4 sm:p-5 border-b border-slate-100 bg-white lg:sticky top-0 z-10">
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-md sm:rounded-lg bg-amber-100 flex items-center justify-center text-amber-600 flex-shrink-0 opacity-60">
-                      <svg
-                        className="w-3.5 h-3.5 sm:w-4 sm:h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                        />
-                      </svg>
-                    </div>
-                    <h3 className="text-sm sm:text-sm font-bold text-slate-500">
-                      Memos
-                    </h3>
+          {userRole === 'admin' && (
+            <div className="w-full lg:w-80 xl:w-96 bg-white flex flex-col border-t lg:border-t-0 lg:border-l lg:border-slate-100">
+              {/* Header */}
+              <div className="p-4 sm:p-5 border-b border-slate-100 bg-white lg:sticky top-0 z-10">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-md sm:rounded-lg bg-amber-100 flex items-center justify-center text-amber-600 flex-shrink-0 opacity-60">
+                    <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
                   </div>
+                  <h3 className="text-sm sm:text-sm font-bold text-slate-500">Memos</h3>
                 </div>
-
-                {/* Content */}
-                <div className="flex-1 lg:overflow-y-auto custom-scrollbar p-4 sm:p-5 bg-white">
-                  <MemoSection member={member} onRefresh={onRefresh} />
-                </div>
-
               </div>
-            )}
-
+              {/* Content */}
+              <div className="flex-1 lg:overflow-y-auto custom-scrollbar p-4 sm:p-5 bg-white">
+                <MemoSection member={member} onRefresh={onRefresh} />
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -2162,8 +2164,18 @@ function App() {
       </div>
 
       {selectedMember && (
-        <MemberDetailModal member={selectedMember} onClose={() => setSelectedMember(null)} roles={roles} familyMembers={members.filter(m => m.family_id === selectedMember.family_id)} onSelectMember={(m) => setSelectedMember(m)} onEdit={handleEditMember} userRole={userRole as any} onRefresh={() => load()} />
-      )}
+      <MemberDetailModal 
+        member={selectedMember} 
+        onClose={() => setSelectedMember(null)} 
+        roles={roles} 
+        familyMembers={members.filter(m => m.family_id === selectedMember.family_id)} 
+        onSelectMember={(m) => setSelectedMember(m)} 
+        onEdit={handleEditMember} 
+        userRole={userRole as any} 
+        onRefresh={() => load()} 
+        isMemberFormOpen={isMemberFormOpen} // ⬅️ 이 줄을 추가하여 현재 상태를 알려줍니다.
+      />
+    )}
 
       <MemberForm
         isOpen={isMemberFormOpen} onClose={() => { setIsMemberFormOpen(false); setEditingMember(null); }}
