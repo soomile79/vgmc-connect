@@ -757,9 +757,9 @@ useEffect(() => {
                       }
                       setLogText('');
                     }}
-                    className={`px-6 rounded-xl font-black text-white transition-all text-xs ${logType === 'Memo' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-rose-500 hover:bg-rose-600'}`}
+                    className={`px-6 rounded-xl font-black text-white transition-all text-xs ${logType === 'Memo' ? 'bg-sky-700 hover:bg-sky-900' : 'bg-rose-500 hover:bg-rose-600'}`}
                   >
-                    추가
+                    등록
                   </button>
                 </div>
 
@@ -821,7 +821,7 @@ useEffect(() => {
           </div>
           <div className="flex gap-2 md:gap-4">
             <button onClick={onClose} className="px-4 py-2 md:px-8 md:py-3 rounded-xl md:rounded-2xl text-slate-400 font-bold hover:bg-slate-50 text-[11px] md:text-sm uppercase tracking-widest outline-none">Cancel</button>
-            <button onClick={handleSaveMembers} disabled={loading} className="px-6 py-2 md:px-12 md:py-3 bg-blue-600 text-white rounded-xl md:rounded-2xl font-black shadow-lg hover:bg-blue-700 transition-all flex items-center gap-2 text-[11px] md:text-sm uppercase tracking-widest outline-none">{loading ? '...' : 'Save All'}<Save size={18} /></button>
+            <button onClick={handleSaveMembers} disabled={loading} className="px-6 py-2 md:px-12 md:py-3 bg-sky-700 text-white rounded-xl md:rounded-2xl font-black shadow-lg hover:bg-sky-900 transition-all flex items-center gap-2 text-[11px] md:text-sm uppercase tracking-widest outline-none">{loading ? '...' : 'Save All'}<Save size={18} /></button>
           </div>
         </div>
       </div>
