@@ -9,6 +9,9 @@ import {
   LayoutGrid,
   Users,
   Search,
+  List,
+  Filter, 
+  FilterX,
   X,
   Check,
   ChevronDown,
@@ -35,15 +38,86 @@ import {
   Clock,
   Wallet,
   User,
+  Printer,
   Heart 
 } from 'lucide-react';
+
+const printStyles = `
+@media print {
+  /* 1. 가로 방향 출력 설정 및 여백 조절 */
+  @page { 
+    size: landscape; 
+    margin: 10mm; 
+  }
+
+  /* 2. 인쇄에 필요 없는 모든 UI 숨기기 */
+  aside, 
+  header, 
+  nav,
+  .no-print, 
+  button, 
+  input, 
+  select,
+  .shadow-sm,
+  .filter-bar { /* 필터바 전체 숨기기 */
+    display: none !important;
+  }
+
+  /* 3. 배경 및 스크롤바 강제 제거 */
+  body, html, #root, main {
+    background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important; /* 스크롤바 제거 */
+  }
+
+  /* 4. 테이블 레이아웃 최적화 */
+  .print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+  }
+
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 10pt !important; /* 글자 크기 조정 */
+    table-layout: auto !important;
+  }
+
+  /* 테이블 헤더 반복 및 선 명확하게 */
+  th {
+    background-color: #f8fafc !important; /* 가벼운 회색 배경 */
+    -webkit-print-color-adjust: exact;
+    border: 1px solid #e2e8f0 !important;
+    color: #64748b !important;
+    font-weight: bold !important;
+    padding: 8px !important;
+  }
+
+  td {
+    border: 1px solid #e2e8f0 !important;
+    padding: 8px !important;
+    word-break: break-all !important;
+  }
+
+  /* 여러 페이지 처리 */
+  thead { display: table-header-group !important; }
+  tr { page-break-inside: avoid !important; }
+}
+`;
 
 const placeholders = [
   ' Search by Korean Name...',
   ' Search by English Name...',
   ' Search by Phone Number...',
 ];
-
 
 const getTagLabel = (tag: string, childLists: ChildList[]) => {
   const matched = childLists.find(
@@ -1688,6 +1762,230 @@ function AdminMemoModal({
   );
 }
 
+/* ================= MEMBER LIST VIEW ================= */
+function MemberListView({ members, filters, setFilters, onSelectMember, allMembers, sortConfig, setSortConfig }: any) {
+  
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const getFilterDisplay = () => {
+    const parts = [];
+    if (filters.ageGroup) parts.push(`연령: ${filters.ageGroup}`);
+    if (filters.gender) parts.push(`성별: ${filters.gender === 'Male' ? '남성' : '여성'}`);
+    if (filters.role) parts.push(`직분: ${filters.role}`);
+    if (filters.mokjang) parts.push(`목장: ${filters.mokjang}`);
+    if (filters.status) parts.push(`상태: ${filters.status}`);
+    if (filters.tag) parts.push(`태그: #${filters.tag}`);
+    return parts.length > 0 ? parts.join(' | ') : '전체 명단';
+  };
+
+  const requestSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortIcon = (key: string) => {
+    if (sortConfig.key !== key) return <ArrowUpDown size={12} className="ml-1 opacity-30" />;
+    return sortConfig.direction === 'asc' 
+      ? <ChevronUp size={12} className="ml-1 text-sky-600" /> 
+      : <ChevronDown size={12} className="ml-1 text-sky-600" />;
+  };
+
+  return (
+    <div className="space-y-4 animate-in fade-in duration-500">
+      {/* ================= 인쇄 최적화 CSS ================= */}
+      <style>{`
+        @media print {
+          @page { 
+            size: landscape; 
+            margin: 15mm 10mm 15mm 10mm; 
+          }
+          
+          aside, header, nav, .no-print, button, .mb-6 { display: none !important; }
+          
+          body, html, #root, #root > div, main { 
+            overflow: visible !important; 
+            height: auto !important; 
+            position: static !important;
+            display: block !important;
+            background: white !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            color: #000 !important;
+          }
+
+          .print-area { 
+            display: block !important;
+            width: 100% !important;
+            border: 1px solid #999 !important; 
+            border-radius: 0 !important;
+          }
+
+          table { 
+            width: 100% !important; 
+            border-collapse: collapse !important; 
+            font-size: 9.5pt !important; 
+          }
+          
+          th, td, span, div, p, h1 { 
+            color: #000 !important; 
+            font-weight: normal !important; /* 기본적으로 본문 bold 해제 */
+          }
+
+          th { 
+            background-color: #f2f2f2 !important; 
+            -webkit-print-color-adjust: exact; 
+            border: 1px solid #888 !important; 
+            padding: 10px 8px !important; /* 헤더 간격 확대 */
+            font-weight: bold !important; /* 헤더만 bold 유지 */
+          }
+
+          td { 
+            border: 1px solid #aaa !important; 
+            padding: 10px 8px !important; /* 컬럼 간격(높이/너비) 충분히 확보 */
+            word-break: break-all !important;
+            white-space: normal !important;
+            vertical-align: middle;
+          }
+
+          /* 상태 컬럼 인쇄 제외 */
+          .col-status {
+            display: none !important;
+          }
+
+          .col-small {
+            font-size: 8.5pt !important;
+          }
+
+          thead { display: table-header-group !important; }
+          tr { page-break-inside: avoid !important; }
+
+          .tag-print {
+            border: 1px solid #000 !important;
+            padding: 1px 4px !important;
+            margin: 1px !important;
+            font-size: 8pt !important;
+            border-radius: 2px !important;
+          }
+        }
+      `}</style>
+
+      {/* [웹 화면용] 필터 바 */}
+      <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap gap-2 items-center no-print">
+        <div className="flex items-center gap-2 text-slate-400 mr-1 border-r pr-3">
+          <Filter size={14} />
+          <span className="text-[10px] font-black uppercase tracking-widest">Filter</span>
+        </div>
+        
+        {/* 드롭다운들 */}
+        <select value={filters.ageGroup} onChange={e => setFilters({...filters, ageGroup: e.target.value})} className="bg-slate-50 border-none rounded-xl text-xs font-bold px-3 py-2 outline-none focus:ring-2 focus:ring-sky-100 cursor-pointer"><option value="">연령 그룹</option><option value="0-19">20세 미만</option><option value="20-39">20-30대</option><option value="40-59">40-50대</option><option value="60+">60세 이상</option></select>
+        <select value={filters.gender} onChange={e => setFilters({...filters, gender: e.target.value})} className="bg-slate-50 border-none rounded-xl text-xs font-bold px-3 py-2 outline-none focus:ring-2 focus:ring-sky-100 cursor-pointer"><option value="">성별</option><option value="Male">남성</option><option value="Female">여성</option></select>
+        <select value={filters.role} onChange={e => setFilters({...filters, role: e.target.value})} className="bg-slate-50 border-none rounded-xl text-xs font-bold px-3 py-2 outline-none focus:ring-2 focus:ring-sky-100 cursor-pointer"><option value="">직분</option>{Array.from(new Set(allMembers.map((m: any) => m.role).filter(Boolean))).map(r => <option key={String(r)} value={String(r)}>{String(r)}</option>)}</select>
+        <select value={filters.mokjang} onChange={e => setFilters({...filters, mokjang: e.target.value})} className="bg-slate-50 border-none rounded-xl text-xs font-bold px-3 py-2 outline-none focus:ring-2 focus:ring-sky-100 cursor-pointer"><option value="">목장</option>{Array.from(new Set(allMembers.map((m: any) => m.mokjang).filter(Boolean))).map(m => <option key={String(m)} value={String(m)}>{String(m)}</option>)}</select>
+        <select value={filters.tag} onChange={e => setFilters({...filters, tag: e.target.value})} className="bg-slate-50 border-none rounded-xl text-xs font-bold px-3 py-2 outline-none focus:ring-2 focus:ring-sky-100 cursor-pointer"><option value="">태그</option>{Array.from(new Set(allMembers.flatMap((m: any) => m.tags || []))).map(t => <option key={String(t)} value={String(t)}>#{String(t)}</option>)}</select>
+        <select value={filters.status} onChange={e => setFilters({...filters, status: e.target.value})} className="bg-slate-50 border-none rounded-xl text-xs font-bold px-3 py-2 outline-none focus:ring-2 focus:ring-sky-100 cursor-pointer"><option value="">상태</option><option value="Active">Active</option><option value="Inactive">Inactive</option></select>
+
+        <button onClick={() => setFilters({ gender: '', role: '', mokjang: '', status: '', tag: '', ageGroup: '' })} className="p-2 hover:bg-rose-50 rounded-xl text-slate-400 hover:text-rose-500 transition-colors"><FilterX size={18} /></button>
+
+        <div className="flex items-center gap-2 pl-3 ml-1 border-l border-slate-200">
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Total :</span>
+          <span className="text-sm font-black text-sky-600 leading-none">{members.length}</span>
+        </div>
+
+        <button onClick={handlePrint} className="ml-auto flex items-center gap-2 px-4 py-2 bg-sky-700 text-white rounded-xl font-bold text-xs hover:bg-slate-700 transition-all shadow-sm">
+          <Printer size={16} /> 출력
+        </button>
+      </div>
+
+      {/* [인쇄 전용] 제목 영역 */}
+      <div className="hidden print:block mb-8 border-b-2 border-slate-900 pb-4">
+        <div className="flex justify-between items-end">
+          <div>
+            <h1 className="text-3xl font-black text-black tracking-tight mb-2">성도 명단 리스트</h1>
+            <div className="text-sm font-bold text-black">
+              필터: <span className="font-medium">{getFilterDisplay()}</span>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-2xl font-black text-black">총 {members.length} 명</div>
+            <p className="text-[10px] text-black mt-2 font-medium tracking-tight">VGMC CONNECT | {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* 데이터 테이블 영역 */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden print:border-none print:rounded-none print-area">
+      <div className="overflow-x-auto custom-scrollbar">
+        <table className="w-full text-left border-collapse min-w-full md:min-w-[1100px]">
+          <thead>
+            <tr className="bg-slate-50 border-b border-slate-200">
+              <th onClick={() => requestSort('korean_name')} className="px-3 py-4 pl-4 md:pl-6 cursor-pointer hover:bg-slate-100 no-print whitespace-nowrap">
+                <div className="flex items-center text-xs md:text-sm">이름 {getSortIcon('korean_name')}</div>
+              </th>
+              <th className="hidden print:table-cell px-4 py-4 pl-6 text-sm">이름</th>
+              
+              <th className="hidden md:table-cell px-4 py-4 text-center text-sm">나이/성별</th>
+              <th className="px-3 py-4 text-xs md:text-sm">직분</th>
+              <th className="px-3 py-4 text-xs md:text-sm">목장</th>
+              <th className="px-3 py-4 text-xs md:text-sm">전화번호</th>
+              
+              <th className="hidden md:table-cell px-4 py-4 text-sm">주소</th>
+              <th className="hidden md:table-cell px-4 py-4 text-sm">태그</th>
+
+              {/* 🚀 상태 컬럼: 모바일(hidden)에서 숨기고, PC(md:table-cell)에서만 표시 */}
+              <th className="hidden md:table-cell px-4 py-4 pr-6 text-right col-status text-sm">상태</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 print:divide-slate-200">
+          {members.map((m: any) => {
+          const age = calcAge(m.birthday);
+          const gender = m.gender === 'Male' ? '남' : m.gender === 'Female' ? '여' : '';
+          const ageGenderDisplay = [age, gender].filter(Boolean).join(' / ');
+
+           return (
+            <tr key={m.id} onClick={() => onSelectMember(m)} className="hover:bg-sky-50/30 transition-colors cursor-pointer group">
+          <td className="px-3 py-3 pl-4 md:pl-6 font-bold text-slate-800 text-sm md:text-base print:font-normal print:text-black">{m.korean_name || ''}</td>
+          
+          <td className="hidden md:table-cell px-4 py-3 text-xs text-slate-500 text-center print:font-normal print:text-black">
+            {ageGenderDisplay}
+          </td>
+          
+          <td className="px-3 py-3 text-xs md:text-sm text-slate-600 print:font-normal print:text-black">{m.role || ''}</td>
+          <td className="px-3 py-3 text-xs md:text-sm font-bold text-sky-600 print:font-normal print:text-black">{m.mokjang || ''}</td>
+          <td className="px-3 py-3 text-xs md:text-sm text-slate-500 whitespace-nowrap print:font-normal print:text-black">
+            <a href={`tel:${m.phone}`} onClick={(e) => e.stopPropagation()} className="hover:text-blue-600 md:no-underline">{m.phone || ''}</a>
+          </td>
+
+          <td className="hidden md:table-cell px-4 py-3 text-xs text-slate-700 leading-snug print:font-normal print:text-black">{m.address || ''}</td>
+              
+              {/* 태그: 모바일 숨김 */}
+              <td className="hidden md:table-cell px-4 py-3">
+                <div className="flex flex-wrap gap-1">
+                  {m.tags?.map((t: any) => (
+                    <span key={t} className="px-1.5 py-0.5 border border-slate-200 rounded text-[9px] text-slate-500">#{t}</span>
+                  ))}
+                </div>
+              </td>
+              
+              <td className="hidden md:table-cell px-4 py-3 pr-6 text-right col-status">
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${m.status === 'Active' ? 'bg-sky-100 text-sky-600' : 'bg-slate-100 text-slate-400'}`}>
+              {m.status || ''}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+                  </div>
+                </div>
+              </div>
+            );
+          }
 /* ================= MAIN APP ================= */
 function App() {
   const [members, setMembers] = useState<Member[]>([]);
@@ -1719,6 +2017,21 @@ function App() {
   const [recentDateRange, setRecentDateRange] = useState<{ from: string; to: string }>({
     from: new Date(new Date().setFullYear(new Date().getFullYear() - 3)).toISOString().split('T')[0],
     to: new Date().toISOString().split('T')[0]
+  });
+
+  const [viewMode, setViewMode] = useState<'card' | 'family' | 'list'>('card');
+  const [listFilters, setListFilters] = useState({
+    gender: '',
+    role: '',
+    mokjang: '',
+    status: '',
+    tag: '',
+    ageGroup: '' // '0-19', '20-39', '40-59', '60+'
+  });
+
+  const [listSortConfig, setListSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({
+  key: 'korean_name',
+  direction: 'asc'
   });
 
   useEffect(() => {
@@ -1956,24 +2269,61 @@ function App() {
       getFamilyLabel(idA).localeCompare(getFamilyLabel(idB), 'ko')
     );
 
+    let finalSorted = sorted;
+
+    if (viewMode === 'list') {
+    finalSorted = finalSorted.filter(m => {
+      const age = calcAge(m.birthday) || 0;
+      const matchesGender = !listFilters.gender || m.gender === listFilters.gender;
+      const matchesRole = !listFilters.role || m.role === listFilters.role;
+      const matchesMokjang = !listFilters.mokjang || m.mokjang === listFilters.mokjang;
+      const matchesStatus = !listFilters.status || m.status === listFilters.status;
+      const matchesTag = !listFilters.tag || (m.tags || []).includes(listFilters.tag);
+      
+      let matchesAge = true;
+      if (listFilters.ageGroup === '0-19') matchesAge = age < 20;
+      else if (listFilters.ageGroup === '20-39') matchesAge = age >= 20 && age < 40;
+      else if (listFilters.ageGroup === '40-59') matchesAge = age >= 40 && age < 60;
+      else if (listFilters.ageGroup === '60+') matchesAge = age >= 60;
+
+      return matchesGender && matchesRole && matchesMokjang && matchesStatus && matchesTag && matchesAge;
+    });
+    finalSorted.sort((a, b) => {
+    const { key, direction } = listSortConfig;
+    
+    let valA: any = (a as any)[key] || '';
+    let valB: any = (b as any)[key] || '';
+
+    // 나이 정렬 예외 처리
+    if (key === 'age') {
+      valA = calcAge(a.birthday) || 0;
+      valB = calcAge(b.birthday) || 0;
+    }
+
+    if (valA < valB) return direction === 'asc' ? -1 : 1;
+    if (valA > valB) return direction === 'asc' ? 1 : -1;
+    return 0;
+    }); 
+    }
+
     const activePeople = members.filter(m => m.status?.toLowerCase() === 'active');
     const vancouverNow = new Date().toLocaleString("en-US", {timeZone: "America/Vancouver"});
     const currentVancouverMonth = new Date(vancouverNow).getMonth();
 
     return { 
-      displayedMembers: sorted, 
+      displayedMembers: finalSorted, 
       displayedFamilies: sortedFamilyIds,
       totalFamiliesCount: matchedFamilyIdsSet.size,
       totalPeopleCount: filterMatchedMembers.length,
       activeMembersCount: activePeople.length, 
       familiesCount: new Set(activePeople.map(m => m.family_id)).size, 
       birthdaysCount: members.filter(m => {
-    if (!m.birthday) return false;
-    const birthMonth = parseInt(m.birthday.split('-')[1], 10);
-    return (birthMonth - 1) === currentVancouverMonth; // 현재 밴쿠버 월과 비교
-  }).length 
-};
-    }, [members, searchQuery, activeOnly, sortBy, sortOrder, activeMenu, selectedFilter, parentLists, recentDateRange, activeBirthdayMonth, familyView]);
+        if (!m.birthday) return false;
+        const birthMonth = parseInt(m.birthday.split('-')[1], 10);
+        return (birthMonth - 1) === currentVancouverMonth;
+      }).length 
+    };
+}, [members, searchQuery, activeOnly, sortBy, sortOrder, activeMenu, selectedFilter, parentLists, recentDateRange, activeBirthdayMonth, familyView, viewMode, listFilters, listFilters, viewMode, listSortConfig]);
 
   if (loading) return <div className="h-screen flex items-center justify-center text-slate-400">Loading...</div>;
   if (!userRole) return <Login onLogin={(role) => { setUserRole(role); load(); }} />;
@@ -2001,11 +2351,33 @@ function App() {
               className="p-1 rounded-lg hover:bg-slate-100 transition flex-shrink-0" >
               <img src="/apple-touch-icon.png" alt="Home" className="w-8 h-8 object-contain" />
             </button>
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input ref={searchInputRef} type="text" placeholder={placeholder} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') setSearchQuery(''); }} className="w-full pl-9 pr-9 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-100 text-sm text-slate-700" />
-                {searchQuery && <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2"><X size={16} /></button>}
-              </div>
+               <div className="relative flex-1 max-w-md flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input 
+                ref={searchInputRef} 
+                type="text" 
+                placeholder={placeholder} 
+                value={searchQuery} 
+                onChange={(e) => setSearchQuery(e.target.value)} 
+                onKeyDown={(e) => { if (e.key === 'Escape') setSearchQuery(''); }} 
+                className="w-full pl-9 pr-9 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-100 text-sm text-slate-700" 
+              />
+              {searchQuery && (
+                <button 
+                  onClick={() => setSearchQuery('')} 
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+
+            {/* 🏆 필터링된 결과 인원수 표시 배지 */}
+            <div className="hidden sm:flex shrink-0 items-center justify-center px-2.5 py-1.5 bg-sky-50 text-sky-700 rounded-lg border border-sky-100 text-xs font-black shadow-sm">
+              {totalPeopleCount}명
+            </div>
+          </div>
               {!sidebarOpen && (
                 <button onClick={() => setSidebarOpen(true)} className="p-2 rounded-lg hover:bg-slate-100 transition flex-shrink-0 ml-auto lg:hidden">
                   <svg className="w-6 h-6 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
@@ -2027,9 +2399,9 @@ function App() {
 
         <main ref={mainScrollRef} className="flex-1 overflow-y-auto px-4 lg:px-6 py-5">
           {activeMenu !== 'settings' && (
-            <div className="mb-6 flex flex-col gap-2">
-              <div className="flex items-start justify-between">
-                <div>
+            <div className="mb-6 flex flex-col gap-2 no-print"> 
+            <div className="flex items-start justify-between">
+              <div>
                   <h2 className="text-2xl sm:text-3xl font-black text-slate-800">
                     {activeMenu === 'active' ? (activeOnly ? 'Active Members' : 'All Members') : 
                      activeMenu === 'birthdays' ? `Birthdays in ${new Date(2024, activeBirthdayMonth).toLocaleString('en-US', { month: 'long' })}` :
@@ -2043,58 +2415,70 @@ function App() {
                     <Check className="w-5 h-5" /><span className="hidden sm:inline ml-1.5 text-xs font-semibold">Active Only</span>
                   </button>
                   <div className="flex items-center gap-0.5 bg-slate-100 rounded-lg p-0.5">
-  {/* Card View */}
-  <div className="relative group">
-    <button
-      onClick={() => setFamilyView(false)}
-      className={`
-        p-2 rounded-md transition-all
-        ${!familyView
-          ? 'bg-white shadow-sm text-slate-800 opacity-100'
-          : 'text-slate-400 opacity-40 hover:opacity-80'}
-      `}
-    >
-      <LayoutGrid size={18} />
-    </button>
+                  {/* 1. Card View */}
+                  <div className="relative group">
+                    <button
+                      onClick={() => {
+                        setViewMode('card');
+                        setFamilyView(false); // 기존 로직 호환을 위해 유지
+                      }}
+                      className={`
+                        p-2 rounded-md transition-all
+                        ${viewMode === 'card'
+                          ? 'bg-white shadow-sm text-slate-800 opacity-100'
+                          : 'text-slate-400 opacity-40 hover:opacity-80'}
+                      `}
+                    >
+                      <LayoutGrid size={18} />
+                    </button>
+                    <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 px-2 py-1 rounded-md bg-slate-800 text-white text-[10px] font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                      Card View
+                    </div>
+                  </div>
 
-    {/* Tooltip */}
-    <div className="
-      absolute -bottom-8 left-1/2 -translate-x-1/2
-      px-2 py-1 rounded-md bg-slate-800 text-white
-      text-[10px] font-semibold whitespace-nowrap
-      opacity-0 group-hover:opacity-100
-      transition-opacity pointer-events-none
-    ">
-      Card View
-    </div>
-  </div>
+                  {/* 2. Family View */}
+                  <div className="relative group">
+                    <button
+                      onClick={() => {
+                        setViewMode('family');
+                        setFamilyView(true); // 기존 로직 호환을 위해 유지
+                      }}
+                      className={`
+                        p-2 rounded-md transition-all
+                        ${viewMode === 'family'
+                          ? 'bg-white shadow-sm text-slate-800 opacity-100'
+                          : 'text-slate-400 opacity-40 hover:opacity-80'}
+                      `}
+                    >
+                      <Users size={18} />
+                    </button>
+                    <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 px-2 py-1 rounded-md bg-slate-800 text-white text-[10px] font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                      Family View
+                    </div>
+                  </div>
 
-  {/* Family View */}
-  <div className="relative group">
-    <button
-      onClick={() => setFamilyView(true)}
-      className={`
-        p-2 rounded-md transition-all
-        ${familyView
-          ? 'bg-white shadow-sm text-slate-800 opacity-100'
-          : 'text-slate-400 opacity-40 hover:opacity-80'}
-      `}
-    >
-      <Users size={18} />
-    </button>
+                  {/* 3. List View (새로 추가되는 버튼) */}
+                  <div className="relative group">
+                    <button
+                      onClick={() => {
+                        setViewMode('list');
+                        setFamilyView(false);
+                      }}
+                      className={`
+                        p-2 rounded-md transition-all
+                        ${viewMode === 'list'
+                          ? 'bg-white shadow-sm text-slate-800 opacity-100'
+                          : 'text-slate-400 opacity-40 hover:opacity-80'}
+                      `}
+                    >
+                      <List size={18} />
+                    </button>
+                    <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 px-2 py-1 rounded-md bg-slate-800 text-white text-[10px] font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                      List View
+                    </div>
+                  </div>
+                </div>
 
-    {/* Tooltip */}
-    <div className="
-      absolute -bottom-8 left-1/2 -translate-x-1/2
-      px-2 py-1 rounded-md bg-slate-800 text-white
-      text-[10px] font-semibold whitespace-nowrap
-      opacity-0 group-hover:opacity-100
-      transition-opacity pointer-events-none
-    ">
-      Family View
-    </div>
-  </div>
-</div>
 
                   <div className="hidden sm:flex items-center gap-2 bg-slate-100 rounded-lg p-1">
                     <div className="relative">
@@ -2145,19 +2529,33 @@ function App() {
           {activeMenu === 'settings' ? (
             <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden"><SettingsPage parentLists={parentLists} childLists={childLists} onUpdate={fetchSystemLists} /></div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {activeMenu === 'birthdays' ? (
-                displayedMembers.map(m => <BirthdayCard key={m.id} member={m} roles={roles} onClick={() => setSelectedMember(m)} />)
-              ) : activeMenu === 'recent' ? (
-                displayedMembers.map(m => <RecentMemberCard key={m.id} member={m} roles={roles} onClick={() => setSelectedMember(m)} />)
-              ) : !familyView ? (
-                displayedMembers.map(m => <MemberCard key={m.id} member={m} age={calcAge(m.birthday)} roles={roles} childLists={childLists} onClick={() => setSelectedMember(m)} />)
+             <>
+              {viewMode === 'list' ? (
+                <MemberListView 
+                  members={displayedMembers} 
+                  filters={listFilters} 
+                  setFilters={setListFilters} 
+                  onSelectMember={setSelectedMember} 
+                  allMembers={members}
+                  sortConfig={listSortConfig}
+                  setSortConfig={setListSortConfig}
+                />
               ) : (
-                displayedFamilies.map((fid: any) => (
-                  <FamilyCard key={fid} familyLabel={getFamilyLabel(fid)} members={displayedMembers.filter(m => m.family_id === fid)} roles={roles} familyAddress={displayedMembers.find(m => m.family_id === fid && m.address)?.address} onMemberClick={(m) => setSelectedMember(m)} childLists={childLists} />
-                ))
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {activeMenu === 'birthdays' ? (
+                    displayedMembers.map(m => <BirthdayCard key={m.id} member={m} roles={roles} onClick={() => setSelectedMember(m)} />)
+                  ) : activeMenu === 'recent' ? (
+                    displayedMembers.map(m => <RecentMemberCard key={m.id} member={m} roles={roles} onClick={() => setSelectedMember(m)} />)
+                  ) : viewMode === 'family' ? (
+                    displayedFamilies.map((fid: any) => (
+                      <FamilyCard key={fid} familyLabel={getFamilyLabel(fid)} members={displayedMembers.filter(m => m.family_id === fid)} roles={roles} familyAddress={displayedMembers.find(m => m.family_id === fid && m.address)?.address} onMemberClick={(m) => setSelectedMember(m)} childLists={childLists} />
+                    ))
+                  ) : (
+                    displayedMembers.map(m => <MemberCard key={m.id} member={m} age={calcAge(m.birthday)} roles={roles} childLists={childLists} onClick={() => setSelectedMember(m)} />)
+                  )}
+                </div>
               )}
-            </div>
+            </>
           )}
           {displayedMembers.length === 0 && <div className="text-center py-20 text-slate-400 font-medium">No results found</div>}
         </main>
