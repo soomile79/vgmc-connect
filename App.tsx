@@ -3,6 +3,7 @@ import { supabase } from './lib/supabase';
 import SettingsPage from './components/SettingsPage';
 import MemberForm from './components/MemberForm';
 import Login from './components/Login';
+import MokjangOrgView from './components/MokjangOrgView'; 
 // import GlobalLogView from './components/GlobalLogView';
 // import { useTypingPlaceholder } from './hooks/useTypingPlaceholder';
 import {
@@ -666,6 +667,16 @@ function Sidebar({
             <button onClick={() => onSelectMenu('recent')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors group ${activeMenu === 'recent' ? 'bg-sky-50' : 'hover:bg-slate-50'}`}>
               <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${activeMenu === 'recent' ? 'bg-sky-100' : 'bg-slate-50'}`}><UserCog className={`w-5 h-5 ${activeMenu === 'recent' ? 'text-sky-600' : 'text-slate-600'}`} /></div>
               <div className="flex-1 text-left"><div className={`text-sm font-semibold ${activeMenu === 'recent' ? 'text-sky-700' : 'text-slate-700'}`}>최신 등록교인</div></div>
+              <ChevronRight className="w-4 h-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </button>
+          </div>
+
+           <div className="mb-2">
+            <button onClick={() => onSelectMenu('org')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors group ${activeMenu === 'org' ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}>
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${activeMenu === 'org' ? 'bg-indigo-100' : 'bg-slate-50'}`}>
+                <LayoutGrid className={`w-5 h-5 ${activeMenu === 'org' ? 'text-indigo-600' : 'text-slate-600'}`} />
+              </div>
+              <div className="flex-1 text-left"><div className={`text-sm font-semibold ${activeMenu === 'org' ? 'text-indigo-700' : 'text-slate-700'}`}>목장 조직도 / 배정</div></div>
               <ChevronRight className="w-4 h-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
             </button>
           </div>
@@ -1949,6 +1960,7 @@ function App() {
   const [childLists, setChildLists] = useState<ChildList[]>([]);
   const [userRole, setUserRole] = useState<'admin' | 'user' | null>(null);
   const [isGlobalLogOpen, setIsGlobalLogOpen] = useState(false); 
+  const [chowons, setChowons] = useState<any[]>([]); 
   
   const [activeBirthdayMonth, setActiveBirthdayMonth] = useState(new Date().getMonth());
   const [recentDateRange, setRecentDateRange] = useState<{ from: string; to: string }>({
@@ -1990,53 +2002,56 @@ function App() {
   
   // 데이터 로드
   const load = async (actionType?: 'save' | 'delete', memberId?: string, showLoader: boolean = false) => {
-  try {
-    // showLoader가 true이거나 데이터가 아예 없으면 로딩 화면 표시
-    if (showLoader || members.length === 0) setLoading(true);
+    try {
+      if (showLoader || members.length === 0) setLoading(true);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setUserRole(null);
-      setLoading(false);
-      return;
-    }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setUserRole(null);
+        setLoading(false);
+        return;
+      }
 
-    // 최신 데이터를 다시 가져옴 (No-cache 효과)
-    const [membersRes, familiesRes, rolesRes, profileRes] = await Promise.all([
-      supabase.from('members').select('*'),
-      supabase.from('families').select('*'),
-      supabase.from('roles').select('*'),
-      supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
-    ]);
-    
-    const newMembers = (membersRes.data || []).map(m => normalizeMember(m));
-    
-    setMembers(newMembers);
-    setFamilies(familiesRes.data || []);
-    setRoles(rolesRes.data || []);
-    setUserRole((profileRes.data?.role as 'admin' | 'user') || 'user');
+      // 1. 모든 데이터를 한 번에 비동기로 가져옴
+      const [membersRes, familiesRes, rolesRes, profileRes, chowonRes] = await Promise.all([
+        supabase.from('members').select('*'),
+        supabase.from('families').select('*'),
+        supabase.from('roles').select('*'),
+        supabase.from('profiles').select('role').eq('id', user.id).maybeSingle(),
+        supabase.from('chowon_lists').select('*').order('order')
+      ]);
+      
+      // 2. 가공된 멤버 데이터 생성
+      const newMembers = (membersRes.data || []).map(m => normalizeMember(m));
+      
+      // 3. 상태 업데이트 (중복 없이 한 번씩만 실행)
+      setMembers(newMembers);
+      setFamilies(familiesRes.data || []);
+      setRoles(rolesRes.data || []);
+      setChowons(chowonRes.data || []); // 초원 데이터 저장
+      setUserRole((profileRes.data?.role as 'admin' | 'user') || 'user');
 
     if (actionType === 'save') {
       await fetchSystemLists();
     }
 
     // 특정 멤버 선택 유지 로직
-    if (memberId) {
-      const target = newMembers.find(m => m.id === memberId);
-      if (target) setSelectedMember(target);
-    } else if (selectedMember && actionType !== 'delete') {
-      const updated = newMembers.find(m => m.id === selectedMember.id);
-      if (updated) setSelectedMember(updated);
-    } else if (actionType === 'delete') {
-      setSelectedMember(null);
-    }
+      if (memberId) {
+        const target = newMembers.find(m => m.id === memberId);
+        if (target) setSelectedMember(target);
+      } else if (selectedMember && actionType !== 'delete') {
+        const updated = newMembers.find(m => m.id === selectedMember.id);
+        if (updated) setSelectedMember(updated);
+      } else if (actionType === 'delete') {
+        setSelectedMember(null);
+      }
 
-  } catch (e) {
-    console.error('Load error:', e);
-  } finally {
-    setLoading(false);
-  }
-};
+    } catch (e) {
+      console.error('Load error:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleEditMember = (member: any) => {
     const latestMemberData = members.find(m => m.id === member.id) || member;
@@ -2265,6 +2280,28 @@ function App() {
   if (loading) return <div className="h-screen flex items-center justify-center text-slate-400">Loading...</div>;
   if (!userRole) return <Login onLogin={(role) => { setUserRole(role); load(); }} />;
 
+    // 🚀 [추가] Viewer 권한일 경우 화면 차단
+  if (userRole === 'viewer') {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center bg-slate-50 px-4">
+        <img src="/logo_kr.png" alt="VGMC Logo" className="w-64 sm:w-80 mb-8 opacity-80" />
+        <div className="text-center p-8 bg-white rounded-3xl shadow-xl border border-slate-200 max-w-md">
+          <h2 className="text-2xl font-black text-slate-800 mb-4">승인 대기 중</h2>
+          <p className="text-slate-500 font-medium leading-relaxed">
+            회원가입이 완료되었습니다.<br />
+            관리자가 권한을 부여할 때까지 잠시만 기다려주세요.
+          </p>
+          <button 
+            onClick={handleSignOut} 
+            className="mt-6 text-sm font-bold text-slate-400 hover:text-rose-500 transition-colors"
+          >
+            로그아웃 후 다시 시도
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   return (
@@ -2335,138 +2372,122 @@ function App() {
         )}
 
         <main ref={mainScrollRef} className="flex-1 overflow-y-auto px-4 lg:px-6 py-5">
-          {activeMenu !== 'settings' && (
-            <div className="mb-6 flex flex-col gap-2 no-print"> 
-            <div className="flex items-start justify-between">
-              <div>
-                  <h2 className="text-2xl sm:text-3xl font-black text-slate-800">
-                    {activeMenu === 'active' ? (activeOnly ? 'Active Members' : 'All Members') : 
-                     activeMenu === 'birthdays' ? `Birthdays in ${new Date(2024, activeBirthdayMonth).toLocaleString('en-US', { month: 'long' })}` :
-                     activeMenu === 'recent' ? '최신 등록교인' : activeMenu === 'filter' ? selectedFilter?.name : 'VGMC'}
-                  </h2>
-                  <p className="text-slate-500 text-sm sm:text-base mt-0.5">{totalFamiliesCount} 가정, {totalPeopleCount} 명</p>
-                </div>
-
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <button onClick={() => setActiveOnly(!activeOnly)} className={`flex items-center justify-center p-2 rounded-lg border transition-all ${activeOnly ? 'border-emerald-400 text-emerald-600 bg-emerald-50' : 'border-slate-200 text-slate-400 bg-white'}`}>
-                    <Check className="w-5 h-5" /><span className="hidden sm:inline ml-1.5 text-xs font-semibold">Active Only</span>
-                  </button>
-                  <div className="flex items-center gap-0.5 bg-slate-100 rounded-lg p-0.5">
-                  {/* 1. Card View */}
-                  <div className="relative group">
-                    <button
-                      onClick={() => {
-                        setViewMode('card');
-                        setFamilyView(false); // 기존 로직 호환을 위해 유지
-                      }}
-                      className={`
-                        p-2 rounded-md transition-all
-                        ${viewMode === 'card'
-                          ? 'bg-white shadow-sm text-slate-800 opacity-100'
-                          : 'text-slate-400 opacity-40 hover:opacity-80'}
-                      `}
-                    >
-                      <LayoutGrid size={18} />
-                    </button>
-                    <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 px-2 py-1 rounded-md bg-slate-800 text-white text-[10px] font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                      Card View
-                    </div>
-                  </div>
-
-                  {/* 2. Family View */}
-                  <div className="relative group">
-                    <button
-                      onClick={() => {
-                        setViewMode('family');
-                        setFamilyView(true); // 기존 로직 호환을 위해 유지
-                      }}
-                      className={`
-                        p-2 rounded-md transition-all
-                        ${viewMode === 'family'
-                          ? 'bg-white shadow-sm text-slate-800 opacity-100'
-                          : 'text-slate-400 opacity-40 hover:opacity-80'}
-                      `}
-                    >
-                      <Users size={18} />
-                    </button>
-                    <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 px-2 py-1 rounded-md bg-slate-800 text-white text-[10px] font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                      Family View
-                    </div>
-                  </div>
-
-                  {/* 3. List View (새로 추가되는 버튼) */}
-                  <div className="relative group">
-                    <button
-                      onClick={() => {
-                        setViewMode('list');
-                        setFamilyView(false);
-                      }}
-                      className={`
-                        p-2 rounded-md transition-all
-                        ${viewMode === 'list'
-                          ? 'bg-white shadow-sm text-slate-800 opacity-100'
-                          : 'text-slate-400 opacity-40 hover:opacity-80'}
-                      `}
-                    >
-                      <List size={18} />
-                    </button>
-                    <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 px-2 py-1 rounded-md bg-slate-800 text-white text-[10px] font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                      List View
-                    </div>
-                  </div>
-                </div>
-
-
-                  <div className="hidden sm:flex items-center gap-2 bg-slate-100 rounded-lg p-1">
-                    <div className="relative">
-                      <button onClick={() => setShowSortDropdown(!showSortDropdown)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold bg-white shadow-sm text-slate-700">
-                        Sort: {sortBy === 'name' ? '이름' : '나이'} <ChevronDown size={14} className={`transition-transform ${showSortDropdown ? 'rotate-180' : ''}`} />
-                      </button>
-                      {showSortDropdown && (
-                        <div className="absolute right-0 mt-1 w-28 bg-white border border-slate-200 rounded-lg shadow-xl z-50 py-1">
-                          {['name', 'age'].map((key) => (
-                            <button key={key} onClick={() => { setSortBy(key as any); setShowSortDropdown(false); }} className={`w-full px-4 py-2 text-left text-xs hover:bg-slate-50 font-medium ${sortBy === key ? 'text-blue-600 bg-blue-50' : 'text-slate-600'}`}>{key === 'name' ? '이름' : '나이'}</button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <button onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')} className="p-1.5 hover:bg-white rounded-md text-slate-600 transition-all">
-                      <ArrowUpDown className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeMenu === 'recent' && (
-            <div className="mb-8 bg-white rounded-3xl border border-slate-100 p-6 shadow-sm flex flex-wrap items-center justify-between gap-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center"><Calendar className="w-6 h-6 text-blue-500" /></div>
-                <div><div className="text-sm font-black text-slate-800">등록일 기간 설정</div><div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">REGISTRATION DATE RANGE</div></div>
-              </div>
-              <div className="flex flex-wrap items-center gap-4">
-                <div className="flex items-center gap-2"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">FROM</span><input type="date" value={recentDateRange.from} onChange={(e) => setRecentDateRange(prev => ({ ...prev, from: e.target.value }))} className="px-3 py-2 rounded-xl bg-slate-50 border-transparent text-sm font-bold text-slate-700" /></div>
-                <div className="flex items-center gap-2"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TO</span><input type="date" value={recentDateRange.to} onChange={(e) => setRecentDateRange(prev => ({ ...prev, to: e.target.value }))} className="px-3 py-2 rounded-xl bg-slate-50 border-transparent text-sm font-bold text-slate-700" /></div>
-                <div className="flex gap-2 ml-2">
-                  <button onClick={() => setRecentDateRange({ from: new Date(new Date().setFullYear(new Date().getFullYear() - 3)).toISOString().split('T')[0], to: new Date().toISOString().split('T')[0] })} className="px-4 py-2 rounded-xl bg-slate-100 text-slate-600 text-xs font-black hover:bg-slate-200">최근 3년</button>
-                  <button onClick={() => setRecentDateRange({ from: new Date(new Date().setFullYear(new Date().getFullYear() - 1)).toISOString().split('T')[0], to: new Date().toISOString().split('T')[0] })} className="px-4 py-2 rounded-xl bg-slate-100 text-slate-600 text-xs font-black hover:bg-slate-200">최근 1년</button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeMenu === 'birthdays' && (
-            <div className="inline-flex items-center gap-3 rounded-2xl bg-gradient-to-r from-rose-400 via-pink-500 to-orange-400 p-4 sm:p-6 text-white shadow-lg mb-8 max-w-[280px] sm:max-w-[400px]">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0"><Cake className="w-6 h-6 text-white" /></div>
-              <div className="min-w-0"><h3 className="text-lg sm:text-xl font-black">Celebration Time!</h3><p className="text-xs sm:text-sm text-white/90 font-medium">Let's celebrate together!</p></div>
-            </div>
-          )}
-
+          {/* 1. 설정 페이지 체크 */}
           {activeMenu === 'settings' ? (
-            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden"><SettingsPage parentLists={parentLists} childLists={childLists} onUpdate={fetchSystemLists} /></div>
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+              <SettingsPage 
+              parentLists={parentLists} 
+              childLists={childLists} 
+              members={members}
+              onUpdate={fetchSystemLists} 
+            />
+            </div>
+          ) : 
+          /* 2. 목장 조직도 체크 */
+          activeMenu === 'org' ? (
+            <MokjangOrgView 
+              members={members} 
+              chowonLists={chowons} 
+              childLists={childLists} 
+              onRefresh={() => load()} 
+              onSelectMember={(m: Member) => setSelectedMember(m)}
+            />
           ) : (
-             <>
+            /* 3. 그 외 모든 화면 (Active, Birthdays, Recent, Filter 등) */
+            <>
+              {/* 상단 타이틀 및 컨트롤 바 */}
+              <div className="mb-6 flex flex-col gap-2 no-print"> 
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h2 className="text-2xl sm:text-3xl font-black text-slate-800">
+                      {activeMenu === 'active' ? (activeOnly ? 'Active Members' : 'All Members') : 
+                       activeMenu === 'birthdays' ? `Birthdays in ${new Date(2024, activeBirthdayMonth).toLocaleString('en-US', { month: 'long' })}` :
+                       activeMenu === 'recent' ? '최신 등록교인' : activeMenu === 'filter' ? selectedFilter?.name : 'VGMC'}
+                    </h2>
+                    <p className="text-slate-500 text-sm sm:text-base mt-0.5">{totalFamiliesCount} 가정, {totalPeopleCount} 명</p>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button onClick={() => setActiveOnly(!activeOnly)} className={`flex items-center justify-center p-2 rounded-lg border transition-all ${activeOnly ? 'border-emerald-400 text-emerald-600 bg-emerald-50' : 'border-slate-200 text-slate-400 bg-white'}`}>
+                      <Check className="w-5 h-5" /><span className="hidden sm:inline ml-1.5 text-xs font-semibold">Active Only</span>
+                    </button>
+
+                    {/* 뷰 모드 스위처 */}
+                    <div className="flex items-center gap-0.5 bg-slate-100 rounded-lg p-0.5">
+                      {/* Card View */}
+                      <div className="relative group">
+                        <button onClick={() => { setViewMode('card'); setFamilyView(false); }} className={`p-2 rounded-md transition-all ${viewMode === 'card' ? 'bg-white shadow-sm text-slate-800 opacity-100' : 'text-slate-400 opacity-40 hover:opacity-80'}`}>
+                          <LayoutGrid size={18} />
+                        </button>
+                        <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 px-2 py-1 rounded-md bg-slate-800 text-white text-[10px] font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">Card View</div>
+                      </div>
+
+                      {/* Family View */}
+                      <div className="relative group">
+                        <button onClick={() => { setViewMode('family'); setFamilyView(true); }} className={`p-2 rounded-md transition-all ${viewMode === 'family' ? 'bg-white shadow-sm text-slate-800 opacity-100' : 'text-slate-400 opacity-40 hover:opacity-80'}`}>
+                          <Users size={18} />
+                        </button>
+                        <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 px-2 py-1 rounded-md bg-slate-800 text-white text-[10px] font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">Family View</div>
+                      </div>
+
+                      {/* List View */}
+                      <div className="relative group">
+                        <button onClick={() => { setViewMode('list'); setFamilyView(false); }} className={`p-2 rounded-md transition-all ${viewMode === 'list' ? 'bg-white shadow-sm text-slate-800 opacity-100' : 'text-slate-400 opacity-40 hover:opacity-80'}`}>
+                          <List size={18} />
+                        </button>
+                        <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 px-2 py-1 rounded-md bg-slate-800 text-white text-[10px] font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">List View</div>
+                      </div>
+                    </div>
+
+                    {/* 정렬 드롭다운 */}
+                    <div className="hidden sm:flex items-center gap-2 bg-slate-100 rounded-lg p-1">
+                      <div className="relative">
+                        <button onClick={() => setShowSortDropdown(!showSortDropdown)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold bg-white shadow-sm text-slate-700">
+                          Sort: {sortBy === 'name' ? '이름' : '나이'} <ChevronDown size={14} className={`transition-transform ${showSortDropdown ? 'rotate-180' : ''}`} />
+                        </button>
+                        {showSortDropdown && (
+                          <div className="absolute right-0 mt-1 w-28 bg-white border border-slate-200 rounded-lg shadow-xl z-50 py-1">
+                            {['name', 'age'].map((key) => (
+                              <button key={key} onClick={() => { setSortBy(key as any); setShowSortDropdown(false); }} className={`w-full px-4 py-2 text-left text-xs hover:bg-slate-50 font-medium ${sortBy === key ? 'text-blue-600 bg-blue-50' : 'text-slate-600'}`}>{key === 'name' ? '이름' : '나이'}</button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <button onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')} className="p-1.5 hover:bg-white rounded-md text-slate-600 transition-all">
+                        <ArrowUpDown className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 배너 영역 (Recent) */}
+              {activeMenu === 'recent' && (
+                <div className="mb-8 bg-white rounded-3xl border border-slate-100 p-6 shadow-sm flex flex-wrap items-center justify-between gap-6">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center"><Calendar className="w-6 h-6 text-blue-500" /></div>
+                    <div><div className="text-sm font-black text-slate-800">등록일 기간 설정</div><div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">REGISTRATION DATE RANGE</div></div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex items-center gap-2"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">FROM</span><input type="date" value={recentDateRange.from} onChange={(e) => setRecentDateRange(prev => ({ ...prev, from: e.target.value }))} className="px-3 py-2 rounded-xl bg-slate-50 border-transparent text-sm font-bold text-slate-700" /></div>
+                    <div className="flex items-center gap-2"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TO</span><input type="date" value={recentDateRange.to} onChange={(e) => setRecentDateRange(prev => ({ ...prev, to: e.target.value }))} className="px-3 py-2 rounded-xl bg-slate-50 border-transparent text-sm font-bold text-slate-700" /></div>
+                    <div className="flex gap-2 ml-2">
+                      <button onClick={() => setRecentDateRange({ from: new Date(new Date().setFullYear(new Date().getFullYear() - 3)).toISOString().split('T')[0], to: new Date().toISOString().split('T')[0] })} className="px-4 py-2 rounded-xl bg-slate-100 text-slate-600 text-xs font-black hover:bg-slate-200">최근 3년</button>
+                      <button onClick={() => setRecentDateRange({ from: new Date(new Date().setFullYear(new Date().getFullYear() - 1)).toISOString().split('T')[0], to: new Date().toISOString().split('T')[0] })} className="px-4 py-2 rounded-xl bg-slate-100 text-slate-600 text-xs font-black hover:bg-slate-200">최근 1년</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 배너 영역 (Birthdays) */}
+              {activeMenu === 'birthdays' && (
+                <div className="inline-flex items-center gap-3 rounded-2xl bg-gradient-to-r from-rose-400 via-pink-500 to-orange-400 p-4 sm:p-6 text-white shadow-lg mb-8 max-w-[280px] sm:max-w-[400px]">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0"><Cake className="w-6 h-6 text-white" /></div>
+                  <div className="min-w-0"><h3 className="text-lg sm:text-xl font-black">Celebration Time!</h3><p className="text-xs sm:text-sm text-white/90 font-medium">Let's celebrate together!</p></div>
+                </div>
+              )}
+
+              {/* 데이터 출력부 */}
               {viewMode === 'list' ? (
                 <MemberListView 
                   members={displayedMembers} 
@@ -2492,9 +2513,9 @@ function App() {
                   )}
                 </div>
               )}
+              {displayedMembers.length === 0 && <div className="text-center py-20 text-slate-400 font-medium">No results found</div>}
             </>
           )}
-          {displayedMembers.length === 0 && <div className="text-center py-20 text-slate-400 font-medium">No results found</div>}
         </main>
       </div>
 
