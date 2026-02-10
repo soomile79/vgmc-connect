@@ -501,7 +501,6 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 /* ================= SIDEBAR Left Bar================= */
-
 function Sidebar({ 
   activeMembersCount, 
   familiesCount, 
@@ -520,7 +519,7 @@ function Sidebar({
   onNewMember, 
   onSignOut, 
   userRole,
-  onOpenGlobalLog // ⬅️ 기도/메모 로그 열기 프롭스 추가
+  onOpenGlobalLog
 }: { 
   activeMembersCount: number; 
   familiesCount: number; 
@@ -538,24 +537,51 @@ function Sidebar({
   members: Member[]; 
   onNewMember: () => void; 
   onSignOut: () => void; 
-  userRole: 'admin' | 'user' | null; 
-  onOpenGlobalLog: () => void; // ⬅️ 타입 정의 추가
+  userRole: 'admin' | 'general' | 'user' | 'viewer' | null; // 🚀 general 타입 추가
+  onOpenGlobalLog: () => void;
 }) {
+
+  // 🚀 [권한 로직 1] 부모 카테고리 필터링
+  const filteredParentLists = useMemo(() => {
+    if (userRole === 'admin') return parentLists;
+    if (userRole === 'general') {
+      return parentLists.filter((p: any) => 
+        p.type === 'mokjang' || p.name.includes('목장') || 
+        p.type === 'tag' || p.name.includes('태그')
+      );
+    }
+    return parentLists;
+  }, [parentLists, userRole]);
+
+  // 🚀 [권한 로직 2] 자식 아이템 필터링 (새가족, 목자, 목녀만)
+  const filteredChildLists = useMemo(() => {
+    if (userRole === 'admin') return childLists;
+    if (userRole === 'general') {
+      return childLists.filter((c: any) => {
+        const parent = parentLists.find((p: any) => p.id === c.parent_id);
+        if (!parent) return false;
+        if (parent.type === 'mokjang' || parent.name.includes('목장')) return true;
+        if (parent.type === 'tag' || parent.name.includes('태그')) {
+          const allowedTags = ['새가족', '목자', '목녀'];
+          return allowedTags.includes(c.name);
+        }
+        return false;
+      });
+    }
+    return childLists;
+  }, [childLists, parentLists, userRole]);
+
   const [now, setNow] = useState(new Date());
   const [expandedParents, setExpandedParents] = useState<Record<string, boolean>>({});
 
-
   useEffect(() => {
     const interval = setInterval(() => setNow(new Date()), 60_000);
-    
-    // Viewport height fix for mobile browsers
     const setVh = () => {
       const vh = window.innerHeight * 0.01;
       document.documentElement.style.setProperty('--vh', `${vh}px`);
     };
     setVh();
     window.addEventListener('resize', setVh);
-    
     return () => {
       clearInterval(interval);
       window.removeEventListener('resize', setVh);
@@ -566,25 +592,19 @@ function Sidebar({
     setExpandedParents(prev => ({ ...prev, [parentId]: !prev[parentId] }));
   };
  
-   
-  // 통계 계산 로직 수정: 완전 동적 필드 매칭
   const getChildStats = (parentType: string, parentName: string, childName: string) => {
-  const pType = (parentType || '').trim().toLowerCase();
-  const pName = (parentName || '').trim().toLowerCase();
-  const cName = (childName || '').trim().toLowerCase().replace(/\s+/g, '');
+    const pType = (parentType || '').trim().toLowerCase();
+    const pName = (parentName || '').trim().toLowerCase();
+    const cName = (childName || '').trim().toLowerCase().replace(/\s+/g, '');
     
     const filtered = members.filter((m) => {
       if (activeOnly && m.status?.toLowerCase() !== 'active') return false;
       const memberValue = (m as any)[pType];
-      
-      // 1. 직접 필드 매칭 (예: m.mokjang, m.role, m.status)
       if (Array.isArray(memberValue)) {
         if (memberValue.some(v => (v || '').toString().trim().toLowerCase().replace(/\s+/g, '') === cName)) return true;
       } else if (memberValue !== undefined && memberValue !== null) {
         if (memberValue.toString().trim().toLowerCase().replace(/\s+/g, '') === cName) return true;
       }
-      
-      // 2. 폴백 로직 (이름 기반 매칭)
       if (pType === 'cell' || pName.includes('목장')) {
         return (m.mokjang || '').trim().toLowerCase().replace(/\s+/g, '') === cName;
       }
@@ -597,7 +617,6 @@ function Sidebar({
       if (pType === 'tag' || pType === 'tags' || pName.includes('태그')) {
         return (m.tags || []).some(t => (t || '').trim().toLowerCase().replace(/\s+/g, '') === cName);
       }
-      
       return false;
     });
 
@@ -609,169 +628,142 @@ function Sidebar({
     <>
       {sidebarOpen && <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-40 lg:hidden" onClick={onCloseSidebar} />}
       <aside
-        className={`
-          fixed left-0 top-0
-          h-[100dvh] w-72
-          bg-white border-r border-slate-200
-          z-50
-          flex flex-col
-          overflow-hidden   // ⭐ 중요
-          transform transition-transform
-          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-          lg:relative lg:translate-x-0
-        `}
+        className={`fixed left-0 top-0 h-[100dvh] w-72 bg-white border-r border-slate-200 z-50 flex flex-col overflow-hidden transform transition-transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0`}
       >
-
-       {/* 🔹 Sidebar Header */}
         <div className="flex items-center justify-end px-4 py-3">
-        {/* ❌ Close button */}
-        <button
-          onClick={onCloseSidebar}
-          className="p-2 rounded-lg hover:bg-slate-100 transition lg:hidden"
-          aria-label="Close sidebar"
-        >
-          <X className="w-5 h-5 text-slate-300" />
-        </button>
-      </div>
-       <h1 className="text-lg font-bold text-slate-500  ml-7 hover:shadow-sm transition-shadow duration-500">VGMC CONNECT</h1>     
-        
-        {userRole === 'admin' && (
+          <button onClick={onCloseSidebar} className="p-2 rounded-lg hover:bg-slate-100 transition lg:hidden">
+            <X className="w-5 h-5 text-slate-300" />
+          </button>
+        </div>
+        <h1 className="text-lg font-bold text-slate-500 ml-7">VGMC CONNECT</h1>     
+
+        {/* 🚀 [권한 로직 3] New Member 버튼 (admin 및 general 에게 허용) */}
+        {(userRole === 'admin' || userRole === 'general') && (
           <div className="p-4">
             <button onClick={onNewMember} style={{ backgroundColor: '#3c8fb5' }} className="w-full text-white rounded-xl py-3 px-4 flex items-center justify-center gap-2 font-semibold transition-colors hover:opacity-90">
-              <Plus className="w-5 h-5" />New Member
+              <Plus className="w-5 h-5" /> New Member
             </button>
           </div>
         )}
+
         <div className="flex-1 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }} >
-         <nav className="px-4 py-2">
-          <div className="mb-3">
-            <button onClick={onClickActiveMembers} className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl border transition-all group ${activeOnly ? 'bg-sky-50 border-sky-200 shadow-sm' : 'bg-white border-slate-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-blue-300'}`}>
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${activeOnly ? 'bg-sky-100' : 'bg-blue-50 group-hover:bg-blue-100'}`}>
-                <Users className={`w-6 h-6 ${activeOnly ? 'text-sky-600' : 'text-blue-600'}`} />
+          <nav className="px-4 py-2">
+            {/* 🚀 [권한 로직 4] Active Members (general은 숨김) */}
+            {userRole !== 'general' && (
+              <div className="mb-3">
+                <button onClick={onClickActiveMembers} className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl border transition-all group ${activeOnly ? 'bg-sky-50 border-sky-200 shadow-sm' : 'bg-white border-slate-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-blue-300'}`}>
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${activeOnly ? 'bg-sky-100' : 'bg-blue-50 group-hover:bg-blue-100'}`}>
+                    <Users className={`w-6 h-6 ${activeOnly ? 'text-sky-600' : 'text-blue-600'}`} />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <div className={`text-base font-bold transition-colors ${activeOnly ? 'text-sky-700' : 'text-slate-800 group-hover:text-blue-700'}`}>Active Members</div>
+                    <div className="text-sm text-slate-500 mt-0.5">{familiesCount} 가정&nbsp;&nbsp;|&nbsp;&nbsp;{activeMembersCount} 명</div>
+                  </div>
+                </button>
               </div>
-              <div className="flex-1 text-left">
-                <div className={`text-base font-bold transition-colors ${activeOnly ? 'text-sky-700' : 'text-slate-800 group-hover:text-blue-700'}`}>Active Members</div>
-                <div className="text-sm text-slate-500 mt-0.5">{familiesCount} 가정&nbsp;&nbsp;|&nbsp;&nbsp;{activeMembersCount} 명</div>
-              </div>
-            </button>
-          </div>
-          <div className="mb-2">
-            <button onClick={() => onSelectMenu('birthdays')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors group ${activeMenu === 'birthdays' ? 'bg-amber-50' : 'hover:bg-slate-50'}`}>
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${activeMenu === 'birthdays' ? 'bg-amber-100' : 'bg-slate-50'}`}><Cake className={`w-5 h-5 ${activeMenu === 'birthdays' ? 'text-amber-600' : 'text-slate-600'}`} /></div>
-              <div className="flex-1 text-left"><div className={`text-sm font-semibold ${activeMenu === 'birthdays' ? 'text-amber-700' : 'text-slate-700'}`}>Birthdays</div></div>
-              {birthdaysCount > 0 && <span className="bg-amber-100 text-amber-700 text-xs font-bold px-2 py-0.5 rounded-full">{birthdaysCount}</span>}
-              <ChevronRight className="w-4 h-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-            </button>
-          </div>
-          <div className="mb-2">
-            <button onClick={() => onSelectMenu('recent')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors group ${activeMenu === 'recent' ? 'bg-sky-50' : 'hover:bg-slate-50'}`}>
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${activeMenu === 'recent' ? 'bg-sky-100' : 'bg-slate-50'}`}><UserCog className={`w-5 h-5 ${activeMenu === 'recent' ? 'text-sky-600' : 'text-slate-600'}`} /></div>
-              <div className="flex-1 text-left"><div className={`text-sm font-semibold ${activeMenu === 'recent' ? 'text-sky-700' : 'text-slate-700'}`}>최신 등록교인</div></div>
-              <ChevronRight className="w-4 h-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-            </button>
-          </div>
+            )}
 
-           <div className="mb-2">
-            <button onClick={() => onSelectMenu('org')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors group ${activeMenu === 'org' ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}>
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${activeMenu === 'org' ? 'bg-indigo-100' : 'bg-slate-50'}`}>
-                <LayoutGrid className={`w-5 h-5 ${activeMenu === 'org' ? 'text-indigo-600' : 'text-slate-600'}`} />
-              </div>
-              <div className="flex-1 text-left"><div className={`text-sm font-semibold ${activeMenu === 'org' ? 'text-indigo-700' : 'text-slate-700'}`}>목장 조직도 / 배정</div></div>
-              <ChevronRight className="w-4 h-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-            </button>
-          </div>
+            <div className="mb-2">
+              <button onClick={() => onSelectMenu('birthdays')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors group ${activeMenu === 'birthdays' ? 'bg-amber-50' : 'hover:bg-slate-50'}`}>
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${activeMenu === 'birthdays' ? 'bg-amber-100' : 'bg-slate-50'}`}><Cake className={`w-5 h-5 ${activeMenu === 'birthdays' ? 'text-amber-600' : 'text-slate-600'}`} /></div>
+                <div className="flex-1 text-left"><div className={`text-sm font-semibold ${activeMenu === 'birthdays' ? 'text-amber-700' : 'text-slate-700'}`}>Birthdays</div></div>
+                {birthdaysCount > 0 && <span className="bg-amber-100 text-amber-700 text-xs font-bold px-2 py-0.5 rounded-full">{birthdaysCount}</span>}
+                <ChevronRight className="w-4 h-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </button>
+            </div>
+            
+            <div className="mb-2">
+              <button onClick={() => onSelectMenu('recent')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors group ${activeMenu === 'recent' ? 'bg-sky-50' : 'hover:bg-slate-50'}`}>
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${activeMenu === 'recent' ? 'bg-sky-100' : 'bg-slate-50'}`}><UserCog className={`w-5 h-5 ${activeMenu === 'recent' ? 'text-sky-600' : 'text-slate-600'}`} /></div>
+                <div className="flex-1 text-left"><div className={`text-sm font-semibold ${activeMenu === 'recent' ? 'text-sky-700' : 'text-slate-700'}`}>최신 등록교인</div></div>
+                <ChevronRight className="w-4 h-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </button>
+            </div>
 
-          {/* ================= ACCORDION PARENT LISTS ================= */}
-          <div className="mt-6 space-y-1">
-            {parentLists.map((parent) => {
-              const children = childLists.filter((c) => c.parent_id === parent.id);
-              const isExpanded = expandedParents[parent.id];
-              return (
-                <div key={parent.id} className="space-y-1">
-                  <button onClick={() => toggleParent(parent.id)} className="w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-slate-50 transition-colors group">
-                    <div className="flex items-center gap-3">
-                      {parent.type === 'mokjang' ? <Home className="w-4 h-4 text-slate-400" /> : 
-                       parent.type === 'role' ? <Briefcase className="w-4 h-4 text-slate-400" /> :
-                       parent.type === 'status' ? <Award className="w-4 h-4 text-slate-400" /> :
-                       <Tag className="w-4 h-4 text-slate-400" />}
-                      <span className="text-base font-bold text-slate-700">{parent.name}</span>
-                    </div>
-                    <ChevronDown className={`w-4 h-4 text-slate-300 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                  </button>
-                  
-                  {isExpanded && (
-                    <div className="space-y-0.5 animate-in fade-in slide-in-from-top-1 duration-200">
-                      {children.map((child) => {
-                        const stats = getChildStats(parent.type, parent.name, child.name);
-                        const isSelected = selectedFilter?.id === child.id;
-                        return (
-                          <button key={child.id} onClick={() => onSelectFilter(parent.type, child)} className={`w-full flex items-center justify-between px-10 py-2.5 rounded-lg transition-all ${isSelected ? 'bg-blue-50 text-blue-700' : 'text-slate-500 hover:bg-slate-50'}`}>
-                            <span className={`text-sm ${isSelected ? 'font-bold' : 'font-medium'}`}>{child.name}</span>
-                            <span className={`text-xs font-semibold ${isSelected ? 'text-blue-500' : 'text-slate-400'}`}>
-                              {/* 목장만 '가정/명' 표시, 나머지는 숫자만 표시 */}
-                              {parent.type === 'mokjang' ? `${stats.families}가정 · ${stats.people}명` : stats.people}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
+            <div className="mb-2">
+              <button onClick={() => onSelectMenu('org')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors group ${activeMenu === 'org' ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}>
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${activeMenu === 'org' ? 'bg-indigo-100' : 'bg-slate-50'}`}>
+                  <LayoutGrid className={`w-5 h-5 ${activeMenu === 'org' ? 'text-indigo-600' : 'text-slate-600'}`} />
                 </div>
-              );
-            })}
+                <div className="flex-1 text-left"><div className={`text-sm font-semibold ${activeMenu === 'org' ? 'text-indigo-700' : 'text-slate-700'}`}>목장 조직도 / 배정</div></div>
+                <ChevronRight className="w-4 h-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </button>
+            </div>
+
+            {/* 🚀 [권한 로직 5] 아코디언 리스트 (필터링된 리스트로 렌더링) */}
+            <div className="mt-6 space-y-1">
+              {filteredParentLists.map((parent: any) => {
+                const children = filteredChildLists.filter((c: any) => c.parent_id === parent.id);
+                if (children.length === 0) return null;
+                const isExpanded = expandedParents[parent.id];
+                
+                return (
+                  <div key={parent.id} className="space-y-1">
+                    <button onClick={() => toggleParent(parent.id)} className="w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-slate-50 transition-colors group">
+                      <div className="flex items-center gap-3">
+                        {parent.type === 'mokjang' ? <Home className="w-4 h-4 text-slate-400" /> : 
+                         parent.type === 'role' ? <Briefcase className="w-4 h-4 text-slate-400" /> :
+                         parent.type === 'status' ? <Award className="w-4 h-4 text-slate-400" /> :
+                         <Tag className="w-4 h-4 text-slate-400" />}
+                        <span className="text-base font-bold text-slate-700">{parent.name}</span>
+                      </div>
+                      <ChevronDown className={`w-4 h-4 text-slate-300 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                    </button>
+                    
+                    {isExpanded && (
+                      <div className="space-y-0.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                        {children.map((child: any) => {
+                          const stats = getChildStats(parent.type, parent.name, child.name);
+                          const isSelected = selectedFilter?.id === child.id;
+                          return (
+                            <button key={child.id} onClick={() => onSelectFilter(parent.type, child)} className={`w-full flex items-center justify-between px-10 py-2.5 rounded-lg transition-all ${isSelected ? 'bg-blue-50 text-blue-700' : 'text-slate-500 hover:bg-slate-50'}`}>
+                              <span className={`text-sm ${isSelected ? 'font-bold' : 'font-medium'}`}>{child.name}</span>
+                              <span className={`text-xs font-semibold ${isSelected ? 'text-blue-500' : 'text-slate-400'}`}>
+                                {parent.type === 'mokjang' ? `${stats.families}가정 · ${stats.people}명` : stats.people}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </nav>
+        </div>
+    
+        <div className="shrink-0 text-s font-semibold text-slate-600 px-4 py-2 mb-3 bg-white border border-slate-200 rounded-lg text-center">
+          {/* 🚀 [권한 로직 6] 로그 버튼 (admin 만 허용) */}
+          {userRole === 'admin' && (
+            <button onClick={onOpenGlobalLog} className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-sky-50 text-sky-700 border border-sky-100 hover:bg-sky-100 transition-all mb-3 shadow-sm group">
+              <Mail className="w-4 h-4 text-sky-500 group-hover:scale-110 transition-transform" />
+              <span className="text-sm font-bold">기도 & 메모 로그</span>
+            </button>
+          )}
+
+          <div className="text-xs text-slate-500 px-4 mb-2">
+            Today : {now.getFullYear()}-{String(now.getMonth() + 1).padStart(2, '0')}-{String(now.getDate()).padStart(2, '0')} {String(now.getHours()).padStart(2, '0')}:{String(now.getMinutes()).padStart(2, '0')}
           </div>
-        </nav>
-    </div>
-        {/* ===== BOTTOM FIXED AREA ===== */}
-<div className="shrink-0 text-s font-semibold text-slate-600 px-4 py-2 mb-3 bg-white border border-slate-200 rounded-lg text-center">
-  
-  {/* ⬇️ 추가된 기도 & 메모 로그 버튼 (Admin 전용) */}
-  {userRole === 'admin' && (
-    <button
-      onClick={onOpenGlobalLog}
-      className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-sky-50 text-sky-700 border border-sky-100 hover:bg-sky-100 transition-all mb-3 shadow-sm group"
-    >
-      <Mail className="w-4 h-4 text-sky-500 group-hover:scale-110 transition-transform" />
-      <span className="text-sm font-bold">기도 & 메모 로그</span>
-    </button>
-  )}
 
-  <div className="text-xs text-slate-500 px-4 mb-2">
-    Today : {now.getFullYear()}-
-    {String(now.getMonth() + 1).padStart(2, '0')}-
-    {String(now.getDate()).padStart(2, '0')}
-    {' '}
-    {String(now.getHours()).padStart(2, '0')}:
-    {String(now.getMinutes()).padStart(2, '0')}
-  </div>
+          {/* 🚀 [권한 로직 7] Settings 버튼 (admin 만 허용) */}
+          {userRole === 'admin' && (
+            <button onClick={() => onSelectMenu('settings')} className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border transition-all mb-2 ${activeMenu === 'settings' ? 'bg-slate-100 border-slate-300' : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-sm'}`}>
+              <Settings className="w-4 h-4" />
+              <span className="text-sm font-semibold">Settings</span>
+            </button>
+          )}
 
-  {userRole === 'admin' && (
-    <button
-      onClick={() => onSelectMenu('settings')}
-      className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border transition-all mb-2 ${
-        activeMenu === 'settings'
-          ? 'bg-slate-100 border-slate-300'
-          : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-sm'
-      }`}
-    >
-      <Settings className="w-4 h-4" />
-      <span className="text-sm font-semibold">Settings</span>
-    </button>
-  )}
-
-  <button
-    onClick={onSignOut}
-    className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors"
-  >
-    <LogOut className="w-4 h-4" />
-    <span className="text-sm font-semibold">Sign Out</span>
-  </button>
-</div>
-
+          <button onClick={onSignOut} className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors">
+            <LogOut className="w-4 h-4" />
+            <span className="text-sm font-semibold">Sign Out</span>
+          </button>
+        </div>
       </aside>
     </>
   );
 }
+
 
 /* ================= Crown Badge ================= */
 function CrownBadge() {
@@ -1936,6 +1928,16 @@ function MemberListView({ members, filters, setFilters, onSelectMember, allMembe
 }
 /* ================= MAIN APP ================= */
 function App() {
+
+  const [userRole, setUserRole] = useState<'admin' | 'general' | 'user' | 'viewer' | null>(null);
+
+  // 🚀 [추가] 일반(general) 권한 로그인 시 초기 화면을 '목장 조직도'로 설정
+  useEffect(() => {
+    if (userRole === 'general') {
+      setActiveMenu('org');
+    }
+  }, [userRole]);
+
   const [members, setMembers] = useState<Member[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -1958,7 +1960,7 @@ function App() {
   const [selectedFilter, setSelectedFilter] = useState<ChildList | null>(null);
   const [parentLists, setParentLists] = useState<ParentList[]>([]);
   const [childLists, setChildLists] = useState<ChildList[]>([]);
-  const [userRole, setUserRole] = useState<'admin' | 'user' | null>(null);
+ 
   const [isGlobalLogOpen, setIsGlobalLogOpen] = useState(false); 
   const [chowons, setChowons] = useState<any[]>([]); 
   
@@ -2004,15 +2006,9 @@ function App() {
   const load = async (actionType?: 'save' | 'delete', memberId?: string, showLoader: boolean = false) => {
     try {
       if (showLoader || members.length === 0) setLoading(true);
-
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setUserRole(null);
-        setLoading(false);
-        return;
-      }
+      if (!user) { setUserRole(null); setLoading(false); return; }
 
-      // 1. 모든 데이터를 한 번에 비동기로 가져옴
       const [membersRes, familiesRes, rolesRes, profileRes, chowonRes] = await Promise.all([
         supabase.from('members').select('*'),
         supabase.from('families').select('*'),
@@ -2029,7 +2025,7 @@ function App() {
       setFamilies(familiesRes.data || []);
       setRoles(rolesRes.data || []);
       setChowons(chowonRes.data || []); // 초원 데이터 저장
-      setUserRole((profileRes.data?.role as 'admin' | 'user') || 'user');
+      setUserRole((profileRes.data?.role as any) || 'user');
 
     if (actionType === 'save') {
       await fetchSystemLists();
@@ -2325,7 +2321,8 @@ function App() {
               className="p-1 rounded-lg hover:bg-slate-100 transition flex-shrink-0" >
               <img src="/apple-touch-icon.png" alt="Home" className="w-8 h-8 object-contain" />
             </button>
-               <div className="relative flex-1 max-w-md flex items-center gap-2">
+          {userRole !== 'general' ? (  
+          <div className="relative flex-1 max-w-md flex items-center gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input 
@@ -2352,6 +2349,11 @@ function App() {
               {totalPeopleCount}명
             </div>
           </div>
+          ) : (
+            <div className="relative flex-1 max-w-md flex items-center gap-2">
+              <h1 className="text-lg font-bold text-slate-700">VGMC 목장 & 새가족</h1>
+            </div>
+          )}
               {!sidebarOpen && (
                 <button onClick={() => setSidebarOpen(true)} className="p-2 rounded-lg hover:bg-slate-100 transition flex-shrink-0 ml-auto lg:hidden">
                   <svg className="w-6 h-6 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
@@ -2519,19 +2521,19 @@ function App() {
         </main>
       </div>
 
-      {selectedMember && (
-      <MemberDetailModal 
-        member={selectedMember} 
-        onClose={() => setSelectedMember(null)} 
-        roles={roles} 
-        familyMembers={members.filter(m => m.family_id === selectedMember.family_id)} 
-        onSelectMember={(m) => setSelectedMember(m)} 
-        onEdit={handleEditMember} 
-        userRole={userRole as any} 
-        onRefresh={() => load()} 
-        isMemberFormOpen={isMemberFormOpen} // ⬅️ 이 줄을 추가하여 현재 상태를 알려줍니다.
-      />
-    )}
+        {selectedMember && (
+        <MemberDetailModal 
+          member={selectedMember} 
+          onClose={() => setSelectedMember(null)} 
+          roles={roles} 
+          familyMembers={members.filter(m => m.family_id === selectedMember.family_id)} 
+          onSelectMember={(m) => setSelectedMember(m)} 
+          onEdit={handleEditMember} 
+          userRole={userRole as any} // 🚀 general 도 수정 가능하게 전달
+          onRefresh={() => load()} 
+          isMemberFormOpen={isMemberFormOpen}
+        />
+      )}
 
       <MemberForm
         isOpen={isMemberFormOpen} onClose={() => { setIsMemberFormOpen(false); setEditingMember(null); }}
@@ -2539,6 +2541,7 @@ function App() {
         initialData={editingMember} parentLists={parentLists} childLists={childLists}
       />
       
+      {userRole === 'admin' && (
       <GlobalLogModal 
         isOpen={isGlobalLogOpen} 
         onClose={() => setIsGlobalLogOpen(false)} 
@@ -2548,9 +2551,10 @@ function App() {
         // 2. 성도 선택 시 로그 모달은 그대로 두고 성도만 선택
         onSelectMember={(m) => setSelectedMember(m)} 
       />
-    </div>
-  );
-}
+      )}
+      </div>
+    );
+  }
 export default App;
 
 function useTypingPlaceholder(text: string, speed = 80) {
