@@ -41,11 +41,11 @@ const DraggableMember = memo(({ member, isLeader, leaderType, onSelectMember }: 
       }}
       className={`flex items-center justify-between p-1.5 rounded-lg border bg-white shadow-sm cursor-grab active:cursor-grabbing hover:border-indigo-300 transition-all ${colorClass}`}
     >
-      <span className="text-[10px] lg:text-[11px] font-bold truncate pointer-events-none">
+      <span className="text-[10px] lg:text-[13px] font-bold truncate pointer-events-none">
         {member.korean_name}
       </span>
       {isLeader && (
-        <span className={`text-[7px] lg:text-[8px] font-black px-1 rounded uppercase pointer-events-none ${leaderType === '목자' ? 'bg-sky-50' : 'bg-rose-50'}`}>
+        <span className={`text-[7px] lg:text-[10px] font-black px-1 rounded uppercase pointer-events-none ${leaderType === '목자' ? 'bg-sky-50' : 'bg-rose-50'}`}>
           {leaderType}
         </span>
       )}
@@ -217,7 +217,7 @@ const MokjangCard = memo(({ mokjang, mIn, members, isExpanded, onToggle, onSelec
           <Home size={14} className="text-indigo-400 flex-shrink-0" />
           <span className="font-black text-slate-800 text-xs lg:text-base whitespace-nowrap">{mokjang.name}</span>
           {(mokja || moknyeo) && (
-            <div className="text-[10px] lg:text-[13px] font-bold text-slate-400 truncate ml-1 flex items-center">
+            <div className="text-[10px] lg:text-[14px] font-bold text-slate-400 truncate ml-1 flex items-center">
               (<span className="text-sky-700">{mokja?.korean_name}</span>
               {mokja && moknyeo && <span className="mx-0.5 lg:mx-1 text-slate-200">|</span>}
               <span className="text-pink-500">{moknyeo?.korean_name}</span>)
@@ -225,7 +225,7 @@ const MokjangCard = memo(({ mokjang, mIn, members, isExpanded, onToggle, onSelec
           )}
         </div>
         <div onClick={(e) => { e.stopPropagation(); onToggle(); }} className="flex items-center gap-1 p-1 hover:bg-slate-100 rounded pointer-events-auto">
-          <span className="text-[9px] lg:text-[11px] font-bold text-slate-500">{mIn.length}명</span>
+          <span className="text-[9px] lg:text-[12px] font-bold text-slate-500">{mIn.length}명</span>
           {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         </div>
       </div>
@@ -241,7 +241,7 @@ const MokjangCard = memo(({ mokjang, mIn, members, isExpanded, onToggle, onSelec
                 leaderType={mem.id === mokjang.mokja_id ? '목자' : mem.id === mokjang.moknyeo_id ? '목녀' : ''} 
               />
             ))}
-            {mIn.length === 0 && <div className="col-span-2 flex items-center justify-center h-16 border-2 border-dashed border-slate-200 rounded-xl text-[10px] text-slate-400 font-bold bg-white/50">여기로 성도 드래그</div>}
+            {mIn.length === 0 && <div className="col-span-2 flex items-center justify-center h-16 border-2 border-dashed border-slate-200 rounded-xl text-[12px] text-slate-400 font-bold bg-white/50">여기로 성도 드래그</div>}
           </div>
         </div>
       )}
