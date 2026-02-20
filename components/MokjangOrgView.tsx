@@ -8,10 +8,9 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  DragStartEvent,
 } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { Users, Search, Home, ChevronDown, ChevronRight, ShieldCheck } from 'lucide-react';
+import { Users, Search, Home, ChevronDown, ChevronRight, ShieldCheck, Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 
 /* ================= 1. Draggable Member (성도 카드) ================= */
 const DraggableMember = memo(({ member, isLeader, leaderType, onSelectMember }: any) => {
@@ -45,7 +44,7 @@ const DraggableMember = memo(({ member, isLeader, leaderType, onSelectMember }: 
         {member.korean_name}
       </span>
       {isLeader && (
-        <span className={`text-[7px] lg:text-[10px] font-black px-1 rounded uppercase pointer-events-none ${leaderType === '목자' ? 'bg-sky-50' : 'bg-rose-50'}`}>
+        <span className={`text-[8px] lg:text-[10px] font-black px-1 rounded uppercase pointer-events-none ${leaderType === '목자' ? 'bg-sky-50' : 'bg-rose-50'}`}>
           {leaderType}
         </span>
       )}
@@ -53,7 +52,7 @@ const DraggableMember = memo(({ member, isLeader, leaderType, onSelectMember }: 
   );
 });
 
-/* ================= 2. Droppable Container (공통 드롭 구역) ================= */
+/* ================= 2. Droppable Zone ================= */
 function DroppableZone({ id, children, className, activeClass }: any) {
   const { setNodeRef, isOver } = useDroppable({ id });
   return (
@@ -67,6 +66,7 @@ function DroppableZone({ id, children, className, activeClass }: any) {
 export default function MokjangOrgView({ members, chowonLists, childLists, onRefresh, onSelectMember }: any) {
   const [searchTerm, setSearchTerm] = useState('');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [showUnassigned, setShowUnassigned] = useState(true); // 🚀 배정 명단 표시 상태
   
   const [localMembers, setLocalMembers] = useState(members);
   const [localChildLists, setLocalChildLists] = useState(childLists);
@@ -81,6 +81,17 @@ export default function MokjangOrgView({ members, chowonLists, childLists, onRef
   }, [members, childLists]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 10 } }));
+
+  const handleChowonToggleAll = (chowonId: string, expand: boolean) => {
+    const mokjangsInChowon = localChildLists.filter((c: any) => c.chowon_id === chowonId);
+    setExpanded(prev => {
+      const newState = { ...prev };
+      mokjangsInChowon.forEach((m: any) => {
+        newState[m.id] = expand;
+      });
+      return newState;
+    });
+  };
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
@@ -112,17 +123,13 @@ export default function MokjangOrgView({ members, chowonLists, childLists, onRef
         if (error) throw error;
       }
 
-      if (onRefresh) {
-        await onRefresh();
-      }
+      if (onRefresh) await onRefresh();
     } catch (e) {
       console.error(e);
       setLocalMembers(members);
       setLocalChildLists(childLists);
     } finally {
-      setTimeout(() => {
-        isUpdating.current = false;
-      }, 500); 
+      setTimeout(() => { isUpdating.current = false; }, 500); 
     }
   };
 
@@ -134,17 +141,27 @@ export default function MokjangOrgView({ members, chowonLists, childLists, onRef
 
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-      <div className="flex flex-col lg:flex-row h-[calc(100vh-140px)] gap-4 overflow-hidden p-1">
+      <div className="flex flex-col lg:flex-row h-[calc(100vh-140px)] gap-4 overflow-hidden p-1 relative">
         
-        <div className="w-full lg:w-64 flex flex-col flex-shrink-0 h-48 lg:h-full">
+        {/* 🚀 목장 배정 명단 사이드바 */}
+        <div className={`
+          flex flex-col flex-shrink-0 transition-all duration-300 ease-in-out
+          ${showUnassigned ? 'w-full lg:w-44 opacity-100 h-64 lg:h-full' : 'w-0 opacity-0 pointer-events-none h-0 lg:h-full overflow-hidden'}
+        `}>
           <DroppableZone id="unassigned:root" className="flex-1 bg-white border border-slate-200 rounded-[1.5rem] flex flex-col overflow-hidden shadow-sm" activeClass="ring-4 ring-sky-100 border-sky-400 bg-sky-50/30">
-            <div className="p-3 lg:p-4 border-b border-slate-100 bg-slate-50/50">
-              <h3 className="font-black text-slate-800 text-sm flex items-center gap-2">
-                <Users size={14} className="text-blue-500" /> 목장 배정 명단
-              </h3>
-              <div className="relative mt-2">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={12} />
-                <input type="text" placeholder="검색..." className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[12px] outline-none" onChange={e => setSearchTerm(e.target.value)} />
+            <div className="p-3 lg:p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <h3 className="font-black text-slate-800 text-sm flex items-center gap-2">
+                  <Users size={12} className="text-sky-700" /> 목장 배정 명단
+                </h3>
+                {/* 닫기 버튼 */}
+                <button onClick={() => setShowUnassigned(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                  <PanelLeftClose size={16} />
+                </button>
+              </div>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={10} />
+                <input type="text" placeholder="검색..." className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] outline-none focus:ring-2 focus:ring-blue-100" onChange={e => setSearchTerm(e.target.value)} />
               </div>
             </div>
             <div className="flex-1 overflow-y-auto p-2 lg:p-3 space-y-1.5 custom-scrollbar min-h-[100px]">
@@ -153,20 +170,38 @@ export default function MokjangOrgView({ members, chowonLists, childLists, onRef
           </DroppableZone>
         </div>
 
+        {/* 🚀 사이드바 열기 플로팅 버튼 (숨겨져 있을 때만 보임) */}
+        {!showUnassigned && (
+          <button 
+            onClick={() => setShowUnassigned(true)}
+            className="absolute  top-2 z-50 p-2 bg-white border border-slate-200 rounded-xl shadow-md text-sky-700 hover:bg-blue-50 transition-all flex items-center font-bold text-xs"
+          >
+            <PanelLeftOpen size={18} />
+            <span className="hidden lg:inline"></span>
+          </button>
+        )}
+
+        {/* 🚀 메인 조직도 영역 */}
         <div className="flex-1 overflow-y-auto pr-1 lg:pr-2 custom-scrollbar">
           <div className="grid grid-cols-1 gap-6 pb-20">
             {chowonLists.map((chowon: any) => (
               <DroppableZone key={chowon.id} id={`chowon:${chowon.id}`} className="bg-slate-50/50 border border-slate-200 rounded-[1.5rem] lg:rounded-[2rem] p-5 space-y-4 min-h-[150px]" activeClass="ring-4 ring-indigo-200 border-indigo-400">
-                {/* 🚀 초원 헤더 부분 복구 완료 */}
-                <div className="flex justify-between items-end border-b border-neutral-200 pb-3 ml-2">
-                  <div>
+                <div className="flex justify-between items-center border-b border-neutral-200 pb-3 ml-2">
+                  <div className={!showUnassigned ? "pl-8 lg:pl-0 transition-all" : ""}>
                     <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
                       <ShieldCheck className="text-indigo-600" size={20} /> {chowon.name}
                     </h2>
-                    {/* ⬇️ 교역자 및 초원지기 정보 추가 */}
                     <p className="text-sm text-neutral-500 mt-1 font-bold">  
                       교역자: {chowon.pastor || '-'} | 초원지기: {chowon.leader || '-'}
                     </p>
+                  </div>
+                  <div className="flex gap-2 mr-2">
+                    <button onClick={() => handleChowonToggleAll(chowon.id, true)} className="p-1.5 bg-white rounded-lg border border-slate-200 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all flex items-center gap-1 text-[10px] font-bold">
+                      <Maximize2 size={12} /> 모두 펼치기
+                    </button>
+                    <button onClick={() => handleChowonToggleAll(chowon.id, false)} className="p-1.5 bg-white rounded-lg border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all flex items-center gap-1 text-[10px] font-bold">
+                      <Minimize2 size={12} /> 모두 접기
+                    </button>
                   </div>
                 </div>
 
@@ -195,7 +230,7 @@ export default function MokjangOrgView({ members, chowonLists, childLists, onRef
   );
 }
 
-/* ================= 4. Mokjang Card (Draggable Header + Droppable Body) ================= */
+/* ================= 4. Mokjang Card ================= */
 const MokjangCard = memo(({ mokjang, mIn, members, isExpanded, onToggle, onSelectMember }: any) => {
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: `mokjang:${mokjang.id}` });
   const { attributes, listeners, setNodeRef: setDragRef, transform, isDragging } = useDraggable({
@@ -205,10 +240,35 @@ const MokjangCard = memo(({ mokjang, mIn, members, isExpanded, onToggle, onSelec
   const mokja = members.find((m: any) => m.id === mokjang.mokja_id);
   const moknyeo = members.find((m: any) => m.id === mokjang.moknyeo_id);
 
-  const sorted = mIn.sort((a: any, b: any) => {
-    const getW = (id: string) => (id === mokjang.mokja_id ? 0 : id === mokjang.moknyeo_id ? 1 : 2);
-    return getW(a.id) - getW(b.id) || a.korean_name.localeCompare(b.korean_name, 'ko');
-  });
+  const familyGroups = useMemo(() => {
+    const getRelWeight = (rel: string) => {
+      const r = rel?.toLowerCase();
+      if (r === 'head' || r === 'self') return 0;
+      if (r === 'spouse') return 1;
+      return 2;
+    };
+
+    const groups: Record<string, any[]> = {};
+    const singles: any[] = [];
+
+    mIn.forEach((m: any) => {
+      if (m.family_id) {
+        if (!groups[m.family_id]) groups[m.family_id] = [];
+        groups[m.family_id].push(m);
+      } else {
+        singles.push(m);
+      }
+    });
+
+    const sortedGroups = Object.values(groups).map(gMembers => {
+      return gMembers.sort((a, b) => getRelWeight(a.relationship) - getRelWeight(b.relationship));
+    });
+
+    sortedGroups.sort((a, b) => a[0].korean_name.localeCompare(b[0].korean_name, 'ko'));
+    singles.sort((a, b) => a.korean_name.localeCompare(b.korean_name, 'ko'));
+
+    return { sortedGroups, singles };
+  }, [mIn]);
 
   return (
     <div ref={setDropRef} className={`bg-white rounded-xl lg:rounded-2xl border transition-all min-h-[50px] flex flex-col ${isOver ? 'ring-4 ring-sky-200 border-sky-400 bg-sky-50' : 'border-slate-200 shadow-sm'}`}>
@@ -217,7 +277,7 @@ const MokjangCard = memo(({ mokjang, mIn, members, isExpanded, onToggle, onSelec
           <Home size={14} className="text-indigo-400 flex-shrink-0" />
           <span className="font-black text-slate-800 text-xs lg:text-base whitespace-nowrap">{mokjang.name}</span>
           {(mokja || moknyeo) && (
-            <div className="text-[10px] lg:text-[14px] font-bold text-slate-400 truncate ml-1 flex items-center">
+            <div className="text-[10px] lg:text-[13px] font-bold text-slate-400 truncate ml-1 flex items-center">
               (<span className="text-sky-700">{mokja?.korean_name}</span>
               {mokja && moknyeo && <span className="mx-0.5 lg:mx-1 text-slate-200">|</span>}
               <span className="text-pink-500">{moknyeo?.korean_name}</span>)
@@ -225,24 +285,42 @@ const MokjangCard = memo(({ mokjang, mIn, members, isExpanded, onToggle, onSelec
           )}
         </div>
         <div onClick={(e) => { e.stopPropagation(); onToggle(); }} className="flex items-center gap-1 p-1 hover:bg-slate-100 rounded pointer-events-auto">
-          <span className="text-[9px] lg:text-[12px] font-bold text-slate-500">{mIn.length}명</span>
+          <span className="text-[9px] lg:text-[11px] font-bold text-slate-500">{mIn.length}명</span>
           {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         </div>
       </div>
 
       {isExpanded && (
-        <div className="p-3 pt-2 border-t border-slate-50 bg-slate-50/20 min-h-[80px]">
-          <div className="grid grid-cols-2 gap-1.5 min-h-[60px]">
-            {sorted.map((mem: any) => (
-              <DraggableMember 
-                key={mem.id} member={mem} 
-                onSelectMember={onSelectMember}
-                isLeader={mem.id === mokjang.mokja_id || mem.id === mokjang.moknyeo_id}
-                leaderType={mem.id === mokjang.mokja_id ? '목자' : mem.id === mokjang.moknyeo_id ? '목녀' : ''} 
-              />
-            ))}
-            {mIn.length === 0 && <div className="col-span-2 flex items-center justify-center h-16 border-2 border-dashed border-slate-200 rounded-xl text-[12px] text-slate-400 font-bold bg-white/50">여기로 성도 드래그</div>}
-          </div>
+        <div className="p-3 pt-2 border-t border-slate-50 bg-slate-50/20 min-h-[80px] space-y-2">
+          {familyGroups.sortedGroups.map((gMembers, idx) => (
+            <div key={idx} className={`p-1.5 rounded-xl border border-dashed transition-all ${gMembers.length > 1 ? 'bg-white border-slate-200' : 'border-transparent'}`}>
+              <div className="grid grid-cols-2 gap-1.5">
+                {gMembers.map((mem: any) => (
+                  <DraggableMember 
+                    key={mem.id} member={mem} 
+                    onSelectMember={onSelectMember}
+                    isLeader={mem.id === mokjang.mokja_id || mem.id === mokjang.moknyeo_id}
+                    leaderType={mem.id === mokjang.mokja_id ? '목자' : mem.id === mokjang.moknyeo_id ? '목녀' : ''} 
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+
+          {familyGroups.singles.length > 0 && (
+            <div className="grid grid-cols-2 gap-1.5 px-1.5">
+              {familyGroups.singles.map((mem: any) => (
+                <DraggableMember 
+                  key={mem.id} member={mem} 
+                  onSelectMember={onSelectMember}
+                  isLeader={mem.id === mokjang.mokja_id || mem.id === mokjang.moknyeo_id}
+                  leaderType={mem.id === mokjang.mokja_id ? '목자' : mem.id === mokjang.moknyeo_id ? '목녀' : ''} 
+                />
+              ))}
+            </div>
+          )}
+
+          {mIn.length === 0 && <div className="col-span-2 flex items-center justify-center h-16 border-2 border-dashed border-slate-200 rounded-xl text-[10px] text-slate-400 font-bold bg-white/50">여기로 성도 드래그</div>}
         </div>
       )}
     </div>
