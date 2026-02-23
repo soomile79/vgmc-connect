@@ -1798,6 +1798,7 @@ function MemberListView({ members, filters, setFilters, onSelectMember, allMembe
     if (filters.ageGroup) parts.push(`연령: ${filters.ageGroup}`);
     if (filters.gender) parts.push(`성별: ${filters.gender === 'Male' ? '남성' : '여성'}`);
     if (filters.role) parts.push(`직분: ${filters.role}`);
+    // if (filters.role) parts.push(`소속: ${filters.department}`);
     if (filters.mokjang) parts.push(`목장: ${filters.mokjang}`);
     if (filters.status) parts.push(`상태: ${filters.status}`);
     if (filters.tag) parts.push(`태그: #${filters.tag}`);
@@ -1822,43 +1823,95 @@ function MemberListView({ members, filters, setFilters, onSelectMember, allMembe
   return (
     <div className="space-y-4 animate-in fade-in duration-500">
       {/* 인쇄 스타일 설정 */}
-      <style>{`
+       <style>{`
         @media print {
           @page { size: landscape; margin: 15mm 10mm 15mm 10mm; }
           aside, header, nav, .no-print, button, .mb-6 { display: none !important; }
           body, html, #root, #root > div, main { 
             overflow: visible !important; height: auto !important; position: static !important;
             display: block !important; background: white !important; margin: 0 !important; padding: 0 !important;
-            color: #000 !important;
           }
-          .print-area { display: block !important; width: 100% !important; border: 1px solid #999 !important; border-radius: 0 !important; }
           table { width: 100% !important; border-collapse: collapse !important; font-size: 9pt !important; }
-          th, td, span, div, p, h1 { color: #000 !important; font-weight: normal !important; }
-          th { background-color: #f2f2f2 !important; -webkit-print-color-adjust: exact; border: 1px solid #888 !important; padding: 8px 4px !important; font-weight: bold !important; }
-          td { border: 1px solid #aaa !important; padding: 8px 6px !important; word-break: break-all !important; white-space: normal !important; vertical-align: middle; }
-          .col-status { display: none !important; } /* 인쇄 시 상태 제외 */
-          .col-small { font-size: 8pt !important; }
-          thead { display: table-header-group !important; }
-          tr { page-break-inside: avoid !important; }
-          .tag-print-badge { border: 1px solid #000 !important; padding: 1px 3px !important; margin-right: 2px !important; font-size: 7.5pt !important; border-radius: 2px !important; display: inline-block !important; }
+          th, td { border: 1px solid #aaa !important; padding: 8px 6px !important; color: #000 !important; }
+
+          /* 🚀 인쇄할 때만 이 박스 스타일이 적용됩니다 */
+          .tag-print-badge { 
+            border: 1px solid #000 !important; 
+            padding: 1px 3px !important; 
+            font-size: 7.5pt !important; 
+            display: inline-block !important; 
+          }
         }
+
+        /* ❌ @media print 괄호 바깥에 .tag-print-badge 설정이 있다면 반드시 삭제하세요! */
       `}</style>
 
-      {/* [웹 전용] 필터 바 */}
+     {/* [웹 전용] 필터 바 */}
       <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap gap-2 items-center no-print">
         <div className="flex items-center gap-2 text-slate-400 mr-1 border-r pr-3">
           <Filter size={14} />
           <span className="text-[10px] font-black uppercase tracking-widest">Filter</span>
         </div>
         
-        <select value={filters.ageGroup} onChange={e => setFilters({...filters, ageGroup: e.target.value})} className="bg-slate-50 border-none rounded-xl text-xs font-bold px-3 py-2 outline-none focus:ring-2 focus:ring-sky-100 cursor-pointer"><option value="">연령 그룹</option><option value="0-19">20세 미만</option><option value="20-39">20-30대</option><option value="40-59">40-50대</option><option value="60+">60세 이상</option></select>
-        <select value={filters.gender} onChange={e => setFilters({...filters, gender: e.target.value})} className="bg-slate-50 border-none rounded-xl text-xs font-bold px-3 py-2 outline-none focus:ring-2 focus:ring-sky-100 cursor-pointer"><option value="">성별</option><option value="Male">남성</option><option value="Female">여성</option></select>
-        <select value={filters.role} onChange={e => setFilters({...filters, role: e.target.value})} className="bg-slate-50 border-none rounded-xl text-xs font-bold px-3 py-2 outline-none focus:ring-2 focus:ring-sky-100 cursor-pointer"><option value="">직분</option>{Array.from(new Set(allMembers.map((m: any) => m.role).filter(Boolean))).map(r => <option key={String(r)} value={String(r)}>{String(r)}</option>)}</select>
-        <select value={filters.mokjang} onChange={e => setFilters({...filters, mokjang: e.target.value})} className="bg-slate-50 border-none rounded-xl text-xs font-bold px-3 py-2 outline-none focus:ring-2 focus:ring-sky-100 cursor-pointer"><option value="">목장</option>{Array.from(new Set(allMembers.map((m: any) => m.mokjang).filter(Boolean))).map(m => <option key={String(m)} value={String(m)}>{String(m)}</option>)}</select>
-        <select value={filters.tag} onChange={e => setFilters({...filters, tag: e.target.value})} className="bg-slate-50 border-none rounded-xl text-xs font-bold px-3 py-2 outline-none focus:ring-2 focus:ring-sky-100 cursor-pointer"><option value="">태그</option>{Array.from(new Set(allMembers.flatMap((m: any) => m.tags || []))).map(t => <option key={String(t)} value={String(t)}>#{String(t)}</option>)}</select>
-        <select value={filters.status} onChange={e => setFilters({...filters, status: e.target.value})} className="bg-slate-50 border-none rounded-xl text-xs font-bold px-3 py-2 outline-none focus:ring-2 focus:ring-sky-100 cursor-pointer"><option value="">상태</option><option value="Active">Active</option><option value="Inactive">Inactive</option></select>
+        {/* 1. 연령 그룹 */}
+        <select value={filters.ageGroup} onChange={e => setFilters({...filters, ageGroup: e.target.value})} className="bg-slate-50 border-none rounded-xl text-xs font-bold px-3 py-2 outline-none focus:ring-2 focus:ring-sky-100 cursor-pointer">
+          <option value="">연령 그룹</option>
+          <option value="0-19">20세 미만</option>
+          <option value="20-39">20-30대</option>
+          <option value="40-59">40-50대</option>
+          <option value="60+">60세 이상</option>
+        </select>
 
-        <button onClick={() => setFilters({ gender: '', role: '', mokjang: '', status: '', tag: '', ageGroup: '' })} className="p-2 hover:bg-rose-50 rounded-xl text-slate-400 hover:text-rose-500 transition-colors"><FilterX size={18} /></button>
+        {/* 2. 성별 */}
+        <select value={filters.gender} onChange={e => setFilters({...filters, gender: e.target.value})} className="bg-slate-50 border-none rounded-xl text-xs font-bold px-3 py-2 outline-none focus:ring-2 focus:ring-sky-100 cursor-pointer">
+          <option value="">성별</option>
+          <option value="Male">남성</option>
+          <option value="Female">여성</option>
+        </select>
+
+        {/* 3. 직분 (가나다 정렬) */}
+        <select value={filters.role} onChange={e => setFilters({...filters, role: e.target.value})} className="bg-slate-50 border-none rounded-xl text-xs font-bold px-3 py-2 outline-none focus:ring-2 focus:ring-sky-100 cursor-pointer">
+          <option value="">직분</option>
+          {Array.from(new Set(allMembers.map((m: any) => m.role).filter(Boolean)))
+            .sort((a: any, b: any) => a.localeCompare(b, 'ko'))
+            .map(r => <option key={String(r)} value={String(r)}>{String(r)}</option>)}
+        </select>
+
+        {/* 4. 목장 (가나다 정렬) */}
+        <select value={filters.mokjang} onChange={e => setFilters({...filters, mokjang: e.target.value})} className="bg-slate-50 border-none rounded-xl text-xs font-bold px-3 py-2 outline-none focus:ring-2 focus:ring-sky-100 cursor-pointer">
+          <option value="">목장</option>
+          {Array.from(new Set(allMembers.map((m: any) => m.mokjang).filter(Boolean)))
+            .sort((a: any, b: any) => a.localeCompare(b, 'ko'))
+            .map(m => <option key={String(m)} value={String(m)}>{String(m)}</option>)}
+        </select>
+
+        {/* 🚀 5. 소속부서 (새로 추가 & 가나다 정렬) */}
+        <select value={filters.department} onChange={e => setFilters({...filters, department: e.target.value})} className="bg-slate-50 border-none rounded-xl text-xs font-bold px-3 py-2 outline-none focus:ring-2 focus:ring-sky-100 cursor-pointer">
+          <option value="">소속부서</option>
+          {Array.from(new Set(allMembers.map((m: any) => m.department).filter(Boolean)))
+            .sort((a: any, b: any) => a.localeCompare(b, 'ko'))
+            .map(d => <option key={String(d)} value={String(d)}>{String(d)}</option>)}
+        </select>
+
+        {/* 6. 태그 (가나다 정렬) */}
+        <select value={filters.tag} onChange={e => setFilters({...filters, tag: e.target.value})} className="bg-slate-50 border-none rounded-xl text-xs font-bold px-3 py-2 outline-none focus:ring-2 focus:ring-sky-100 cursor-pointer">
+          <option value="">태그</option>
+          {Array.from(new Set(allMembers.flatMap((m: any) => m.tags || [])))
+            .sort((a: any, b: any) => a.localeCompare(b, 'ko'))
+            .map(t => <option key={String(t)} value={String(t)}>#{String(t)}</option>)}
+        </select>
+
+        {/* 7. 상태 */}
+        <select value={filters.status} onChange={e => setFilters({...filters, status: e.target.value})} className="bg-slate-50 border-none rounded-xl text-xs font-bold px-3 py-2 outline-none focus:ring-2 focus:ring-sky-100 cursor-pointer">
+          <option value="">상태</option>
+          <option value="Active">Active</option>
+          <option value="Inactive">Inactive</option>
+        </select>
+
+        {/* 필터 초기화 버튼 */}
+        <button onClick={() => setFilters({ gender: '', role: '', mokjang: '', department: '', status: '', tag: '', ageGroup: '' })} className="p-2 hover:bg-rose-50 rounded-xl text-slate-400 hover:text-rose-500 transition-colors">
+          <FilterX size={18} />
+        </button>
 
         <div className="flex items-center gap-2 pl-3 ml-1 border-l border-slate-200">
           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Total :</span>
@@ -1893,19 +1946,19 @@ function MemberListView({ members, filters, setFilters, onSelectMember, allMembe
                 <th onClick={() => requestSort('korean_name')} className="px-3 py-4 pl-4 md:pl-6 cursor-pointer hover:bg-slate-100 no-print whitespace-nowrap">
                   <div className="flex items-center text-xs md:text-sm">이름 {getSortIcon('korean_name')}</div>
                 </th>
-                <th className="hidden print:table-cell px-4 py-4 pl-6 font-bold">이름</th>
+                <th className="hidden print:table-cell px-4 py-4 pl-6 text-xs md:text-smfont-bold">이름</th>
                 
-                <th className="hidden md:table-cell print:table-cell px-4 py-4 text-center">나이/성별</th>
+                <th className="hidden md:table-cell print:table-cell px-4 py-4 text-xs md:text-sm text-center">나이/성별</th>
                 <th className="px-3 py-4 text-xs md:text-sm">직분</th>
                 <th className="px-3 py-4 text-xs md:text-sm">목장</th>
                 <th className="px-3 py-4 text-xs md:text-sm">전화번호</th>
                 
-                <th className="hidden md:table-cell print:table-cell px-4 py-4 min-w-[200px]">주소</th>
+                <th className="hidden md:table-cell print:table-cell px-4 py-4 text-xs md:text-sm min-w-[200px]">주소</th>
                 
                 {/* 🚀 태그 컬럼: 모바일(hidden) 숨김 / PC 및 인쇄(print) 표시 */}
-                <th className="hidden md:table-cell print:table-cell px-4 py-4">태그</th>
+                <th className="hidden md:table-cell print:table-cell px-4 py-4 text-xs md:text-sm">태그</th>
                 
-                <th className="hidden md:table-cell px-4 py-4 pr-6 text-right col-status">상태</th>
+                <th className="hidden md:table-cell px-4 py-4 pr-6 text-xs md:text-sm text-right col-status">상태</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 print:divide-slate-200">
@@ -1917,7 +1970,7 @@ function MemberListView({ members, filters, setFilters, onSelectMember, allMembe
                 return (
                   <tr key={m.id} onClick={() => onSelectMember(m)} className="hover:bg-sky-50/30 transition-colors cursor-pointer group">
                     <td className="px-3 py-3 pl-4 md:pl-6 font-bold text-slate-800 text-sm md:text-base print:font-normal print:text-black">{m.korean_name || ''}</td>
-                    <td className="hidden md:table-cell print:table-cell px-4 py-3 text-xs text-center print:font-normal print:text-black">{ageGenderDisplay}</td>
+                    <td className="hidden md:table-cell print:table-cell px-4 py-3 text-sm text-center print:font-normal print:text-black">{ageGenderDisplay}</td>
                     <td className="px-3 py-3 text-xs md:text-sm text-slate-600 print:font-normal print:text-black">{m.role || ''}</td>
                     <td className="px-3 py-3 text-xs md:text-sm font-bold text-sky-600 print:font-normal print:text-black">{m.mokjang || ''}</td>
                     <td className="px-3 py-3 text-xs md:text-sm text-slate-500 whitespace-nowrap col-small print:font-normal print:text-black">{m.phone || ''}</td>
@@ -1925,12 +1978,26 @@ function MemberListView({ members, filters, setFilters, onSelectMember, allMembe
                     
                     {/* 🚀 태그 데이터: 인쇄 시 tag-print-badge 스타일 적용 */}
                     <td className="hidden md:table-cell print:table-cell px-4 py-3">
-                      <div className="flex flex-wrap gap-1">
-                        {m.tags?.map((t: any) => (
-                          <span key={t} className="tag-print-badge no-print:bg-slate-50 no-print:text-slate-400 no-print:border no-print:px-1.5 no-print:py-0.5 no-print:rounded no-print:text-[9px] print:font-normal">#{t}</span>
-                        ))}
-                      </div>
-                    </td>
+                    <div className="flex flex-wrap gap-1">
+                      {m.tags?.map((t: any) => (
+                        <span 
+                          key={t} 
+                          className="tag-print-badge" // 인쇄용 클래스만 남김
+                          style={{ 
+                            /* 🚀 화면에 보이는 스타일을 여기서 강제로 고정합니다 */
+                            fontSize: '12px',       // 전화번호와 비슷한 크기
+                            fontWeight: '400',      // 굵기 해제 (보통 굵기)
+                            color: '#65758c',       // slate-400 (연한 회색)
+                            backgroundColor: 'transparent',
+                            border: 'none',
+                            padding: '0'
+                          }}
+                        >
+                          #{t}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
                     
                     <td className="hidden md:table-cell px-4 py-3 pr-6 text-right col-status">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${m.status === 'Active' ? 'bg-sky-100 text-sky-600' : 'bg-slate-100 text-slate-400'}`}>
@@ -1996,6 +2063,7 @@ function App() {
     gender: '',
     role: '',
     mokjang: '',
+    department: '', 
     status: '',
     tag: '',
     ageGroup: '' // '0-19', '20-39', '40-59', '60+'
@@ -2246,6 +2314,7 @@ function App() {
       const matchesGender = !listFilters.gender || m.gender === listFilters.gender;
       const matchesRole = !listFilters.role || m.role === listFilters.role;
       const matchesMokjang = !listFilters.mokjang || m.mokjang === listFilters.mokjang;
+      const matchesDepartment = !listFilters.department || m.department === listFilters.department; 
       const matchesStatus = !listFilters.status || m.status === listFilters.status;
       const matchesTag = !listFilters.tag || (m.tags || []).includes(listFilters.tag);
       
@@ -2255,7 +2324,7 @@ function App() {
       else if (listFilters.ageGroup === '40-59') matchesAge = age >= 40 && age < 60;
       else if (listFilters.ageGroup === '60+') matchesAge = age >= 60;
 
-      return matchesGender && matchesRole && matchesMokjang && matchesStatus && matchesTag && matchesAge;
+      return matchesGender && matchesRole && matchesMokjang && matchesDepartment && matchesStatus && matchesTag && matchesAge;
     });
     finalSorted.sort((a, b) => {
     const { key, direction } = listSortConfig;
