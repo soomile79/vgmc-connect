@@ -67,9 +67,20 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
 
   const currentMember = members.length > 0 ? members[activeMemberIndex] : null;
-  const currentRole = roles.find(r => r.name === currentMember?.role);
-  const roleBg = currentRole?.bg_color ?? 'bg-slate-100';
-  const roleText = currentRole?.text_color ?? 'text-slate-500';
+
+  const currentRoleStyle = useMemo(() => {
+    if (!currentMember) return null;
+    const fromRole = roles.find(r => r.name === currentMember.role);
+    if (fromRole) return fromRole;
+    return roles.find(r => r.name === currentMember.department);
+  }, [currentMember?.role, currentMember?.department, roles]);
+
+  const roleBg = currentRoleStyle?.bg_color ?? 'bg-slate-100';
+  const roleText = currentRoleStyle?.text_color ?? 'text-slate-500';
+  
+  // const currentRole = roles.find(r => r.name === currentMember?.role);
+  // const roleBg = currentRole?.bg_color ?? 'bg-slate-100';
+  // const roleText = currentRole?.text_color ?? 'text-slate-500';
 
   const getTagParentId = () => {
     const found = parentLists.find(p => 
@@ -661,18 +672,26 @@ useEffect(() => {
               </section>
 
               <section className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8 pt-6 border-t border-slate-100">
-                {['mokjang', 'role', 'status'].map(field => {
-                  const parent = parentLists.find(p => p.type === field || p.name.includes(field === 'mokjang' ? '목장' : field === 'role' ? '직분' : '상태'));
-                  return (
-                    <div key={field} className="space-y-1">
-                      <label className="text-[11px] md:text-xs font-bold text-slate-400 capitalize ml-1 tracking-widest">{parent?.name || field}</label>
-                      <select value={(currentMember as any)[field] || ''} onChange={e => updateMember(activeMemberIndex, { [field]: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-3 py-2.5 text-xs md:text-sm font-bold text-slate-700">
-                        <option value="">선택</option>
-                        {childLists.filter(c => c.parent_id === parent?.id).map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                      </select>
-                    </div>
-                  );
-                })}
+                  {['mokjang', 'role', 'status', 'department'].map(field => { 
+                  const parent = parentLists.find(p => p.type === field || (field === 'department' && p.name === '소속부서'));
+                return (
+                  <div key={field} className="space-y-1">
+                    <label className="text-[11px] md:text-xs font-bold text-slate-400 capitalize ml-1 tracking-widest">
+                      {parent?.name || field}
+                    </label>
+                    <select 
+                      value={(currentMember as any)[field] || ''} 
+                      onChange={e => updateMember(activeMemberIndex, { [field]: e.target.value })} 
+                      className="w-full bg-slate-50 border-none rounded-xl px-3 py-2.5 text-xs md:text-sm font-bold text-slate-700"
+                    >
+                      <option value="">선택</option>
+                      {childLists.filter(c => c.parent_id === parent?.id).map(c => (
+                        <option key={c.id} value={c.name}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })}
                 <div className="space-y-1">
                 <label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">등록일</label>
                 <div className="relative group">
