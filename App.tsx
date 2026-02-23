@@ -154,6 +154,7 @@ const normalizeMember = (m: any): Member => {
       address: m.address || '',
       relationship: m.relationship || '',
       role: m.role || '',
+      department: m.department || '',
       registration_date: m.registration_date || null,
       baptism_date: m.baptism_date || null,
       status: m.status || 'Active',
@@ -782,7 +783,11 @@ function MemberCard({ member, age, roles, onClick, childLists }: {
     onClick: () => void;
     childLists: ChildList[];
   }) {
-  const roleMeta = roles.find((r) => r.name === member.role);
+  const roleMeta = useMemo(() => { const fromRole = roles.find((r) => r.name === member.role);
+    if (fromRole) return fromRole;
+      return roles.find((r) => r.name === member.department);
+  }, [member.role, member.department, roles]);
+
   const roleBg = roleMeta?.bg_color ?? 'bg-slate-50';
   const roleText = roleMeta?.text_color ?? 'text-slate-400';
   const statusKey = member.status?.toLowerCase();
@@ -1384,7 +1389,11 @@ function MemberDetailModal({
   const age = useMemo(() => { try { return calcAge(member.birthday); } catch (e) { return null; } }, [member.birthday]);
   const genderLabel = member.gender?.toLowerCase() === 'male' ? 'M' : member.gender?.toLowerCase() === 'female' ? 'F' : null;
   const isHead = member.relationship?.toLowerCase() === 'head' || member.relationship?.toLowerCase() === 'self';
-  const roleMeta = roles?.find((r) => r.name === member.role);
+    const roleMeta = useMemo(() => {
+    const fromRole = roles.find((r) => r.name === member.role);
+    if (fromRole) return fromRole;
+    return roles.find((r) => r.name === member.department);
+  }, [member.role, member.department, roles]);
   const roleBg = roleMeta?.bg_color ?? 'bg-slate-200';
   const roleText = roleMeta?.text_color ?? 'text-slate-600';
   const regInfo = useMemo(() => { try { return calcYearsMonths(member.registration_date); } catch (e) { return null; } }, [member.registration_date]);
@@ -1467,20 +1476,32 @@ function MemberDetailModal({
               </div>
                 <div className="text-sm sm:text-base md:text-xl font-medium text-slate-400 mb-2 sm:mb-3 break-words">{member.english_name}</div>
                 <div className="flex flex-wrap gap-2 mt-2">
-                  <div className={`inline-block px-3 sm:px-4 py-1 rounded-lg sm:rounded-xl text-[15px] sm:text-m font-bold tracking-wide ${roleBg} ${roleText} bg-opacity-40`}>
-                    {member.role || 'Member'}
-                  </div>
-                  {member.mokjang && (
-                    <div className="inline-block px-3 sm:px-4 py-1 rounded-lg sm:rounded-xl text-[15px] sm:text-m font-bold tracking-wide bg-blue-50 text-blue-600 border border-blue-100">
-                      {member.mokjang}
-                    </div>
-                  )}
-                  {member.tags?.map(tag => (
-                    <span key={tag} className="px-3 py-1 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-500 shadow-sm">
-                      #{tag}
-                    </span>
-                  ))}
+              {/* 1. 직분 배지 */}
+              <div className={`inline-block px-3 sm:px-4 py-1 rounded-lg sm:rounded-xl text-[15px] sm:text-m font-bold tracking-wide ${roleBg} ${roleText} bg-opacity-40`}>
+                {member.role || 'Member'}
+              </div>
+
+              {/* 🚀 2. 소속부서 배지 (추가된 부분) */}
+              {member.department && (
+                <div className="inline-block px-3 sm:px-4 py-1 rounded-lg sm:rounded-xl text-[15px] sm:text-m font-bold tracking-wide bg-emerald-50 text-emerald-600 border border-emerald-100">
+                  {member.department}
                 </div>
+              )}
+
+              {/* 3. 목장 배지 */}
+              {member.mokjang && (
+                <div className="inline-block px-3 sm:px-4 py-1 rounded-lg sm:rounded-xl text-[15px] sm:text-m font-bold tracking-wide bg-blue-50 text-blue-600 border border-blue-100">
+                  {member.mokjang}
+                </div>
+              )}
+
+              {/* 4. 태그 리스트 */}
+              {member.tags?.map(tag => (
+                <span key={tag} className="px-3 py-1 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-500 shadow-sm">
+                  #{tag}
+                </span>
+              ))}
+            </div>
               </div>
             </div>
 
