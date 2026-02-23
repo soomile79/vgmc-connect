@@ -667,7 +667,7 @@ function Sidebar({
             <div className="mb-2">
               <button onClick={() => onSelectMenu('birthdays')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors group ${activeMenu === 'birthdays' ? 'bg-amber-50' : 'hover:bg-slate-50'}`}>
                 <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${activeMenu === 'birthdays' ? 'bg-amber-100' : 'bg-slate-50'}`}><Cake className={`w-5 h-5 ${activeMenu === 'birthdays' ? 'text-amber-600' : 'text-slate-600'}`} /></div>
-                <div className="flex-1 text-left"><div className={`text-sm font-semibold ${activeMenu === 'birthdays' ? 'text-amber-700' : 'text-slate-700'}`}>Birthdays</div></div>
+                <div className="flex-1 text-left"><div className={`text-[15px] font-semibold ${activeMenu === 'birthdays' ? 'text-amber-700' : 'text-slate-700'}`}>Birthdays</div></div>
                 {birthdaysCount > 0 && <span className="bg-amber-100 text-amber-700 text-xs font-bold px-2 py-0.5 rounded-full">{birthdaysCount}</span>}
                 <ChevronRight className="w-4 h-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
               </button>
@@ -676,7 +676,7 @@ function Sidebar({
             <div className="mb-2">
               <button onClick={() => onSelectMenu('recent')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors group ${activeMenu === 'recent' ? 'bg-sky-50' : 'hover:bg-slate-50'}`}>
                 <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${activeMenu === 'recent' ? 'bg-sky-100' : 'bg-slate-50'}`}><UserCog className={`w-5 h-5 ${activeMenu === 'recent' ? 'text-sky-600' : 'text-slate-600'}`} /></div>
-                <div className="flex-1 text-left"><div className={`text-sm font-semibold ${activeMenu === 'recent' ? 'text-sky-700' : 'text-slate-700'}`}>최신 등록교인</div></div>
+                <div className="flex-1 text-left"><div className={`text-[15px] font-semibold ${activeMenu === 'recent' ? 'text-sky-700' : 'text-slate-700'}`}>최신 등록교인</div></div>
                 <ChevronRight className="w-4 h-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
               </button>
             </div>
@@ -686,7 +686,7 @@ function Sidebar({
                 <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${activeMenu === 'org' ? 'bg-indigo-100' : 'bg-slate-50'}`}>
                   <LayoutGrid className={`w-5 h-5 ${activeMenu === 'org' ? 'text-indigo-600' : 'text-slate-600'}`} />
                 </div>
-                <div className="flex-1 text-left"><div className={`text-sm font-semibold ${activeMenu === 'org' ? 'text-indigo-700' : 'text-slate-700'}`}>목장 조직도 / 배정</div></div>
+                <div className="flex-1 text-left"><div className={`text-[15px] font-semibold ${activeMenu === 'org' ? 'text-indigo-700' : 'text-slate-700'}`}>목장 조직도 / 배정</div></div>
                 <ChevronRight className="w-4 h-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
               </button>
             </div>
