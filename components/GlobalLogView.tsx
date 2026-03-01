@@ -1,18 +1,27 @@
 import React, { useMemo, useState } from 'react';
-import { User, Calendar, ChevronRight, Edit, Trash2, Info, Heart, Mail } from 'lucide-react';
-import { supabase } from '../lib/supabase'; // 수정/삭제를 위해 필요
+import { User, Calendar, ChevronRight, Edit, Trash2, Mail } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
-// 상위 App.tsx에 정의된 헬퍼 함수가 있다면 가져오고, 없다면 정의
+// 사진 URL 헬퍼
 const getMemberPhotoUrl = (path: string | null | undefined) => {
   if (!path) return null;
   if (path.startsWith('http')) return path;
   return supabase.storage.from('photos').getPublicUrl(path).data.publicUrl;
 };
 
+/* ================= 1. 전역 유틸리티 (컴포넌트 바깥) ================= */
+const LOG_SEPARATOR = '┃LOG_SEP┃';
+
+const smartSplitLogs = (raw: string) => {
+  if (!raw) return [];
+  if (raw.includes(LOG_SEPARATOR)) return raw.split(LOG_SEPARATOR).filter(Boolean);
+  return raw.split(/\n+(?=\[)/g).filter(Boolean).map(s => s.trim());
+};
+
 type Member = any;
 
 interface LogEntry {
-  member: Member; // 원본 객체 전체 저장 (상세 이동용)
+  member: Member;
   memberId: string;
   memberName: string;
   photoUrl: string | null;
@@ -25,7 +34,7 @@ interface LogEntry {
 export default function GlobalLogView({ 
   members, 
   onSelectMember,
-  onRefresh // 수정/삭제 후 데이터 갱신용
+  onRefresh 
 }: { 
   members: Member[], 
   onSelectMember: (m: Member) => void,
@@ -34,58 +43,62 @@ export default function GlobalLogView({
   const [filterType, setFilterType] = useState<'all' | 'memo' | 'prayer_request'>('all');
   const [editingLog, setEditingLog] = useState<any | null>(null);
 
+  // 🚀 통합 로그 생성 로직
   const allLogs = useMemo(() => {
-    const logs: LogEntry[] = [];
-    
-    members.forEach(member => {
-      // 메모와 기도제목 두 쪽 다 파싱
-      const types: ('memo' | 'prayer_request')[] = ['memo', 'prayer_request'];
+  const logs: LogEntry[] = [];
+  members.forEach(member => {
+    ['memo', 'prayer_request'].forEach((t: any) => {
+      const rawData = member[t] || '';
+      const entries = smartSplitLogs(rawData);
       
-      types.forEach(t => {
-        const rawData = member[t] || '';
-        const entries = rawData.split('\n\n').filter(Boolean);
-        
-        entries.forEach((entry: string, index: number) => {
-          const match = entry.match(/^\[(.*?)\] (.*)$/s);
-          logs.push({
-            member: member,
-            memberId: member.id,
-            memberName: member.korean_name,
-            photoUrl: member.photo_url,
-            timestamp: match ? match[1] : 'Unknown',
-            content: match ? match[2] : entry,
-            type: t,
-            rawIndex: index
-          });
+      entries.forEach((entry, index) => {
+        // [\s\S] 사용하여 줄바꿈 포함 매칭
+        const match = entry.match(/^\[([\s\S]*?)\] ([\s\S]*)$/);
+        logs.push({
+          member,
+          memberId: member.id,
+          memberName: member.korean_name,
+          photoUrl: member.photo_url,
+          timestamp: match ? match[1] : 'Unknown',
+          content: match ? match[2] : entry,
+          type: t,
+          rawIndex: index
         });
       });
     });
+  });
+  return logs.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+}, [members]);
 
-    // 필터 적용 및 시간순 정렬
-    return logs
-      .filter(log => filterType === 'all' || log.type === filterType)
-      .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
-  }, [members, filterType]);
+// handleUpdate 시에도 LOG_SEPARATOR 사용
+const handleUpdate = async (log: LogEntry, newText: string) => {
+  const rawData = log.member[log.type] || '';
+  const entries = smartSplitLogs(rawData);
+  
+  const match = entries[log.rawIndex].match(/^\[(.*?)\]/);
+  const ts = match ? match[1] : log.timestamp;
+  
+  entries[log.rawIndex] = `[${ts}] ${newText.trim()}`;
+  const { error } = await supabase.from('members')
+    .update({ [log.type]: entries.join(LOG_SEPARATOR) })
+    .eq('id', log.memberId);
+  
+  if (!error) {
+    setEditingLog(null);
+    onRefresh(); // 부모 데이터 갱신 -> 모든 컴포넌트 동기화
+  }
+};
 
-  // 삭제 핸들러
-  const handleDelete = async (e: React.MouseEvent, log: LogEntry) => {
-    e.stopPropagation();
-    if (!confirm('이 기록을 삭제하시겠습니까?')) return;
-    
-    const updatedRaw = (log.member[log.type] || '').split('\n\n').filter((_: any, i: number) => i !== log.rawIndex).join('\n\n');
-    const { error } = await supabase.from('members').update({ [log.type]: updatedRaw }).eq('id', log.memberId);
-    
-    if (!error) onRefresh();
-  };
-
-  // 수정 핸들러 (저장)
+  // 수정 핸들러
   const handleUpdate = async (log: LogEntry, newText: string) => {
-    const rawLogs = (log.member[log.type] || '').split('\n\n');
-    const match = rawLogs[log.rawIndex].match(/^\[(.*?)\]/);
+    const rawData = log.member[log.type] || '';
+    const entries = smartSplitLogs(rawData);
+    
+    const match = entries[log.rawIndex].match(/^\[(.*?)\]/);
     const ts = match ? match[1] : log.timestamp;
     
-    rawLogs[log.rawIndex] = `[${ts}] ${newText.trim()}`;
-    const { error } = await supabase.from('members').update({ [log.type]: rawLogs.join('\n\n') }).eq('id', log.memberId);
+    entries[log.rawIndex] = `[${ts}] ${newText.trim()}`;
+    const { error } = await supabase.from('members').update({ [log.type]: entries.join(LOG_SEPARATOR) }).eq('id', log.memberId);
     
     if (!error) {
       setEditingLog(null);
@@ -95,7 +108,6 @@ export default function GlobalLogView({
 
   return (
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
-      {/* 상단 헤더 및 필터 탭 */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h3 className="text-2xl font-black text-slate-800 flex items-center gap-2">
@@ -121,7 +133,6 @@ export default function GlobalLogView({
               onClick={() => onSelectMember(log.member)}
               className="group bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-0.5 transition-all cursor-pointer relative overflow-hidden"
             >
-              {/* 타입 표시용 왼쪽 띠 */}
               <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${log.type === 'memo' ? 'bg-blue-400' : 'bg-rose-400'}`} />
 
               <div className="flex gap-4 items-start">
@@ -144,7 +155,6 @@ export default function GlobalLogView({
                       </span>
                     </div>
                     
-                    {/* 수정/삭제 버튼 */}
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button 
                         onClick={(e) => { e.stopPropagation(); setEditingLog({ ...log }); }} 
@@ -168,7 +178,7 @@ export default function GlobalLogView({
                         value={editingLog.content} 
                         onChange={e => setEditingLog({ ...editingLog, content: e.target.value })}
                         className="w-full p-3 bg-slate-50 rounded-xl border-none text-sm focus:ring-2 focus:ring-blue-100 outline-none"
-                        rows={3}
+                        rows={5}
                       />
                       <div className="flex justify-end gap-2">
                         <button onClick={() => setEditingLog(null)} className="px-3 py-1.5 text-xs font-bold text-slate-400">취소</button>
@@ -177,6 +187,7 @@ export default function GlobalLogView({
                     </div>
                   ) : (
                     <>
+                      {/* 🚀 whitespace-pre-wrap 속성이 엔터를 화면에 표시해줍니다 */}
                       <p className="text-sm text-slate-600 font-medium leading-relaxed whitespace-pre-wrap mb-2">
                         {log.content}
                       </p>
@@ -186,10 +197,7 @@ export default function GlobalLogView({
                     </>
                   )}
                 </div>
-                
-                {!isEditing && (
-                  <ChevronRight className="text-slate-300 group-hover:text-blue-500 transition-colors mt-1" size={20} />
-                )}
+                {!isEditing && <ChevronRight className="text-slate-300 group-hover:text-blue-500 transition-colors mt-1" size={20} />}
               </div>
             </div>
           );
