@@ -114,6 +114,15 @@ const printStyles = `
 }
 `;
 
+const LOG_SEPARATOR = '┃LOG_SEP┃';
+
+const smartSplitLogs = (raw: string) => {
+  if (!raw) return [];
+  // 새 구분자가 있으면 우선 분할, 없으면 날짜 기점 분할
+  if (raw.includes(LOG_SEPARATOR)) return raw.split(LOG_SEPARATOR).filter(Boolean);
+  return raw.split(/\n+(?=\[)/g).filter(Boolean).map(s => s.trim());
+};
+
 const placeholders = [
   ' Search by Korean Name...',
   ' Search by English Name...',
@@ -200,28 +209,31 @@ function GlobalLogModal({
   }, [onClose]);
 
   const allLogs = useMemo(() => {
-    const logs: any[] = [];
-    members.forEach(m => {
-      const parse = (text: string | null | undefined, type: 'Memo' | 'Prayer') => {
-        if (!text) return;
-        text.split('\n\n').forEach((entry, idx) => {
-          const match = entry.match(/^\[(.*?)\] (.*)$/s);
-          if (match) logs.push({ 
-            member: m,
-            name: m.korean_name, 
-            date: match[1], 
-            content: match[2], 
-            type, 
-            originalIndex: idx,
-            id: m.id + type + match[1] 
-          });
+  const logs: any[] = [];
+  members.forEach(m => {
+    const parse = (text: string | null | undefined, type: 'Memo' | 'Prayer') => {
+      if (!text) return;
+      // smartSplitLogs를 사용하여 본문 엔터 보존
+      const entries = smartSplitLogs(text);
+      entries.forEach((entry, idx) => {
+        // [s] 플래그와 유사한 [\s\S]를 사용하여 줄바꿈 포함 매칭
+        const match = entry.match(/^\[([\s\S]*?)\] ([\s\S]*)$/);
+        if (match) logs.push({ 
+          member: m,
+          name: m.korean_name, 
+          date: match[1], 
+          content: match[2], 
+          type, 
+          originalIndex: idx,
+          id: m.id + type + match[1] 
         });
-      };
-      parse(m.memo, 'Memo');
-      parse(m.prayer_request, 'Prayer');
-    });
-    return logs.sort((a, b) => b.date.localeCompare(a.date));
-  }, [members]);
+      });
+    };
+    parse(m.memo, 'Memo');
+    parse(m.prayer_request, 'Prayer');
+  });
+  return logs.sort((a, b) => b.date.localeCompare(a.date));
+}, [members]);
 
   const handleUpdate = async () => {
     if (!editingLog || loading) return;
@@ -1197,132 +1209,133 @@ function BirthdayCard({
 
 
 /* ================= UNIFIED LOG SECTION (Memo + Prayer) ================= */
+/* ================= UNIFIED LOG SECTION (수정 완료) ================= */
 function MemoSection({ member, onRefresh }: { member: Member; onRefresh: () => void; }) {
   const [logType, setLogType] = useState<'Memo' | 'Prayer'>('Memo');
   const [newLog, setNewLog] = useState('');
-  const [editingLog, setEditingLog] = useState<{ index: number; type: 'Memo' | 'Prayer'; text: string } | null>(null);
+  
+  // 날짜 수정을 위한 상태
+  const getNow = () => new Date().toLocaleString('ko-KR', { 
+    year: 'numeric', month: '2-digit', day: '2-digit', 
+    hour: '2-digit', minute: '2-digit', hour12: false 
+  });
+  const [logDate, setLogDate] = useState(getNow());
+  
+  const [editingLog, setEditingLog] = useState<{ index: number; type: 'Memo' | 'Prayer'; text: string; date: string } | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // 1. 메모와 기도제목을 하나의 리스트로 합치고 정렬
-  const combinedLogs = useMemo(() => {
-    const memos = (member.memo?.split('\n\n') || []).filter(Boolean).map((text, index) => ({ text, type: 'Memo' as const, originalIndex: index }));
-    const prayers = (member.prayer_request?.split('\n\n') || []).filter(Boolean).map((text, index) => ({ text, type: 'Prayer' as const, originalIndex: index }));
+  /// 1. 공통 파서 함수 (엔터 두 번 대신 날짜 기호를 기준으로 자름)
+  const SEPARATOR = '┃LOG_SEP┃';
+
+  const smartSplit = (raw: string) => {
     
-    return [...memos, ...prayers].sort((a, b) => b.text.localeCompare(a.text));
+    if (!raw) return [];
+    if (raw.includes(SEPARATOR)) return raw.split(SEPARATOR).filter(Boolean);
+    
+    // 구분자가 없을 경우: 줄바꿈 뒤에 바로 '[' 가 오는 경우만 새로운 메모로 인식 (정규식)
+    // 이렇게 해야 본문 안의 엔터(\n\n)는 보존됩니다.
+    return raw.split(/\n+(?=\[)/g).filter(Boolean);
+  };
+
+  const parseLogs = (data: string | null | undefined, type: 'Memo' | 'Prayer') => {
+    const entries = smartSplit(data || '');
+    return entries.map((text, idx) => {
+      const match = text.trim().match(/^\[(.*?)\] (.*)$/s);
+      return {
+        date: match ? match[1] : 'Unknown',
+        content: match ? match[2] : text,
+        type,
+        originalIndex: idx
+      };
+    });
+  };
+
+  const combinedLogs = useMemo(() => {
+    const memos = parseLogs(member.memo, 'Memo');
+    const prayers = parseLogs(member.prayer_request, 'Prayer');
+    return [...memos, ...prayers].sort((a, b) => b.date.localeCompare(a.date));
   }, [member.memo, member.prayer_request]);
 
-  // 2. 로그 추가 함수
   const handleAddLog = async () => {
     if (!newLog.trim() || loading || !member?.id) return;
     try {
       setLoading(true);
-      const timestamp = new Date().toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
-      const entry = `[${timestamp}] ${newLog.trim()}`;
-      
+      const entry = `[${logDate}] ${newLog.trim()}`;
       const field = logType === 'Memo' ? 'memo' : 'prayer_request';
-      const currentData = (member[field] ? member[field]?.split('\n\n') : []) || [];
-      const updatedData = [entry, ...currentData].join('\n\n');
+      const currentData = member[field] || '';
+      
+      // 기존 데이터가 있으면 구분자로 연결
+      const updatedData = currentData 
+        ? entry + SEPARATOR + (currentData.includes(SEPARATOR) ? currentData : currentData.split('\n\n').join(SEPARATOR))
+        : entry;
 
       const { error } = await supabase.from('members').update({ [field]: updatedData }).eq('id', member.id);
       if (!error) {
         setNewLog('');
+        setLogDate(getNow());
         onRefresh();
       }
     } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
-  // 3. 로그 수정 함수
   const handleUpdateLog = async () => {
-    if (!editingLog || !editingLog.text.trim() || loading) return;
-    try {
-      setLoading(true);
-      const field = editingLog.type === 'Memo' ? 'memo' : 'prayer_request';
-      const currentLogs = (member[field]?.split('\n\n') || []);
-      
-      // 기존 타임스탬프가 있으면 유지, 없으면 새로 생성
-      const match = currentLogs[editingLog.index].match(/^\[(.*?)\]/);
-      const ts = match ? match[1] : new Date().toLocaleString('ko-KR', { 
-        year: 'numeric', 
-        month: '2-digit', 
-        day: '2-digit', 
-        hour: '2-digit', 
-        minute: '2-digit', 
-        hour12: false 
-      });
-      
-      currentLogs[editingLog.index] = `[${ts}] ${editingLog.text.trim()}`;
-
-      const { error } = await supabase.from('members').update({ [field]: currentLogs.join('\n\n') }).eq('id', member.id);
-      if (!error) {
-        setEditingLog(null);
-        onRefresh();
+  if (!editingLog || loading) return;
+  const field = editingLog.type === 'Memo' ? 'memo' : 'prayer_request';
+  const currentEntries = smartSplitLogs(member[field] || '');
+  
+  currentEntries[editingLog.index] = `[${editingLog.date}] ${editingLog.text.trim()}`;
+  const { error } = await supabase.from('members')
+    .update({ [field]: currentEntries.join(LOG_SEPARATOR) })
+    .eq('id', member.id);
+    
+  if (!error) {
+    setEditingLog(null);
+    onRefresh(); // 상위 load() 호출로 동기화
       }
-    } catch (e) { console.error(e); } finally { setLoading(false); }
-  };
+    };
 
-  // 4. 로그 삭제 함수
+
   const handleDeleteLog = async (type: 'Memo' | 'Prayer', index: number) => {
-    if (!confirm('이 기록을 삭제하시겠습니까?') || loading) return;
-    try {
-      setLoading(true);
-      const field = type === 'Memo' ? 'memo' : 'prayer_request';
-      const updatedLogs = (member[field]?.split('\n\n') || []).filter((_, i) => i !== index);
-      
-      const { error } = await supabase.from('members').update({ [field]: updatedLogs.join('\n\n') }).eq('id', member.id);
-      if (!error) onRefresh();
-    } catch (e) { console.error(e); } finally { setLoading(false); }
-  };
+  if (!confirm('삭제하시겠습니까?')) return;
+  try {
+    setLoading(true);
+    const field = type === 'Memo' ? 'memo' : 'prayer_request';
+    const currentData = member[field] || '';
+    
+    // 여기서도 smartSplit 사용!
+    const entries = smartSplit(currentData);
+    const filtered = entries.filter((_, i) => i !== index);
+    
+    await supabase.from('members').update({ [field]: filtered.join(SEPARATOR) }).eq('id', member.id);
+    onRefresh();
+  } catch (e) { console.error(e); } finally { setLoading(false); }
+};
 
   return (
     <div className="space-y-6">
-      {/* 입력 섹션: 타입 선택 + 텍스트 영역 */}
       <div className="space-y-3">
-        <div className="flex p-1 bg-slate-100 rounded-xl w-fit">
-          <button 
-            onClick={() => setLogType('Memo')}
-            className={`px-4 py-1.5 rounded-lg text-[11px] font-black transition-all ${logType === 'Memo' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}
-          >메모</button>
-          <button 
-            onClick={() => setLogType('Prayer')}
-            className={`px-4 py-1.5 rounded-lg text-[11px] font-black transition-all ${logType === 'Prayer' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-400'}`}
-          >기도제목</button>
+        <div className="flex justify-between items-center">
+          <div className="flex p-1 bg-slate-100 rounded-xl w-fit">
+            <button onClick={() => setLogType('Memo')} className={`px-4 py-1.5 rounded-lg text-[11px] font-black transition-all ${logType === 'Memo' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}>메모</button>
+            <button onClick={() => setLogType('Prayer')} className={`px-4 py-1.5 rounded-lg text-[11px] font-black transition-all ${logType === 'Prayer' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-400'}`}>기도제목</button>
+          </div>
+          <input type="text" value={logDate} onChange={e => setLogDate(e.target.value)} className="text-[10px] font-bold text-slate-400 bg-transparent border-none focus:ring-0 text-right w-36" />
         </div>
-
         <div className="flex gap-2">
-          <textarea
-            value={newLog}
-            onChange={(e) => setNewLog(e.target.value)}
-            placeholder={logType === 'Memo' ? "메모 입력..." : "기도제목 입력..."}
-            className={`flex-1 px-3 py-2 rounded-xl bg-slate-50 border-none focus:ring-2 text-sm min-h-[56px] ${logType === 'Memo' ? 'focus:ring-blue-100' : 'focus:ring-rose-100'}`}
-          />
-          <button
-            onClick={handleAddLog}
-            disabled={loading}
-            className={`px-4 rounded-xl font-bold text-white transition-all text-xs disabled:opacity-50 ${logType === 'Memo' ? 'bg-sky-700' : 'bg-rose-500'}`}
-          >
-            등록
-          </button>
+          <textarea value={newLog} onChange={e => setNewLog(e.target.value)} placeholder="내용을 입력하세요..." className="flex-1 px-3 py-2 rounded-xl bg-slate-50 border-none focus:ring-2 text-sm min-h-[80px]" />
+          <button onClick={handleAddLog} disabled={loading} className={`px-4 rounded-xl font-bold text-white transition-all text-xs ${logType === 'Memo' ? 'bg-sky-700' : 'bg-rose-500'}`}>등록</button>
         </div>
       </div>
 
-      {/* 리스트 섹션: 통합 타임라인 */}
       <div className="space-y-4">
         {combinedLogs.map((log, i) => {
-          const match = log.text.match(/^\[(.*?)\] (.*)$/s);
-          const timestamp = match ? match[1] : '';
-          const content = match ? match[2] : log.text;
           const isEditing = editingLog?.type === log.type && editingLog?.index === log.originalIndex;
-
           return (
             <div key={i} className={`group p-4 rounded-2xl border transition-all relative ${log.type === 'Memo' ? 'bg-blue-50/30 border-blue-50' : 'bg-rose-50/30 border-rose-50'}`}>
               {isEditing ? (
                 <div className="space-y-3">
-                  <textarea 
-                    value={editingLog.text} 
-                    onChange={(e) => setEditingLog({ ...editingLog, text: e.target.value })} 
-                    className="w-full p-3 rounded-xl border-none text-sm focus:ring-2 focus:ring-sky-100" 
-                    rows={3} 
-                  />
+                  <input type="text" value={editingLog.date} onChange={e => setEditingLog({...editingLog, date: e.target.value})} className="w-full p-2 text-[10px] font-bold bg-white rounded-lg border-none" />
+                  <textarea value={editingLog.text} onChange={e => setEditingLog({...editingLog, text: e.target.value})} className="w-full p-3 rounded-xl border-none text-sm focus:ring-2 focus:ring-sky-100" rows={3} />
                   <div className="flex justify-end gap-2">
                     <button onClick={() => setEditingLog(null)} className="px-3 py-1 text-[10px] font-bold text-slate-400">취소</button>
                     <button onClick={handleUpdateLog} className="px-3 py-1 text-[10px] font-bold bg-slate-800 text-white rounded-lg">저장</button>
@@ -1332,32 +1345,24 @@ function MemoSection({ member, onRefresh }: { member: Member; onRefresh: () => v
                 <>
                   <div className="flex justify-between items-center mb-2">
                     <div className="flex items-center gap-2">
-                      <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${log.type === 'Memo' ? 'bg-blue-100 text-blue-600' : 'bg-rose-100 text-rose-600'}`}>
-                        {log.type === 'Memo' ? 'MEMO' : 'PRAYER'}
-                      </span>
-                      <span className="text-[10px] font-bold text-slate-400">{timestamp}</span>
+                      <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${log.type === 'Memo' ? 'bg-blue-100 text-blue-600' : 'bg-rose-100 text-rose-600'}`}>{log.type === 'Memo' ? 'MEMO' : 'PRAYER'}</span>
+                      <span className="text-[10px] font-bold text-slate-400">{log.date}</span>
                     </div>
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => setEditingLog({ index: log.originalIndex, type: log.type, text: content })} className="p-1 hover:bg-white rounded-lg text-slate-400"><Edit size={14} /></button>
+                      <button onClick={() => setEditingLog({ index: log.originalIndex, type: log.type, text: log.content, date: log.date })} className="p-1 hover:bg-white rounded-lg text-slate-400"><Edit size={14} /></button>
                       <button onClick={() => handleDeleteLog(log.type, log.originalIndex)} className="p-1 hover:bg-white rounded-lg text-rose-400"><Trash2 size={14} /></button>
                     </div>
                   </div>
-                  <div className="text-xs text-slate-700 font-medium leading-relaxed whitespace-pre-wrap">{content}</div>
+                  <div className="text-xs text-slate-700 font-medium leading-relaxed whitespace-pre-wrap">{log.content}</div>
                 </>
               )}
             </div>
           );
         })}
-        
-        {combinedLogs.length === 0 && (
-          <div className="py-10 text-center text-slate-400 text-xs bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
-            등록된 기록이 없습니다.
-          </div>
-        )}
       </div>
     </div>
   );
-}
+} 
 
 /* ================= MEMBER DETAIL MODAL ================= */
 function MemberDetailModal({ 
