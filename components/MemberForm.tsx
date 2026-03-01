@@ -34,6 +34,7 @@ type MemberData = {
   mokjang: string;
   is_head: boolean;
   family_id?: string | null;
+  department?: string; // 추가
 };
 
 type Role = { id: string; name: string; bg_color: string; text_color: string; };
@@ -46,6 +47,14 @@ interface MemberFormProps {
   parentLists: ParentList[];
   childLists: ChildList[];
 }
+
+const LOG_SEPARATOR = '┃LOG_SEP┃';
+
+const smartSplitLogs = (raw: string) => {
+  if (!raw) return [];
+  if (raw.includes(LOG_SEPARATOR)) return raw.split(LOG_SEPARATOR).filter(Boolean);
+  return raw.split(/\n+(?=\[)/g).filter(Boolean).map(s => s.trim());
+};
 
 const RELATIONSHIPS = ['Head', 'Spouse', 'Son', 'Daughter', 'Parent', 'Sibling', 'Other'];
 
@@ -66,6 +75,14 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
   const [photoSignedUrl, setPhotoSignedUrl] = useState<string | null>(null);
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
 
+  // 🚀 [추가] 구분자 및 날짜 수정을 위한 상태
+  const SEPARATOR = '┃LOG_SEP┃';
+  const getNow = () => new Date().toLocaleString('ko-KR', { 
+    year: 'numeric', month: '2-digit', day: '2-digit', 
+    hour: '2-digit', minute: '2-digit', hour12: false 
+  });
+  const [logDate, setLogDate] = useState(getNow());
+
   const currentMember = members.length > 0 ? members[activeMemberIndex] : null;
 
   const currentRoleStyle = useMemo(() => {
@@ -77,10 +94,6 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
 
   const roleBg = currentRoleStyle?.bg_color ?? 'bg-slate-100';
   const roleText = currentRoleStyle?.text_color ?? 'text-slate-500';
-  
-  // const currentRole = roles.find(r => r.name === currentMember?.role);
-  // const roleBg = currentRole?.bg_color ?? 'bg-slate-100';
-  // const roleText = currentRole?.text_color ?? 'text-slate-500';
 
   const getTagParentId = () => {
     const found = parentLists.find(p => 
@@ -99,19 +112,18 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
   }, [localChildLists, parentLists]);
 
   const birthdayInputRef = useRef<HTMLInputElement>(null);
-  const baptismDateInputRef = useRef<HTMLInputElement>(null); // 세례일용 추가
-  const registrationDateInputRef = useRef<HTMLInputElement>(null); // 등록일용 추가
+  const baptismDateInputRef = useRef<HTMLInputElement>(null); 
+  const registrationDateInputRef = useRef<HTMLInputElement>(null); 
 
   /* ================= 2. HELPERS ================= */
 
   const formatDate = (value: string) => {
-  const v = value.replace(/\D/g, '');
-  if (v.length <= 4) return v;
-  if (v.length <= 6) return `${v.slice(0, 4)}-${v.slice(4)}`;
-  return `${v.slice(0, 4)}-${v.slice(4, 6)}-${v.slice(6, 8)}`;
+    const v = value.replace(/\D/g, '');
+    if (v.length <= 4) return v;
+    if (v.length <= 6) return `${v.slice(0, 4)}-${v.slice(4)}`;
+    return `${v.slice(0, 4)}-${v.slice(4, 6)}-${v.slice(6, 8)}`;
   };
 
-  // 전화번호 포맷 (010-0000-0000)
   const formatPhone = (value: string) => {
     const v = value.replace(/\D/g, '');
     if (v.length <= 3) return v;
@@ -167,7 +179,6 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
       const target = { ...newMembers[index], ...updates };
       newMembers[index] = target;
 
-      // Spouse 선택 시 Head와 반대 성별로 자동 세팅
       if (updates.relationship === 'Spouse') {
         const head = newMembers.find(m => m.relationship === 'Head');
         if (head?.gender) {
@@ -176,7 +187,6 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
       } else if (updates.relationship === 'Son') target.gender = 'Male';
       else if (updates.relationship === 'Daughter') target.gender = 'Female';
 
-      // Head 성별 변경 시 Spouse 성별도 자동 반전
       if (target.relationship === 'Head' && updates.gender) {
         const spouseIdx = newMembers.findIndex(m => m.relationship === 'Spouse');
         if (spouseIdx !== -1) {
@@ -195,7 +205,7 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
     const newM: MemberData = {
       korean_name: '', english_name: '', gender: '', birthday: '', phone: '', email: '',
       address: members[0]?.address || '', 
-      relationship: '', // [수정] 기본값을 빈값으로 설정하여 사용자가 직접 선택하도록 유도
+      relationship: '', 
       is_baptized: false, baptism_date: '', registration_date: new Date().toISOString().split('T')[0],
       offering_number: '', for_slip: '', memo: '', photo_url: '', tags: [], status: 'Active', role: '', 
       mokjang: members[0]?.mokjang || '', is_head: false
@@ -346,26 +356,26 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
     setActiveMemberIndex(updated.findIndex(m => m.korean_name === name));
   };
 
-const BAPTISM_TAG_NAME = '세례';
+  const BAPTISM_TAG_NAME = '세례';
 
-useEffect(() => {
-  if (!currentMember) return;
+  useEffect(() => {
+    if (!currentMember) return;
 
-  const hasTag = currentMember.tags.includes(BAPTISM_TAG_NAME);
-  const shouldHave = currentMember.is_baptized;
+    const hasTag = currentMember.tags.includes(BAPTISM_TAG_NAME);
+    const shouldHave = currentMember.is_baptized;
 
-  if (shouldHave && !hasTag) {
-    updateMember(activeMemberIndex, {
-      tags: [...currentMember.tags, BAPTISM_TAG_NAME]
-    });
-  }
+    if (shouldHave && !hasTag) {
+      updateMember(activeMemberIndex, {
+        tags: [...currentMember.tags, BAPTISM_TAG_NAME]
+      });
+    }
 
-  if (!shouldHave && hasTag) {
-    updateMember(activeMemberIndex, {
-      tags: currentMember.tags.filter(t => t !== BAPTISM_TAG_NAME)
-    });
-  }
-}, [currentMember?.is_baptized]);
+    if (!shouldHave && hasTag) {
+      updateMember(activeMemberIndex, {
+        tags: currentMember.tags.filter(t => t !== BAPTISM_TAG_NAME)
+      });
+    }
+  }, [currentMember?.is_baptized]);
 
   /* ================= 4. EFFECTS ================= */
 
@@ -405,22 +415,20 @@ useEffect(() => {
   }, [childLists]);
 
   useEffect(() => {
-  if (!isOpen) return;
-  
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      // ⬇️ 이벤트가 밑에 깔린 모달(상세 모달 등)로 전달되지 않게 차단
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation(); 
-      onClose();
-    }
-  };
+    if (!isOpen) return;
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation(); 
+        onClose();
+      }
+    };
 
-  // ⬇️ 세 번째 인자로 true를 주어 '캡처링' 단계에서 먼저 가로챕니다.
-  window.addEventListener('keydown', handleKeyDown, true);
-  return () => window.removeEventListener('keydown', handleKeyDown, true);
-}, [isOpen, onClose]);
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [isOpen, onClose]);
 
   useEffect(() => {
     const loadRoles = async () => {
@@ -457,7 +465,7 @@ useEffect(() => {
           korean_name: '', english_name: '', gender: '', birthday: '', phone: '', email: '',
           address: '', relationship: 'Head', is_baptized: false, baptism_date: '', 
           registration_date: new Date().toISOString().split('T')[0],
-          offering_number: '', for_slip: '', memo: '', photo_url: '', tags: [], status: 'Active', role: '', mokjang: '', is_head: true
+          offering_number: '', for_slip: '', memo: '', prayer_request: '', photo_url: '', tags: [], status: 'Active', role: '', mokjang: '', is_head: true
         }]);
         setActiveMemberIndex(0);
       }
@@ -552,7 +560,6 @@ useEffect(() => {
                   <input type="text" value={currentMember.english_name} onChange={e => updateMember(activeMemberIndex, { english_name: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm md:text-base font-bold text-slate-700" />
                 </div>
 
-                {/* 관계 */}
                 <div className="space-y-1">
                   <label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">관계 <span className="text-rose-500">*</span></label>
                   <select value={currentMember.relationship} onChange={e => updateMember(activeMemberIndex, { relationship: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-3 py-2.5 text-xs md:text-sm font-bold text-slate-700 outline-none">
@@ -561,7 +568,6 @@ useEffect(() => {
                   </select>
                 </div>
 
-                {/* 성별 */}
                 <div className="space-y-1">
                   <label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">성별 <span className="text-rose-500">*</span></label>
                   <div className="flex bg-slate-100 p-1 rounded-xl h-[42px] md:h-[48px]">
@@ -571,37 +577,34 @@ useEffect(() => {
                 </div>                
               </section>
 
-                <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* 생년월일 입력란 */}
+              <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-1">
-                <label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">생년월일</label>
-                <div className="relative group">
-                  <input 
-                    type="text" 
-                    value={currentMember.birthday} 
-                    onChange={e => updateMember(activeMemberIndex, { birthday: formatDate(e.target.value) })}
-                    maxLength={10}
-                    className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 pr-10" 
-                    placeholder="YYYY-MM-DD" 
-                  />
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-500 cursor-pointer">
-                    <Calendar 
-                      size={18} 
-                      onClick={() => birthdayInputRef.current?.showPicker()} 
+                  <label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">생년월일</label>
+                  <div className="relative group">
+                    <input 
+                      type="text" 
+                      value={currentMember.birthday} 
+                      onChange={e => updateMember(activeMemberIndex, { birthday: formatDate(e.target.value) })}
+                      maxLength={10}
+                      className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 pr-10" 
+                      placeholder="YYYY-MM-DD" 
+                    />
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-500 cursor-pointer">
+                      <Calendar 
+                        size={18} 
+                        onClick={() => birthdayInputRef.current?.showPicker()} 
+                      />
+                    </div>
+                    <input
+                      ref={birthdayInputRef}
+                      type="date"
+                      tabIndex={-1} 
+                      className="absolute opacity-0 pointer-events-none right-0 bottom-0 w-0 h-0"
+                      onChange={e => updateMember(activeMemberIndex, { birthday: e.target.value })}
                     />
                   </div>
-                  {/* 실제 달력 기능을 위한 숨겨진 input - tabIndex={-1} 추가 */}
-                  <input
-                    ref={birthdayInputRef}
-                    type="date"
-                    tabIndex={-1} // <--- 이 부분이 핵심입니다! 탭 포커스에서 제외함
-                    className="absolute opacity-0 pointer-events-none right-0 bottom-0 w-0 h-0"
-                    onChange={e => updateMember(activeMemberIndex, { birthday: e.target.value })}
-                  />
                 </div>
-              </div>
 
-                {/* 전화번호 입력란 */}
                 <div className="space-y-1">
                   <label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">전화번호</label>
                   <input 
@@ -614,7 +617,6 @@ useEffect(() => {
                   />
                 </div>
 
-                {/* 이메일 입력란 */}
                 <div className="space-y-1">
                   <label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase tracking-wide">E-mail</label>
                   <input 
@@ -633,88 +635,88 @@ useEffect(() => {
 
               <section className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 border-t border-slate-100">
                 <div className="space-y-1">
-                <label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">세례여부</label>
-                <div className={`flex flex-col gap-2 p-2 rounded-xl border-2 transition-all ${currentMember.is_baptized ? 'bg-blue-50/50 border-blue-100' : 'bg-slate-50 border-transparent'}`}>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${currentMember.is_baptized ? 'bg-sky-600 border-sky-600' : 'bg-white border-slate-200'}`}>
-                      {currentMember.is_baptized && <Check size={12} className="text-white" />}
-                    </div>
-                    <input type="checkbox" className="hidden" checked={currentMember.is_baptized} 
-                    onChange={e => updateMember(activeMemberIndex, { is_baptized: e.target.checked })} />
-                    <span className="text-[11px] md:text-xs font-black text-slate-600">Yes</span>
-                  </label>
-                  {currentMember.is_baptized && (
-                    <div className="relative group">
-                      <input 
-                        type="text" 
-                        value={currentMember.baptism_date} 
-                        onChange={e => updateMember(activeMemberIndex, { baptism_date: formatDate(e.target.value) })} 
-                        maxLength={10}
-                        className="w-full bg-transparent border-b border-blue-200 text-[11px] md:text-xs font-bold text-sky-800 outline-none pr-7" 
-                        placeholder="YYYY-MM-DD" 
-                      />
-                      <div className="absolute right-0 top-1/2 -translate-y-1/2 text-blue-400 hover:text-blue-600 cursor-pointer">
-                        <Calendar size={14} onClick={() => baptismDateInputRef.current?.showPicker()} />
+                  <label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">세례여부</label>
+                  <div className={`flex flex-col gap-2 p-2 rounded-xl border-2 transition-all ${currentMember.is_baptized ? 'bg-blue-50/50 border-blue-100' : 'bg-slate-50 border-transparent'}`}>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${currentMember.is_baptized ? 'bg-sky-600 border-sky-600' : 'bg-white border-slate-200'}`}>
+                        {currentMember.is_baptized && <Check size={12} className="text-white" />}
                       </div>
-                      <input
-                        ref={baptismDateInputRef}
-                        type="date"
-                        tabIndex={-1}
-                        className="absolute opacity-0 pointer-events-none right-0 bottom-0 w-0 h-0"
-                        onChange={e => updateMember(activeMemberIndex, { baptism_date: e.target.value })}
-                      />
-                    </div>
-                  )}
+                      <input type="checkbox" className="hidden" checked={currentMember.is_baptized} 
+                        onChange={e => updateMember(activeMemberIndex, { is_baptized: e.target.checked })} />
+                      <span className="text-[11px] md:text-xs font-black text-slate-600">Yes</span>
+                    </label>
+                    {currentMember.is_baptized && (
+                      <div className="relative group">
+                        <input 
+                          type="text" 
+                          value={currentMember.baptism_date} 
+                          onChange={e => updateMember(activeMemberIndex, { baptism_date: formatDate(e.target.value) })} 
+                          maxLength={10}
+                          className="w-full bg-transparent border-b border-blue-200 text-[11px] md:text-xs font-bold text-sky-800 outline-none pr-7" 
+                          placeholder="YYYY-MM-DD" 
+                        />
+                        <div className="absolute right-0 top-1/2 -translate-y-1/2 text-blue-400 hover:text-blue-600 cursor-pointer">
+                          <Calendar size={14} onClick={() => baptismDateInputRef.current?.showPicker()} />
+                        </div>
+                        <input
+                          ref={baptismDateInputRef}
+                          type="date"
+                          tabIndex={-1}
+                          className="absolute opacity-0 pointer-events-none right-0 bottom-0 w-0 h-0"
+                          onChange={e => updateMember(activeMemberIndex, { baptism_date: e.target.value })}
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
                 <div className="space-y-1"><label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">헌금번호</label><input type="text" value={currentMember.offering_number} onChange={e => updateMember(activeMemberIndex, { offering_number: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm md:text-base font-bold text-slate-700 h-[42px] md:h-[48px]" /></div>
                 <div className="space-y-1"><label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">Slip #</label><input type="text" value={currentMember.for_slip} onChange={e => updateMember(activeMemberIndex, { for_slip: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm md:text-base font-bold text-slate-700 h-[42px] md:h-[48px]" /></div>
               </section>
 
               <section className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8 pt-6 border-t border-slate-100">
-                  {['mokjang', 'role', 'status', 'department'].map(field => { 
+                {['mokjang', 'role', 'status', 'department'].map(field => { 
                   const parent = parentLists.find(p => p.type === field || (field === 'department' && p.name === '소속부서'));
-                return (
-                  <div key={field} className="space-y-1">
-                    <label className="text-[11px] md:text-xs font-bold text-slate-400 capitalize ml-1 tracking-widest">
-                      {parent?.name || field}
-                    </label>
-                    <select 
-                      value={(currentMember as any)[field] || ''} 
-                      onChange={e => updateMember(activeMemberIndex, { [field]: e.target.value })} 
-                      className="w-full bg-slate-50 border-none rounded-xl px-3 py-2.5 text-xs md:text-sm font-bold text-slate-700"
-                    >
-                      <option value="">선택</option>
-                      {childLists.filter(c => c.parent_id === parent?.id).map(c => (
-                        <option key={c.id} value={c.name}>{c.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                );
-              })}
+                  return (
+                    <div key={field} className="space-y-1">
+                      <label className="text-[11px] md:text-xs font-bold text-slate-400 capitalize ml-1 tracking-widest">
+                        {parent?.name || field}
+                      </label>
+                      <select 
+                        value={(currentMember as any)[field] || ''} 
+                        onChange={e => updateMember(activeMemberIndex, { [field]: e.target.value })} 
+                        className="w-full bg-slate-50 border-none rounded-xl px-3 py-2.5 text-xs md:text-sm font-bold text-slate-700"
+                      >
+                        <option value="">선택</option>
+                        {childLists.filter(c => c.parent_id === parent?.id).map(c => (
+                          <option key={c.id} value={c.name}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  );
+                })}
                 <div className="space-y-1">
-                <label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">등록일</label>
-                <div className="relative group">
-                  <input 
-                    type="text" 
-                    value={currentMember.registration_date} 
-                    onChange={e => updateMember(activeMemberIndex, { registration_date: formatDate(e.target.value) })} 
-                    maxLength={10}
-                    className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-s md:text-sm font-bold text-slate-700 pr-10" 
-                    placeholder="YYYY-MM-DD"
-                  />
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-500 cursor-pointer">
-                    <Calendar size={18} onClick={() => registrationDateInputRef.current?.showPicker()} />
+                  <label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">등록일</label>
+                  <div className="relative group">
+                    <input 
+                      type="text" 
+                      value={currentMember.registration_date} 
+                      onChange={e => updateMember(activeMemberIndex, { registration_date: formatDate(e.target.value) })} 
+                      maxLength={10}
+                      className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-s md:text-sm font-bold text-slate-700 pr-10" 
+                      placeholder="YYYY-MM-DD"
+                    />
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-500 cursor-pointer">
+                      <Calendar size={18} onClick={() => registrationDateInputRef.current?.showPicker()} />
+                    </div>
+                    <input
+                      ref={registrationDateInputRef}
+                      type="date"
+                      tabIndex={-1}
+                      className="absolute opacity-0 pointer-events-none right-0 bottom-0 w-0 h-0"
+                      onChange={e => updateMember(activeMemberIndex, { registration_date: e.target.value })}
+                    />
                   </div>
-                  <input
-                    ref={registrationDateInputRef}
-                    type="date"
-                    tabIndex={-1}
-                    className="absolute opacity-0 pointer-events-none right-0 bottom-0 w-0 h-0"
-                    onChange={e => updateMember(activeMemberIndex, { registration_date: e.target.value })}
-                  />
                 </div>
-               </div>
               </section>
 
               {/* Tags 섹션 */}
@@ -737,51 +739,57 @@ useEffect(() => {
 
               {/* ================= 통합 로그 관리 (Memo + Prayer) ================= */}
               <section className="space-y-4 pt-6 border-t border-slate-100 pb-10">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  {/* 🚀 Heart 아이콘 에러가 나던 지점입니다 */}
-                  {logType === 'Memo' ? <Info className="text-blue-500" size={18} /> : <Heart className="text-rose-500" size={18} />}
-                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight">메모 & 기도제목</h3>
-                </div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    {logType === 'Memo' ? <Info className="text-blue-500" size={18} /> : <Heart className="text-rose-500" size={18} />}
+                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight">메모 & 기도제목</h3>
+                  </div>
                   
+                  <div className="flex items-center gap-3">
+                    {/* 🚀 날짜 수정 입력란 */}
+                    <input 
+                      type="text" 
+                      value={logDate} 
+                      onChange={e => setLogDate(e.target.value)} 
+                      className="text-[10px] font-bold text-slate-400 bg-transparent border-none focus:ring-0 text-right w-32"
+                    />
+
                     {/* 타입 선택 스위치 */}
-                <div className="flex p-1 bg-slate-100 rounded-xl">
-                  <button 
-                    type="button"
-                    onClick={() => setLogType('Memo')}
-                    className={`px-4 py-1.5 rounded-lg text-[11px] font-black transition-all ${logType === 'Memo' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}
-                  >메모</button>
-                  <button 
-                    type="button"
-                    onClick={() => setLogType('Prayer')}
-                    className={`px-4 py-1.5 rounded-lg text-[11px] font-black transition-all ${logType === 'Prayer' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-400'}`}
-                  >기도제목</button>
+                    <div className="flex p-1 bg-slate-100 rounded-xl">
+                      <button 
+                        type="button"
+                        onClick={() => setLogType('Memo')}
+                        className={`px-4 py-1.5 rounded-lg text-[11px] font-black transition-all ${logType === 'Memo' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}
+                      >메모</button>
+                      <button 
+                        type="button"
+                        onClick={() => setLogType('Prayer')}
+                        className={`px-4 py-1.5 rounded-lg text-[11px] font-black transition-all ${logType === 'Prayer' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-400'}`}
+                      >기도제목</button>
+                    </div>
+                  </div>
                 </div>
-              </div>
 
                 <div className="flex gap-2">
-                <textarea 
-                  // 🚀 value가 null이 되지 않도록 || '' 를 추가했습니다
-                  value={logText || ''} 
-                  onChange={e => setLogText(e.target.value)} 
-                  placeholder={logType === 'Memo' ? "상담 내용이나 메모를 입력하세요..." : "기도제목을 입력하세요..."}
-                  className={`flex-1 bg-slate-50 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 outline-none min-h-[70px] transition-all ${logType === 'Memo' ? 'focus:ring-blue-100' : 'focus:ring-rose-100'}`} 
-                />
-                   <button 
+                  <textarea 
+                    value={logText || ''} 
+                    onChange={e => setLogText(e.target.value)} 
+                    placeholder={logType === 'Memo' ? "상담 내용이나 메모를 입력하세요..." : "기도제목을 입력하세요..."}
+                    className={`flex-1 bg-slate-50 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 outline-none min-h-[100px] transition-all ${logType === 'Memo' ? 'focus:ring-blue-100' : 'focus:ring-rose-100'}`} 
+                  />
+                  <button 
                     type="button"
                     onClick={() => {
                       if (!logText.trim()) return;
-                      const ts = new Date().toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+                     const ts = logDate; // 수정 가능하게 만든 logDate 사용
                       const entry = `[${ts}] ${logText.trim()}`;
+                      const field = logType === 'Memo' ? 'memo' : 'prayer_request';
                       
-                      if (logType === 'Memo') {
-                        const cur = currentMember.memo ? currentMember.memo.split('\n\n').filter(Boolean) : [];
-                        updateMember(activeMemberIndex, { memo: [entry, ...cur].join('\n\n') });
-                      } else {
-                        // 🚀 prayer_request가 null일 경우를 대비해 빈 문자열 처리
-                        const cur = currentMember.prayer_request ? currentMember.prayer_request.split('\n\n').filter(Boolean) : [];
-                        updateMember(activeMemberIndex, { prayer_request: [entry, ...cur].join('\n\n') });
-                      }
+                      const currentEntries = smartSplitLogs(currentMember[field] || '');
+                      // 최신 로그를 맨 앞으로, 구분자로 합침
+                      const updatedData = [entry, ...currentEntries].join(LOG_SEPARATOR);
+                      
+                      updateMember(activeMemberIndex, { [field]: updatedData });
                       setLogText('');
                     }}
                     className={`px-6 rounded-xl font-black text-white transition-all text-xs ${logType === 'Memo' ? 'bg-sky-700 hover:bg-sky-900' : 'bg-rose-500 hover:bg-rose-600'}`}
@@ -790,37 +798,39 @@ useEffect(() => {
                   </button>
                 </div>
 
-                 {/* 통합 리스트 (생략 - 기존 리스트 출력 로직 유지하되 데이터 널 체크만 확인) */}
+                {/* 통합 리스트 출력 로직 */}
                 <div className="space-y-3 mt-4">
-                  {(() => {
-                    // 🚀 .memo나 .prayer_request가 null이어도 에러가 나지 않게 || '' 추가
-                    const memos = (currentMember.memo || '').split('\n\n').filter(Boolean).map(text => ({ text, type: 'Memo' }));
-                    const prayers = (currentMember.prayer_request || '').split('\n\n').filter(Boolean).map(text => ({ text, type: 'Prayer' }));
-                    
-                    return [...memos, ...prayers]
-                      .sort((a, b) => b.text.localeCompare(a.text))
-                      .map((item, idx) => {
-                        const match = item.text.match(/^\[(.*?)\] (.*)$/s);
-                        const date = match ? match[1] : 'LOG';
-                        const content = match ? match[2] : item.text;
-                        
-                        return (
-                          <div key={idx} className={`group p-4 rounded-2xl border transition-all relative ${item.type === 'Memo' ? 'bg-blue-50/30 border-blue-50' : 'bg-rose-50/30 border-rose-50'}`}>
-                            <div className="flex justify-between items-center mb-1">
-                              <div className="flex items-center gap-2">
-                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${item.type === 'Memo' ? 'bg-blue-100 text-blue-600' : 'bg-rose-100 text-rose-600'}`}>
-                                  {item.type === 'Memo' ? 'MEMO' : 'PRAYER'}
-                                </span>
-                                <span className="text-[10px] font-bold text-slate-400">{date}</span>
-                              </div>
-                              {/* 삭제 버튼 등 기존 UI 유지 */}
+                {(() => {
+                  const getEntries = (type: 'Memo' | 'Prayer') => {
+                    const raw = (type === 'Memo' ? currentMember.memo : currentMember.prayer_request) || '';
+                    return smartSplitLogs(raw).map(text => ({ text, type }));
+                  };
+                  
+                  return [...getEntries('Memo'), ...getEntries('Prayer')]
+                    .sort((a, b) => b.text.localeCompare(a.text))
+                    .map((item, idx) => {
+                      // [\s\S]를 사용하여 엔터가 포함된 전체 내용 캡처
+                      const match = item.text.match(/^\[([\s\S]*?)\] ([\s\S]*)$/);
+                      const date = match ? match[1] : 'LOG';
+                      const content = match ? match[2] : item.text;
+                      
+                      return (
+                        <div key={idx} className={`group p-4 rounded-2xl border transition-all relative ${item.type === 'Memo' ? 'bg-blue-50/30 border-blue-50' : 'bg-rose-50/30 border-rose-50'}`}>
+                          <div className="flex justify-between items-center mb-1">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${item.type === 'Memo' ? 'bg-blue-100 text-blue-600' : 'bg-rose-100 text-rose-600'}`}>
+                                {item.type === 'Memo' ? 'MEMO' : 'PRAYER'}
+                              </span>
+                              <span className="text-[10px] font-bold text-slate-400">{date}</span>
                             </div>
-                            <p className="text-xs text-slate-600 font-bold leading-relaxed whitespace-pre-wrap">{content}</p>
                           </div>
-                        );
-                      });
-                  })()}
-                </div>
+                          {/* 🚀 whitespace-pre-wrap으로 줄바꿈 무조건 표시 */}
+                          <p className="text-xs text-slate-600 font-bold leading-relaxed whitespace-pre-wrap">{content}</p>
+                        </div>
+                      );
+                    });
+                })()}
+              </div>
               </section>
             </div>
           </div>
