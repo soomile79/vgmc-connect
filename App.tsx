@@ -59,23 +59,56 @@ function PhotoZoomModal({ url, onClose }: { url: string; onClose: () => void }) 
   }, [onClose]);
 
   return (
+    // <div
+    //   className="fixed inset-0 bg-slate-900/60 backdrop-blur-xl z-[300] flex items-center justify-center p-4 animate-in fade-in duration-200"
+    //   onClick={onClose} // 배경 클릭 시 닫기
+    // >
+    //   <button
+    //     className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors p-2"
+    //     onClick={onClose}
+    //   >
+    //     <X size={48} />
+    //   </button>
+    //   <img
+    //     src={url}
+    //     className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-300"
+    //     alt="Full Size"
+    //     onClick={(e) => e.stopPropagation()} // 이미지 클릭 시에는 안 닫히게
+    //   />
+    // </div>
     <div
-      className="fixed inset-0 bg-slate-900/95 backdrop-blur-xl z-[300] flex items-center justify-center p-4 animate-in fade-in duration-200"
-      onClick={onClose} // 배경 클릭 시 닫기
+      className="fixed inset-0 bg-black/70 backdrop-blur-xl z-[300] flex items-center justify-center p-4 cursor-pointer transition-all duration-300 animate-in fade-in"
+      onClick={onClose}
     >
+      {/* 그라데이션 오버레이 */}
+      <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-black/50 to-blue-900/20" />
+
+      {/* 닫기 버튼 */}
       <button
-        className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors p-2"
+        className="absolute top-8 right-8 text-white/60 hover:text-white hover:bg-white/10 rounded-full p-2 transition-all duration-300 backdrop-blur-sm z-10"
         onClick={onClose}
       >
-        <X size={48} />
+        <X size={28} strokeWidth={1.5} />
       </button>
-      <img
-        src={url}
-        className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-300"
-        alt="Full Size"
-        onClick={(e) => e.stopPropagation()} // 이미지 클릭 시에는 안 닫히게
-      />
+
+      {/* 이미지 컨테이너 */}
+      <div className="relative max-w-[90vw] max-h-[90vh] flex items-center justify-center group">
+        {/* 이미지 주변 글로우 효과 */}
+        <div className="absolute inset-0 bg-gradient-to-r from-purple-500/30 via-blue-500/30 to-purple-500/30 rounded-2xl blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+
+        <img
+          src={url}
+          className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl transition-all duration-500 group-hover:scale-[1.02] animate-in zoom-in-95 duration-500"
+          alt="Full Size"
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            boxShadow: '0 20px 60px -20px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.08)'
+          }}
+        />
+      </div>
     </div>
+
+
   );
 }
 
@@ -1413,7 +1446,7 @@ function MemberDetailModal({
   onRefresh,
   isMemberFormOpen,
   onPhotoClick,
-   isPhotoZoomed
+  isPhotoZoomed
 }: {
   member: Member;
   onClose: () => void;
@@ -1421,7 +1454,7 @@ function MemberDetailModal({
   familyMembers: Member[];
   onSelectMember: (member: Member) => void;
   onEdit: (member: Member) => void;
-  userRole: 'admin' | 'general' | 'user' | 'viewer' | null; 
+  userRole: 'admin' | 'general' | 'user' | 'viewer' | null;
   onRefresh: () => void;
   isMemberFormOpen: boolean;
   onPhotoClick: (url: string) => void;
