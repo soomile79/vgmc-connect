@@ -1,11 +1,47 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { 
-  X, Save, User, Phone, Mail, MapPin, Calendar, Briefcase, 
-  Info, Plus, Trash2, ChevronDown, Tag, Camera, Check, 
+import {
+  X, Save, User, Phone, Mail, MapPin, Calendar, Briefcase,
+  Info, Plus, Trash2, ChevronDown, Tag, Camera, Check,
   Crown, Edit, AlertCircle, UserPlus, LogOut, Users,
   Heart
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+
+
+/* MemberForm.tsx 파일 상단 PhotoZoomModal 수정 */
+function PhotoZoomModal({ url, onClose }: { url: string; onClose: () => void }) {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopImmediatePropagation(); // 🚀 다른 리스너들이 이 이벤트를 보지 못하게 즉시 차단
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown, true); // 🚀 캡처링 단계에서 먼저 가로챔
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 bg-slate-900/95 backdrop-blur-xl z-[300] flex items-center justify-center p-4 animate-in fade-in duration-200"
+      onClick={onClose} // 배경 클릭 시 닫기
+    >
+      <button
+        className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors p-2"
+        onClick={onClose}
+      >
+        <X size={48} />
+      </button>
+      <img
+        src={url}
+        className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-300"
+        alt="Full Size"
+        onClick={(e) => e.stopPropagation()} // 이미지 클릭 시에는 안 닫히게
+      />
+    </div>
+  );
+}
 
 type ParentList = { id: string; type: string; name: string; };
 type ChildList = { id: string; parent_id: string; name: string; };
@@ -26,7 +62,7 @@ type MemberData = {
   offering_number: string;
   for_slip: string;
   memo: string;
-  prayer_request: string; 
+  prayer_request: string;
   photo_url: string;
   tags: string[];
   status: string;
@@ -61,12 +97,13 @@ const RELATIONSHIPS = ['Head', 'Spouse', 'Son', 'Daughter', 'Parent', 'Sibling',
 export default function MemberForm({ isOpen, onClose, onSuccess, initialData, parentLists, childLists }: MemberFormProps) {
   /* ================= 1. HOOKS ================= */
   const [members, setMembers] = useState<MemberData[]>([]);
+  const [isPhotoZoomed, setIsPhotoZoomed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [activeMemberIndex, setActiveMemberIndex] = useState(0);
-  const [logType, setLogType] = useState<'Memo' | 'Prayer'>('Memo'); 
-  const [logText, setLogText] = useState(''); 
+  const [logType, setLogType] = useState<'Memo' | 'Prayer'>('Memo');
+  const [logText, setLogText] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   const [localChildLists, setLocalChildLists] = useState<ChildList[]>(childLists);
   const [newTagName, setNewTagName] = useState('');
   const [roles, setRoles] = useState<Role[]>([]);
@@ -77,9 +114,9 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
 
   // 🚀 [추가] 구분자 및 날짜 수정을 위한 상태
   const SEPARATOR = '┃LOG_SEP┃';
-  const getNow = () => new Date().toLocaleString('ko-KR', { 
-    year: 'numeric', month: '2-digit', day: '2-digit', 
-    hour: '2-digit', minute: '2-digit', hour12: false 
+  const getNow = () => new Date().toLocaleString('ko-KR', {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false
   });
   const [logDate, setLogDate] = useState(getNow());
 
@@ -96,10 +133,10 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
   const roleText = currentRoleStyle?.text_color ?? 'text-slate-500';
 
   const getTagParentId = () => {
-    const found = parentLists.find(p => 
-      p.name.includes('태그') || 
-      p.name.toLowerCase().includes('tag') || 
-      p.type?.toLowerCase() === 'tag' || 
+    const found = parentLists.find(p =>
+      p.name.includes('태그') ||
+      p.name.toLowerCase().includes('tag') ||
+      p.type?.toLowerCase() === 'tag' ||
       p.type?.toLowerCase() === 'tags'
     );
     return found?.id;
@@ -112,8 +149,8 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
   }, [localChildLists, parentLists]);
 
   const birthdayInputRef = useRef<HTMLInputElement>(null);
-  const baptismDateInputRef = useRef<HTMLInputElement>(null); 
-  const registrationDateInputRef = useRef<HTMLInputElement>(null); 
+  const baptismDateInputRef = useRef<HTMLInputElement>(null);
+  const registrationDateInputRef = useRef<HTMLInputElement>(null);
 
   /* ================= 2. HELPERS ================= */
 
@@ -175,7 +212,7 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
     setMembers(prevMembers => {
       const newMembers = [...prevMembers];
       if (!newMembers[index]) return prevMembers;
-      
+
       const target = { ...newMembers[index], ...updates };
       newMembers[index] = target;
 
@@ -204,10 +241,10 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
   const handleAddFamilyMember = () => {
     const newM: MemberData = {
       korean_name: '', english_name: '', gender: '', birthday: '', phone: '', email: '',
-      address: members[0]?.address || '', 
-      relationship: '', 
+      address: members[0]?.address || '',
+      relationship: '',
       is_baptized: false, baptism_date: '', registration_date: new Date().toISOString().split('T')[0],
-      offering_number: '', for_slip: '', memo: '', photo_url: '', tags: [], status: 'Active', role: '', 
+      offering_number: '', for_slip: '', memo: '', photo_url: '', tags: [], status: 'Active', role: '',
       mokjang: members[0]?.mokjang || '', is_head: false
     };
     const updated = [...members, newM];
@@ -229,7 +266,7 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
         parent_id: parentId, name: name, order: localChildLists.length + 1
       }).select().single();
       if (error) throw error;
-      
+
       setLocalChildLists(prev => [...prev, data]);
       updateMember(activeMemberIndex, { tags: Array.from(new Set([...currentMember.tags, name])) });
       setNewTagName('');
@@ -274,7 +311,7 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
       if (!familyId) {
         const { data: f, error: fError } = await supabase
           .from('families')
-          .insert({ family_name: headName }) 
+          .insert({ family_name: headName })
           .select().single();
         if (fError) throw fError;
         familyId = f?.id;
@@ -286,13 +323,13 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
       for (let i = 0; i < members.length; i++) {
         const m = members[i];
         const { is_head, ...dbData } = m;
-        const payload = { 
-          ...dbData, 
+        const payload = {
+          ...dbData,
           family_id: familyId,
           representative: headName,
-          birthday: m.birthday || null, 
-          baptism_date: m.baptism_date || null, 
-          registration_date: m.registration_date || null 
+          birthday: m.birthday || null,
+          baptism_date: m.baptism_date || null,
+          registration_date: m.registration_date || null
         };
 
         if (m.id) {
@@ -307,11 +344,11 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
       }
       onSuccess('save', memberIdToOpen);
       alert('성공적으로 저장되었습니다.');
-    } catch (e: any) { 
+    } catch (e: any) {
       console.error("저장 중 에러:", e);
-      alert(`저장 실패: ${e.message || '알 수 없는 오류'}`); 
-    } finally { 
-      setLoading(false); 
+      alert(`저장 실패: ${e.message || '알 수 없는 오류'}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -385,9 +422,9 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
         setDuplicateWarning(null);
         return;
       }
-      const localDuplicate = members.find((m, i) => 
-        i !== activeMemberIndex && 
-        m.korean_name.trim() === currentMember.korean_name.trim() && 
+      const localDuplicate = members.find((m, i) =>
+        i !== activeMemberIndex &&
+        m.korean_name.trim() === currentMember.korean_name.trim() &&
         m.birthday === currentMember.birthday
       );
       if (localDuplicate) {
@@ -416,12 +453,12 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
 
   useEffect(() => {
     if (!isOpen) return;
-    
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
-        e.stopImmediatePropagation(); 
+        e.stopImmediatePropagation();
         onClose();
       }
     };
@@ -463,7 +500,7 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
       } else {
         setMembers([{
           korean_name: '', english_name: '', gender: '', birthday: '', phone: '', email: '',
-          address: '', relationship: 'Head', is_baptized: false, baptism_date: '', 
+          address: '', relationship: 'Head', is_baptized: false, baptism_date: '',
           registration_date: new Date().toISOString().split('T')[0],
           offering_number: '', for_slip: '', memo: '', prayer_request: '', photo_url: '', tags: [], status: 'Active', role: '', mokjang: '', is_head: true
         }]);
@@ -477,22 +514,31 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[120] flex items-center justify-center p-2 sm:p-4 overflow-hidden" onClick={onClose}>
       <div className="bg-white w-full max-w-7xl max-h-[95vh] rounded-[1.5rem] sm:rounded-[2rem] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-300" onClick={e => e.stopPropagation()}>
-        
+
         {/* 상단 컬러 밴드 섹션 */}
         <div className={`relative flex-shrink-0 ${roleBg} bg-opacity-35 p-3 md:p-6`}>
           <div className="flex flex-col sm:flex-row items-start justify-between gap-4 sm:gap-6">
             <div className="flex items-center sm:items-start gap-4 md:gap-8">
-              <div className="relative group w-20 h-20 md:w-32 md:h-32 rounded-[1.2rem] md:rounded-[2rem] bg-white shadow-xl flex items-center justify-center overflow-hidden ring-2 md:ring-4 ring-white flex-shrink-0">
+              {/* 사진 컨테이너: 클릭 시 확대 로직 추가 */}
+              <div
+                onClick={() => currentMember.photo_url && setIsPhotoZoomed(true)}
+                className={`relative group w-20 h-20 md:w-32 md:h-32 rounded-[1.2rem] md:rounded-[2rem] bg-white shadow-xl flex items-center justify-center overflow-hidden ring-2 md:ring-4 ring-white flex-shrink-0 ${currentMember.photo_url ? 'cursor-zoom-in' : ''}`}
+              >
                 {(currentMember.relationship === 'Head' || currentMember.is_head) && <CrownBadge />}
                 {photoSignedUrl ? (
                   <img src={photoSignedUrl} className="w-full h-full object-cover" />
                 ) : (
                   <User size={32} className="text-slate-300 md:w-12 md:h-12" />
                 )}
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1">
-                  <button onClick={() => fileInputRef.current?.click()} className="text-white text-[9px] md:text-xs font-bold flex items-center gap-1 hover:text-blue-200"><Camera size={12}/> 사진변경</button>
+
+                {/* 중요: 오버레이 영역에 onClick={(e) => e.stopPropagation()} 추가하여 버튼 클릭 시 확대 방지 */}
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1"
+                >
+                  <button onClick={() => fileInputRef.current?.click()} className="text-white text-[9px] md:text-xs font-bold flex items-center gap-1 hover:text-blue-200"><Camera size={12} /> 사진변경</button>
                   {currentMember.photo_url && (
-                    <button onClick={() => { deletePhotoFromStorage(currentMember.photo_url); updateMember(activeMemberIndex, { photo_url: '' }); }} className="text-white text-[9px] md:text-xs font-bold flex items-center gap-1 hover:text-rose-200"><Trash2 size={12}/> 삭제</button>
+                    <button onClick={() => { deletePhotoFromStorage(currentMember.photo_url); updateMember(activeMemberIndex, { photo_url: '' }); }} className="text-white text-[9px] md:text-xs font-bold flex items-center gap-1 hover:text-rose-200"><Trash2 size={12} /> 삭제</button>
                   )}
                 </div>
                 <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handlePhotoUpload} />
@@ -522,13 +568,13 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
           <div className="hidden lg:flex w-60 border-r border-slate-100 bg-slate-50/50 flex-col p-4 gap-2 overflow-y-auto">
             <div className="px-2 mb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest flex justify-between items-center">
               <span>Family Members</span>
-              <button onClick={handleAddExisting} title="기존 멤버 추가" className="text-blue-600 hover:bg-blue-50 p-1.5 rounded-lg"><UserPlus size={16}/></button>
+              <button onClick={handleAddExisting} title="기존 멤버 추가" className="text-blue-600 hover:bg-blue-50 p-1.5 rounded-lg"><UserPlus size={16} /></button>
             </div>
             {members.map((m, idx) => (
               <button key={idx} onClick={() => setActiveMemberIndex(idx)} className={`flex items-center gap-3 p-3 rounded-2xl transition-all ${activeMemberIndex === idx ? 'bg-white shadow-md text-blue-600 ring-1 ring-slate-100' : 'text-slate-500 hover:bg-white'} ${m.status?.toLowerCase() !== 'active' ? 'opacity-50' : ''}`}>
                 <div className="relative w-9 h-9 md:w-10 md:h-10 rounded-xl bg-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0">
-                  {m.photo_url ? <img src={supabase.storage.from('photos').getPublicUrl(m.photo_url).data.publicUrl} className="w-full h-full object-cover" /> : <User size={20}/>}
-                  {(m.relationship === 'Head' || m.is_head) && <div className="absolute -top-1 -left-1 bg-amber-400 text-white rounded-full p-0.5 border border-white shadow-sm"><Crown size={8}/></div>}
+                  {m.photo_url ? <img src={supabase.storage.from('photos').getPublicUrl(m.photo_url).data.publicUrl} className="w-full h-full object-cover" /> : <User size={20} />}
+                  {(m.relationship === 'Head' || m.is_head) && <div className="absolute -top-1 -left-1 bg-amber-400 text-white rounded-full p-0.5 border border-white shadow-sm"><Crown size={8} /></div>}
                 </div>
                 <div className="text-left min-w-0">
                   <div className="text-sm font-bold truncate">{m.korean_name || '이름 없음'}</div>
@@ -536,7 +582,7 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
                 </div>
               </button>
             ))}
-            <button onClick={handleAddFamilyMember} className="mt-2 w-full p-3 rounded-xl border-2 border-dashed border-slate-200 text-slate-400 flex items-center justify-center gap-2 hover:border-blue-300 hover:text-blue-500 transition-all text-xs font-bold uppercase"><Plus size={16}/>가족 추가</button>
+            <button onClick={handleAddFamilyMember} className="mt-2 w-full p-3 rounded-xl border-2 border-dashed border-slate-200 text-slate-400 flex items-center justify-center gap-2 hover:border-blue-300 hover:text-blue-500 transition-all text-xs font-bold uppercase"><Plus size={16} />가족 추가</button>
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 md:p-4 custom-scrollbar bg-white">
@@ -554,7 +600,7 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
                     </div>
                   )}
                 </div>
-                
+
                 <div className="col-span-2 md:col-span-1 space-y-1">
                   <label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 ">영문 이름 (Last, First Name)</label>
                   <input type="text" value={currentMember.english_name} onChange={e => updateMember(activeMemberIndex, { english_name: e.target.value })} className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm md:text-base font-bold text-slate-700" />
@@ -574,31 +620,31 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
                     <button onClick={() => updateMember(activeMemberIndex, { gender: 'Male' })} className={`flex-1 rounded-lg text-[11px] md:text-xs font-bold transition-all ${currentMember.gender === 'Male' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400'}`}>남성</button>
                     <button onClick={() => updateMember(activeMemberIndex, { gender: 'Female' })} className={`flex-1 rounded-lg text-[11px] md:text-xs font-bold transition-all ${currentMember.gender === 'Female' ? 'bg-rose-500 text-white shadow-sm' : 'text-slate-400'}`}>여성</button>
                   </div>
-                </div>                
+                </div>
               </section>
 
               <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-1">
                   <label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">생년월일</label>
                   <div className="relative group">
-                    <input 
-                      type="text" 
-                      value={currentMember.birthday} 
+                    <input
+                      type="text"
+                      value={currentMember.birthday}
                       onChange={e => updateMember(activeMemberIndex, { birthday: formatDate(e.target.value) })}
                       maxLength={10}
-                      className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 pr-10" 
-                      placeholder="YYYY-MM-DD" 
+                      className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 pr-10"
+                      placeholder="YYYY-MM-DD"
                     />
                     <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-500 cursor-pointer">
-                      <Calendar 
-                        size={18} 
-                        onClick={() => birthdayInputRef.current?.showPicker()} 
+                      <Calendar
+                        size={18}
+                        onClick={() => birthdayInputRef.current?.showPicker()}
                       />
                     </div>
                     <input
                       ref={birthdayInputRef}
                       type="date"
-                      tabIndex={-1} 
+                      tabIndex={-1}
                       className="absolute opacity-0 pointer-events-none right-0 bottom-0 w-0 h-0"
                       onChange={e => updateMember(activeMemberIndex, { birthday: e.target.value })}
                     />
@@ -607,23 +653,23 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
 
                 <div className="space-y-1">
                   <label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">전화번호</label>
-                  <input 
-                    type="tel" 
-                    value={currentMember.phone} 
-                    onChange={e => updateMember(activeMemberIndex, { phone: formatPhone(e.target.value) })} 
+                  <input
+                    type="tel"
+                    value={currentMember.phone}
+                    onChange={e => updateMember(activeMemberIndex, { phone: formatPhone(e.target.value) })}
                     maxLength={13}
-                    className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700" 
-                    placeholder="000-0000-0000" 
+                    className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700"
+                    placeholder="000-0000-0000"
                   />
                 </div>
 
                 <div className="space-y-1">
                   <label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase tracking-wide">E-mail</label>
-                  <input 
-                    type="email" 
-                    value={currentMember.email} 
-                    onChange={e => updateMember(activeMemberIndex, { email: e.target.value })} 
-                    className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700" 
+                  <input
+                    type="email"
+                    value={currentMember.email}
+                    onChange={e => updateMember(activeMemberIndex, { email: e.target.value })}
+                    className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700"
                   />
                 </div>
               </section>
@@ -641,19 +687,19 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
                       <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${currentMember.is_baptized ? 'bg-sky-600 border-sky-600' : 'bg-white border-slate-200'}`}>
                         {currentMember.is_baptized && <Check size={12} className="text-white" />}
                       </div>
-                      <input type="checkbox" className="hidden" checked={currentMember.is_baptized} 
+                      <input type="checkbox" className="hidden" checked={currentMember.is_baptized}
                         onChange={e => updateMember(activeMemberIndex, { is_baptized: e.target.checked })} />
                       <span className="text-[11px] md:text-xs font-black text-slate-600">Yes</span>
                     </label>
                     {currentMember.is_baptized && (
                       <div className="relative group">
-                        <input 
-                          type="text" 
-                          value={currentMember.baptism_date} 
-                          onChange={e => updateMember(activeMemberIndex, { baptism_date: formatDate(e.target.value) })} 
+                        <input
+                          type="text"
+                          value={currentMember.baptism_date}
+                          onChange={e => updateMember(activeMemberIndex, { baptism_date: formatDate(e.target.value) })}
                           maxLength={10}
-                          className="w-full bg-transparent border-b border-blue-200 text-[11px] md:text-xs font-bold text-sky-800 outline-none pr-7" 
-                          placeholder="YYYY-MM-DD" 
+                          className="w-full bg-transparent border-b border-blue-200 text-[11px] md:text-xs font-bold text-sky-800 outline-none pr-7"
+                          placeholder="YYYY-MM-DD"
                         />
                         <div className="absolute right-0 top-1/2 -translate-y-1/2 text-blue-400 hover:text-blue-600 cursor-pointer">
                           <Calendar size={14} onClick={() => baptismDateInputRef.current?.showPicker()} />
@@ -674,16 +720,16 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
               </section>
 
               <section className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8 pt-6 border-t border-slate-100">
-                {['mokjang', 'role', 'status', 'department'].map(field => { 
+                {['mokjang', 'role', 'status', 'department'].map(field => {
                   const parent = parentLists.find(p => p.type === field || (field === 'department' && p.name === '소속부서'));
                   return (
                     <div key={field} className="space-y-1">
                       <label className="text-[11px] md:text-xs font-bold text-slate-400 capitalize ml-1 tracking-widest">
                         {parent?.name || field}
                       </label>
-                      <select 
-                        value={(currentMember as any)[field] || ''} 
-                        onChange={e => updateMember(activeMemberIndex, { [field]: e.target.value })} 
+                      <select
+                        value={(currentMember as any)[field] || ''}
+                        onChange={e => updateMember(activeMemberIndex, { [field]: e.target.value })}
                         className="w-full bg-slate-50 border-none rounded-xl px-3 py-2.5 text-xs md:text-sm font-bold text-slate-700"
                       >
                         <option value="">선택</option>
@@ -697,12 +743,12 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
                 <div className="space-y-1">
                   <label className="text-[11px] md:text-xs font-bold text-slate-400 ml-1 uppercase">등록일</label>
                   <div className="relative group">
-                    <input 
-                      type="text" 
-                      value={currentMember.registration_date} 
-                      onChange={e => updateMember(activeMemberIndex, { registration_date: formatDate(e.target.value) })} 
+                    <input
+                      type="text"
+                      value={currentMember.registration_date}
+                      onChange={e => updateMember(activeMemberIndex, { registration_date: formatDate(e.target.value) })}
                       maxLength={10}
-                      className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-s md:text-sm font-bold text-slate-700 pr-10" 
+                      className="w-full bg-slate-50 border-none rounded-xl px-4 py-2.5 text-s md:text-sm font-bold text-slate-700 pr-10"
                       placeholder="YYYY-MM-DD"
                     />
                     <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-500 cursor-pointer">
@@ -744,24 +790,24 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
                     {logType === 'Memo' ? <Info className="text-blue-500" size={18} /> : <Heart className="text-rose-500" size={18} />}
                     <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight">메모 & 기도제목</h3>
                   </div>
-                  
+
                   <div className="flex items-center gap-3">
                     {/* 🚀 날짜 수정 입력란 */}
-                    <input 
-                      type="text" 
-                      value={logDate} 
-                      onChange={e => setLogDate(e.target.value)} 
+                    <input
+                      type="text"
+                      value={logDate}
+                      onChange={e => setLogDate(e.target.value)}
                       className="text-[10px] font-bold text-slate-400 bg-transparent border-none focus:ring-0 text-right w-32"
                     />
 
                     {/* 타입 선택 스위치 */}
                     <div className="flex p-1 bg-slate-100 rounded-xl">
-                      <button 
+                      <button
                         type="button"
                         onClick={() => setLogType('Memo')}
                         className={`px-4 py-1.5 rounded-lg text-[11px] font-black transition-all ${logType === 'Memo' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}
                       >메모</button>
-                      <button 
+                      <button
                         type="button"
                         onClick={() => setLogType('Prayer')}
                         className={`px-4 py-1.5 rounded-lg text-[11px] font-black transition-all ${logType === 'Prayer' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-400'}`}
@@ -771,24 +817,24 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
                 </div>
 
                 <div className="flex gap-2">
-                  <textarea 
-                    value={logText || ''} 
-                    onChange={e => setLogText(e.target.value)} 
+                  <textarea
+                    value={logText || ''}
+                    onChange={e => setLogText(e.target.value)}
                     placeholder={logType === 'Memo' ? "상담 내용이나 메모를 입력하세요..." : "기도제목을 입력하세요..."}
-                    className={`flex-1 bg-slate-50 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 outline-none min-h-[100px] transition-all ${logType === 'Memo' ? 'focus:ring-blue-100' : 'focus:ring-rose-100'}`} 
+                    className={`flex-1 bg-slate-50 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 outline-none min-h-[100px] transition-all ${logType === 'Memo' ? 'focus:ring-blue-100' : 'focus:ring-rose-100'}`}
                   />
-                  <button 
+                  <button
                     type="button"
                     onClick={() => {
                       if (!logText.trim()) return;
-                     const ts = logDate; // 수정 가능하게 만든 logDate 사용
+                      const ts = logDate; // 수정 가능하게 만든 logDate 사용
                       const entry = `[${ts}] ${logText.trim()}`;
                       const field = logType === 'Memo' ? 'memo' : 'prayer_request';
-                      
+
                       const currentEntries = smartSplitLogs(currentMember[field] || '');
                       // 최신 로그를 맨 앞으로, 구분자로 합침
                       const updatedData = [entry, ...currentEntries].join(LOG_SEPARATOR);
-                      
+
                       updateMember(activeMemberIndex, { [field]: updatedData });
                       setLogText('');
                     }}
@@ -800,37 +846,37 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
 
                 {/* 통합 리스트 출력 로직 */}
                 <div className="space-y-3 mt-4">
-                {(() => {
-                  const getEntries = (type: 'Memo' | 'Prayer') => {
-                    const raw = (type === 'Memo' ? currentMember.memo : currentMember.prayer_request) || '';
-                    return smartSplitLogs(raw).map(text => ({ text, type }));
-                  };
-                  
-                  return [...getEntries('Memo'), ...getEntries('Prayer')]
-                    .sort((a, b) => b.text.localeCompare(a.text))
-                    .map((item, idx) => {
-                      // [\s\S]를 사용하여 엔터가 포함된 전체 내용 캡처
-                      const match = item.text.match(/^\[([\s\S]*?)\] ([\s\S]*)$/);
-                      const date = match ? match[1] : 'LOG';
-                      const content = match ? match[2] : item.text;
-                      
-                      return (
-                        <div key={idx} className={`group p-4 rounded-2xl border transition-all relative ${item.type === 'Memo' ? 'bg-blue-50/30 border-blue-50' : 'bg-rose-50/30 border-rose-50'}`}>
-                          <div className="flex justify-between items-center mb-1">
-                            <div className="flex items-center gap-2">
-                              <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${item.type === 'Memo' ? 'bg-blue-100 text-blue-600' : 'bg-rose-100 text-rose-600'}`}>
-                                {item.type === 'Memo' ? 'MEMO' : 'PRAYER'}
-                              </span>
-                              <span className="text-[10px] font-bold text-slate-400">{date}</span>
+                  {(() => {
+                    const getEntries = (type: 'Memo' | 'Prayer') => {
+                      const raw = (type === 'Memo' ? currentMember.memo : currentMember.prayer_request) || '';
+                      return smartSplitLogs(raw).map(text => ({ text, type }));
+                    };
+
+                    return [...getEntries('Memo'), ...getEntries('Prayer')]
+                      .sort((a, b) => b.text.localeCompare(a.text))
+                      .map((item, idx) => {
+                        // [\s\S]를 사용하여 엔터가 포함된 전체 내용 캡처
+                        const match = item.text.match(/^\[([\s\S]*?)\] ([\s\S]*)$/);
+                        const date = match ? match[1] : 'LOG';
+                        const content = match ? match[2] : item.text;
+
+                        return (
+                          <div key={idx} className={`group p-4 rounded-2xl border transition-all relative ${item.type === 'Memo' ? 'bg-blue-50/30 border-blue-50' : 'bg-rose-50/30 border-rose-50'}`}>
+                            <div className="flex justify-between items-center mb-1">
+                              <div className="flex items-center gap-2">
+                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${item.type === 'Memo' ? 'bg-blue-100 text-blue-600' : 'bg-rose-100 text-rose-600'}`}>
+                                  {item.type === 'Memo' ? 'MEMO' : 'PRAYER'}
+                                </span>
+                                <span className="text-[10px] font-bold text-slate-400">{date}</span>
+                              </div>
                             </div>
+                            {/* 🚀 whitespace-pre-wrap으로 줄바꿈 무조건 표시 */}
+                            <p className="text-xs text-slate-600 font-bold leading-relaxed whitespace-pre-wrap">{content}</p>
                           </div>
-                          {/* 🚀 whitespace-pre-wrap으로 줄바꿈 무조건 표시 */}
-                          <p className="text-xs text-slate-600 font-bold leading-relaxed whitespace-pre-wrap">{content}</p>
-                        </div>
-                      );
-                    });
-                })()}
-              </div>
+                        );
+                      });
+                  })()}
+                </div>
               </section>
             </div>
           </div>
@@ -848,6 +894,12 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
           </div>
         </div>
       </div>
+      {isPhotoZoomed && photoSignedUrl && (
+        <PhotoZoomModal
+          url={photoSignedUrl}
+          onClose={() => setIsPhotoZoomed(false)}
+        />
+      )}
     </div>
   );
 }
