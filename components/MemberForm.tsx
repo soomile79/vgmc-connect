@@ -6,9 +6,8 @@ import {
   Heart
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import Cropper from 'react-easy-crop';
 
-
-/* MemberForm.tsx 파일 상단 PhotoZoomModal 수정 */
 function PhotoZoomModal({ url, onClose }: { url: string; onClose: () => void }) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -41,6 +40,45 @@ function PhotoZoomModal({ url, onClose }: { url: string; onClose: () => void }) 
       />
     </div>
   );
+}
+
+/* ================= IMAGE CROP HELPER ================= */
+const createImage = (url: string): Promise<HTMLImageElement> =>
+  new Promise((resolve, reject) => {
+    const image = new Image();
+    image.addEventListener('load', () => resolve(image));
+    image.addEventListener('error', (error) => reject(error));
+    image.setAttribute('crossOrigin', 'anonymous');
+    image.src = url;
+  });
+
+async function getCroppedImg(imageSrc: string, pixelCrop: any): Promise<Blob | null> {
+  const image = await createImage(imageSrc);
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+
+  if (!ctx) return null;
+
+  canvas.width = pixelCrop.width;
+  canvas.height = pixelCrop.height;
+
+  ctx.drawImage(
+    image,
+    pixelCrop.x,
+    pixelCrop.y,
+    pixelCrop.width,
+    pixelCrop.height,
+    0,
+    0,
+    pixelCrop.width,
+    pixelCrop.height
+  );
+
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => {
+      resolve(blob);
+    }, 'image/jpeg');
+  });
 }
 
 type ParentList = { id: string; type: string; name: string; };
@@ -111,6 +149,11 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
   const [editingMemoText, setEditingMemoText] = useState('');
   const [photoSignedUrl, setPhotoSignedUrl] = useState<string | null>(null);
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
+
+  const [imageToCrop, setImageToCrop] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
 
   // 🚀 [추가] 구분자 및 날짜 수정을 위한 상태
   const SEPARATOR = '┃LOG_SEP┃';
@@ -275,17 +318,54 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !currentMember) return;
+    if (!file) return;
+    // 1. 파일을 읽어서 크롭 화면을 먼저 띄웁니다 (직접 업로드 X)
+    const reader = new FileReader();
+    reader.addEventListener('load', () => {
+      setImageToCrop(reader.result as string);
+    });
+    reader.readAsDataURL(file);
+    e.target.value = ''; // 파일 입력 초기화
+  };
+
+  /* ================= 편집된 사진 최종 저장 핸들러 (추가) ================= */
+  const handleSaveCroppedImage = async () => {
+    if (!imageToCrop || !croppedAreaPixels || !currentMember) return;
+
     setLoading(true);
     try {
+      // 1. 이미지 자르기 수행
+      const croppedBlob = await getCroppedImg(imageToCrop, croppedAreaPixels);
+      if (!croppedBlob) throw new Error("이미지 생성에 실패했습니다.");
+
+      // 2. Supabase Storage 업로드
       const oldPath = currentMember.photo_url;
       const { data: { user } } = await supabase.auth.getUser();
-      const path = `member-photos/${user?.id}/${crypto.randomUUID()}.${file.name.split('.').pop()}`;
-      const { error } = await supabase.storage.from('photos').upload(path, file);
-      if (error) throw error;
+      if (!user) throw new Error("로그인 세션이 만료되었습니다.");
+
+      const path = `member-photos/${user.id}/${crypto.randomUUID()}.jpg`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('photos')
+        .upload(path, croppedBlob, { contentType: 'image/jpeg' });
+
+      if (uploadError) throw uploadError;
+
+      // 3. 이전 사진 삭제 (선택 사항)
       if (oldPath) await deletePhotoFromStorage(oldPath);
+
+      // 4. 상태 업데이트 (이 부분이 실행되어야 화면에 사진이 바뀜)
       updateMember(activeMemberIndex, { photo_url: path });
-    } catch (err) { alert("사진 업로드 실패"); } finally { setLoading(false); e.target.value = ''; }
+
+      // 5. 성공 시 크롭 모달만 닫기
+      setImageToCrop(null);
+      setZoom(1); // 다음을 위해 초기화
+    } catch (err: any) {
+      console.error(err);
+      alert(`사진 저장 중 오류 발생: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSaveMembers = async () => {
@@ -899,6 +979,75 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
           url={photoSignedUrl}
           onClose={() => setIsPhotoZoomed(false)}
         />
+      )}
+      {/* 🚀 사진 편집(크롭) 모달창 수정 */}
+      {imageToCrop && (
+        <div
+          className="fixed inset-0 z-[250] bg-slate-900/95 backdrop-blur-md flex flex-col items-center justify-center p-4"
+          onPointerDown={(e) => e.stopPropagation()} // 드래그 시작 시 전파 방지
+          onClick={(e) => e.stopPropagation()}        // 클릭 전파 방지
+        >
+          <div className="relative w-full max-w-lg aspect-square bg-black rounded-3xl overflow-hidden shadow-2xl ring-1 ring-white/20">
+            <Cropper
+              image={imageToCrop}
+              crop={crop}
+              zoom={zoom}
+              aspect={1 / 1}
+              onCropChange={setCrop}
+              onZoomChange={setZoom}
+              onCropComplete={(_, pixels) => setCroppedAreaPixels(pixels)}
+              // 라이브러리 내부의 터치/마우스 이벤트가 밖으로 나가지 않게 설정
+              classes={{ containerClassName: "crop-container" }}
+            />
+          </div>
+
+          <div className="mt-8 w-full max-w-lg space-y-6 px-4">
+            {/* Zoom 슬라이더 영역 */}
+            <div className="bg-white/5 p-4 rounded-2xl">
+              <label className="text-white/60 text-[10px] font-bold uppercase tracking-widest mb-3 block text-center">
+                Zoom: {Math.round(zoom * 100)}%
+              </label>
+              <input
+                type="range"
+                value={zoom}
+                min={1}
+                max={3}
+                step={0.01}
+                onChange={(e) => setZoom(Number(e.target.value))}
+                className="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer accent-blue-500"
+              />
+            </div>
+
+            <div className="flex gap-4">
+              <button
+                type="button" // submit 방지
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setImageToCrop(null);
+                }}
+                className="flex-1 py-4 text-white/50 font-bold hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button" // submit 방지
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSaveCroppedImage();
+                }}
+                disabled={loading}
+                className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black shadow-xl hover:bg-blue-500 transition-all disabled:opacity-50"
+              >
+                {loading ? "Uploading..." : "Set Profile Photo"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🚀 기존 확대 모달 위치 유지 */}
+      {isPhotoZoomed && photoSignedUrl && (
+        <PhotoZoomModal url={photoSignedUrl} onClose={() => setIsPhotoZoomed(false)} />
       )}
     </div>
   );
