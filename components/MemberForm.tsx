@@ -319,6 +319,9 @@ export default function MemberForm({ isOpen, onClose, onSuccess, initialData, pa
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    
+    setIsPhotoZoomed(false);
+
     // 1. 파일을 읽어서 크롭 화면을 먼저 띄웁니다 (직접 업로드 X)
     const reader = new FileReader();
     reader.addEventListener('load', () => {
