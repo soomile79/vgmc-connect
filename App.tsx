@@ -1066,7 +1066,7 @@ function RecentMemberCard({ member, roles, onClick }: { member: Member; roles: R
       <div className="relative space-y-5">
         <div className="flex items-start gap-4">
           <div className={`w-14 h-14 rounded-2xl ${roleBg} flex items-center justify-center flex-shrink-0 overflow-hidden shadow-inner`}>
-            {member.photo_url ? <img src={member.photo_url} alt={member.korean_name} className="w-full h-full object-cover" /> : <svg className={`w-6 h-6 ${roleText}`} style={{ opacity: 0.5 }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>}
+            {member.photo_url ? <img src={getMemberPhotoUrl(member.photo_url)} alt={member.korean_name} className="w-full h-full object-cover" /> : <svg className={`w-6 h-6 ${roleText}`} style={{ opacity: 0.5 }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
@@ -1080,10 +1080,10 @@ function RecentMemberCard({ member, roles, onClick }: { member: Member; roles: R
 
         <div className="space-y-3">
           <div className="flex flex-wrap gap-2">
-            <span className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest ${roleBg} ${roleText} bg-opacity-30`}>{member.role || 'Member'}</span>
+            <span className={`px-2.5 py-1 rounded-xl text-[11px] font-black uppercase tracking-widest ${roleBg} ${roleText} bg-opacity-30`}>{member.role || 'Member'}</span>
             <div className="flex items-center gap-2 px-3 py-1 rounded-xl bg-blue-50 text-blue-600 border border-blue-100">
               <Calendar className="w-3.5 h-3.5" />
-              <span className="text-[10px] font-black tracking-widest">{member.registration_date || '-'}</span>
+              <span className="text-[11px] font-black tracking-widest">{member.registration_date || '-'}</span>
             </div>
           </div>
 
